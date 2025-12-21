@@ -1,21 +1,16 @@
-from typing import Annotated
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.schema import Staff, StaffRole, StaffStatus
-from models.auth import TokenResponse, RegisterRequest, UserResponse
-from middlewares.auth import hash_password, verify_password, create_token, get_current_user
+from models.auth import LoginRequest, TokenResponse, RegisterRequest, UserResponse
+from middlewares.auth import hash_password, verify_password, create_token
 
-async def login_user(
-    form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
-    db: AsyncSession
-) -> TokenResponse:
-    result = await db.execute(select(Staff).where(Staff.email == form_data.username))
+async def login_user(request: LoginRequest, db: AsyncSession) -> TokenResponse:
+    result = await db.execute(select(Staff).where(Staff.email == request.email))
     user = result.scalar_one_or_none()
     
-    if not user or not verify_password(form_data.password, user.password_hash or ""):
+    if not user or not verify_password(request.password, user.password_hash or ""):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="メールアドレスまたはパスワードが正しくありません",

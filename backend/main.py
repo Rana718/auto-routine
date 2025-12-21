@@ -3,12 +3,15 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from config.env import settings
 from routes import orders, staff, stores, routes as routes_router, settings as settings_router, auth
+from middlewares.logging import log_requests
 
 app = FastAPI(
     title="買付フロー - Procurement Management System",
     version="1.0.0",
     description="注文から店舗選定、スタッフ割当、ルート生成まで、大規模物理調達を迅速かつ正確に自動化",
     docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json"
 )
 
 app.add_middleware(
@@ -19,12 +22,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.middleware("http")(log_requests)
+
 @app.get("/health", tags=["Health"])
 async def health_check():
     return {
         "status": "healthy",
-        "app": settings.app_name,
-        "version": settings.app_version,
     }
 
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])

@@ -1,22 +1,18 @@
 from typing import Annotated
 from fastapi import APIRouter, Depends
-from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.db import get_db
 from db.schema import Staff
-from models.auth import TokenResponse, RegisterRequest, UserResponse
+from models.auth import LoginRequest, TokenResponse, RegisterRequest, UserResponse
 from middlewares.auth import get_current_user
 from controllers.auth import login_user, register_user, get_current_user_info
 
 router = APIRouter()
 
 @router.post("/login", response_model=TokenResponse)
-async def login(
-    form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
-    db: AsyncSession = Depends(get_db)
-):
-    return await login_user(form_data, db)
+async def login(request: LoginRequest, db: AsyncSession = Depends(get_db)):
+    return await login_user(request, db)
 
 @router.post("/register", response_model=UserResponse)
 async def register(request: RegisterRequest, db: AsyncSession = Depends(get_db)):
