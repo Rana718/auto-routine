@@ -1,0 +1,128 @@
+﻿1. Business Context
+The client operates a procurement operation.
+* They receive customer orders from online malls (via the Robot-in order management system).
+* Their staff must physically visit multiple retail stores to purchase the ordered items.
+* Each day, hundreds of different items must be bought from 200–300 possible stores.
+* Staff members travel between stores, so store selection and routing efficiency is critical.
+In this context, “purchase” means physically buying products from real-world stores, not online checkout.
+________________
+
+
+2. Current Manual Workflow (Before System)
+1. Download order data from Robot-in
+2. Open Excel
+3. Manually:
+   * Split items by purchase location
+   * Assign items to staff
+   * Decide which store to visit
+   * Create routes by experience/intuition
+4. Staff travel and purchase items
+5. If an item cannot be purchased:
+   * Manually record “discontinued / out of stock / restock date”
+This process is time-consuming, error-prone, and hard to scale, especially during peak periods.
+________________
+
+
+3. Target System Workflow (After System)
+Step 1: Order Data Input
+* Automatically import order data from:
+   * Robot-in (initially)
+   * Online mall APIs (future)
+* Input fields:
+   * SKU
+   * Product name
+   * Quantity
+   * Order date
+________________
+
+
+Step 2: Product Processing
+* Detect set/bundle products
+* Split them into individual items at list creation time
+* Mark items that:
+   * Should be excluded from routing
+   * Are store-fixed vs multi-store eligible
+________________
+
+
+Step 3: Store Selection Logic
+For each item:
+* Identify candidate stores (1 or multiple)
+* Evaluate stores based on:
+   * Distance
+   * Business rules / priority
+   * Store availability
+* Select the most suitable store for the day’s route
+________________
+
+
+Step 4: Daily Cutoff Handling
+* Orders before 13:10 → today’s purchase list
+* Orders after cutoff → next business day
+* Weekends & holidays:
+   * Normally excluded
+   * Can be overridden during busy periods
+________________
+
+
+Step 5: Staff Assignment
+* Automatically assign items and stores to 5–6 staff members
+* Staff count may grow up to 10
+* Start point:
+   * Office (default)
+   * Or on-site store start (optional per day)
+________________
+
+
+Step 6: Route Optimization
+For each staff member:
+* Generate an optimized visiting order of assigned stores
+* Prioritize:
+   * Speed
+   * Practical efficiency (near-optimal, not mathematically perfect)
+* Display:
+   * Map view (required)
+   * Editable route order (preferred)
+________________
+
+
+Step 7: Purchase Result Management
+If an item cannot be purchased:
+* Mark status as:
+   * Discontinued
+   * Out of stock
+   * Restock scheduled
+* Allow manual entry of restock date
+________________
+
+
+Step 8: User & Admin Management
+* Account-based access
+* Admin can:
+   * Manage user accounts
+   * Edit data
+   * Override decisions if needed
+________________
+
+
+4. Inputs and Outputs
+Inputs
+* Order data (SKU, product name, quantity)
+* Store master data (200–300 stores)
+* Staff data (users, start locations)
+* Business rules (cutoff time, holidays)
+* Manual inputs (restock dates, exclusions)
+________________
+
+
+Outputs
+* Daily purchase list (by staff)
+* Selected purchase store per item
+* Optimized route per staff (map + list)
+* Purchase status tracking (success / failure / restock)
+* Scalable data for future automation
+________________
+
+
+5. System Goal 
+To fully automate daily purchase planning—from order intake to store selection, staff assignment, and route generation—so that large-scale physical procurement can be executed quickly, accurately, and with minimal manual work.
