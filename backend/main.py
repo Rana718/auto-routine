@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from config.env import settings
-from routes import orders, staff, stores, routes as routes_router, settings as settings_router, auth
+from routes import orders, staff, stores, routes as routes_router, settings as settings_router, auth, automation
 from middlewares.logging import log_requests
 
 app = FastAPI(
@@ -36,6 +36,7 @@ app.include_router(staff.router, prefix="/api/staff", tags=["Staff"])
 app.include_router(stores.router, prefix="/api/stores", tags=["Stores"])
 app.include_router(routes_router.router, prefix="/api/routes", tags=["Routes"])
 app.include_router(settings_router.router, prefix="/api/settings", tags=["Settings"])
+app.include_router(automation.router, prefix="/api/automation", tags=["Automation"])
 
 if __name__ == "__main__":
     import uvicorn

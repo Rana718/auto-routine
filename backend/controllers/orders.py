@@ -67,12 +67,17 @@ async def get_order_by_id(db: AsyncSession, order_id: int):
     return order
 
 async def create_new_order(db: AsyncSession, order_data: OrderCreate) -> OrderResponse:
+    from utils.order_processing import apply_cutoff_logic
+    
+    # Apply cutoff logic
+    target_date = await apply_cutoff_logic(db, order_data.order_date)
+    
     order = Order(
         robot_in_order_id=order_data.robot_in_order_id,
         mall_name=order_data.mall_name,
         customer_name=order_data.customer_name,
         order_date=order_data.order_date,
-        target_purchase_date=order_data.target_purchase_date,
+        target_purchase_date=target_date,
         order_status=OrderStatus.PENDING,
     )
     db.add(order)
