@@ -92,28 +92,28 @@ export default function RoutesPage() {
             <div className="flex gap-3 mb-6">
                 <Button className="gap-2" onClick={handleRegenerateAll} disabled={regenerating}>
                     {regenerating ? (
-                        <>
+                        <span className="flex items-center gap-2">
                             <Loader2 className="h-4 w-4 animate-spin" />
                             生成中...
-                        </>
+                        </span>
                     ) : (
-                        <>
+                        <span className="flex items-center gap-2">
                             <RefreshCw className="h-4 w-4" />
                             全ルート再生成
-                        </>
+                        </span>
                     )}
                 </Button>
                 <Button variant="secondary" className="gap-2" onClick={handleStartAll} disabled={startingAll}>
                     {startingAll ? (
-                        <>
+                        <span className="flex items-center gap-2">
                             <Loader2 className="h-4 w-4 animate-spin" />
                             処理中...
-                        </>
+                        </span>
                     ) : (
-                        <>
+                        <span className="flex items-center gap-2">
                             <Play className="h-4 w-4" />
                             全ルート開始
-                        </>
+                        </span>
                     )}
                 </Button>
             </div>

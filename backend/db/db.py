@@ -11,7 +11,7 @@ from config.env import settings
 
 # Create async engine
 engine = create_async_engine(
-    settings.db_url,
+    settings.database_url,
     echo=False,
     poolclass=NullPool,  
 )
@@ -36,4 +36,3 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
             raise
         finally:
             await session.close()
-

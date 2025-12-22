@@ -23,7 +23,7 @@ def verify_password(password: str, hashed: str) -> bool:
 def create_token(staff_id: int) -> str:
     payload = {
         "staff_id": staff_id,
-        "exp": (datetime.utcnow() + timedelta(minutes=settings.jwt_expire_minutes)).isoformat()
+        "exp": (datetime.utcnow() + timedelta(minutes=settings.access_token_expire_minutes)).isoformat()
     }
     return base64.b64encode(json.dumps(payload).encode()).decode()
 

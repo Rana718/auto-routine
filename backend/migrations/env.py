@@ -18,7 +18,7 @@ load_dotenv()
 # access to the values within the .ini file in use.
 config = context.config
 
-db_url = os.getenv("DB_URL")
+db_url = os.getenv("DATABASE_URL")
 if db_url:
     # Convert asyncpg to psycopg2 for Alembic (Alembic doesn't support async engines)
     sync_url = db_url.replace("postgresql+asyncpg://", "postgresql://")

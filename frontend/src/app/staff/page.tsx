@@ -99,15 +99,15 @@ export default function StaffPage() {
                     disabled={autoAssigning}
                 >
                     {autoAssigning ? (
-                        <>
+                        <span className="flex items-center gap-2">
                             <Loader2 className="h-4 w-4 animate-spin" />
                             処理中...
-                        </>
+                        </span>
                     ) : (
-                        <>
+                        <span className="flex items-center gap-2">
                             <RouteIcon className="h-4 w-4" />
                             全員自動割当
-                        </>
+                        </span>
                     )}
                 </Button>
             </div>

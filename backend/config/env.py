@@ -10,11 +10,11 @@ class Settings(BaseSettings):
         extra="ignore"
     )
 
-    db_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/auto_routine"
-    redis_url: str = "redis://localhost:6379/0"
-    jwt_secret_key: str = "your-secret-key-change-in-production"
-    jwt_algorithm: str = "HS256"
-    jwt_expire_minutes: int = 60 * 24
+    database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/auto_routine"
+    sync_database_url: str = "postgresql://postgres:postgres@localhost:5432/auto_routine"
+    secret_key: str = "your-secret-key-change-in-production"
+    algorithm: str = "HS256"
+    access_token_expire_minutes: int = 30
 
 
 @lru_cache

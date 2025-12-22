@@ -18,16 +18,15 @@ export const authOptions: NextAuthOptions = {
 
                 try {
                     // Call backend auth endpoint
-                    const formData = new URLSearchParams();
-                    formData.append("username", credentials.email);
-                    formData.append("password", credentials.password);
-
                     const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
                         method: "POST",
                         headers: {
-                            "Content-Type": "application/x-www-form-urlencoded",
+                            "Content-Type": "application/json",
                         },
-                        body: formData,
+                        body: JSON.stringify({
+                            email: credentials.email,
+                            password: credentials.password,
+                        }),
                     });
 
                     if (!response.ok) {

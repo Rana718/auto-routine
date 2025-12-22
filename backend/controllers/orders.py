@@ -69,14 +69,19 @@ async def get_order_by_id(db: AsyncSession, order_id: int):
 async def create_new_order(db: AsyncSession, order_data: OrderCreate) -> OrderResponse:
     from utils.order_processing import apply_cutoff_logic
     
+    # Strip timezone info if present
+    order_date = order_data.order_date
+    if hasattr(order_date, 'tzinfo') and order_date.tzinfo is not None:
+        order_date = order_date.replace(tzinfo=None)
+    
     # Apply cutoff logic
-    target_date = await apply_cutoff_logic(db, order_data.order_date)
+    target_date = await apply_cutoff_logic(db, order_date)
     
     order = Order(
         robot_in_order_id=order_data.robot_in_order_id,
         mall_name=order_data.mall_name,
         customer_name=order_data.customer_name,
-        order_date=order_data.order_date,
+        order_date=order_date,
         target_purchase_date=target_date,
         order_status=OrderStatus.PENDING,
     )
@@ -115,14 +120,25 @@ async def update_order_status_controller(db: AsyncSession, order_id: int, status
     return {"message": "ステータスを更新しました", "new_status": status.value}
 
 async def import_bulk_orders(db: AsyncSession, data: BulkOrderImport):
+    from dateutil import parser
+    
     created_count = 0
     for order_data in data.orders:
+        # Parse date string to datetime
+        order_date = order_data.get("order_date")
+        if isinstance(order_date, str):
+            order_date = parser.parse(order_date).replace(tzinfo=None)
+        
+        target_date = order_data.get("target_purchase_date")
+        if isinstance(target_date, str):
+            target_date = parser.parse(target_date).date()
+        
         order = Order(
             robot_in_order_id=order_data.get("robot_in_order_id"),
             mall_name=order_data.get("mall_name"),
             customer_name=order_data.get("customer_name"),
-            order_date=order_data.get("order_date"),
-            target_purchase_date=order_data.get("target_purchase_date"),
+            order_date=order_date,
+            target_purchase_date=target_date,
             order_status=OrderStatus.PENDING,
         )
         db.add(order)

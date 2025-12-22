@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Upload, Filter, Search, ChevronDown, Loader2 } from "lucide-react";
+import { Upload, Filter, Search, ChevronDown, Loader2, Plus } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { ordersApi } from "@/lib/api";
 import { ImportOrdersModal } from "@/components/modals/ImportOrdersModal";
+import { CreateOrderModal } from "@/components/modals/CreateOrderModal";
 import type { OrderWithItems, OrderStatus } from "@/lib/types";
 
 const statusConfig: Record<OrderStatus | string, { label: string; className: string }> = {
@@ -30,6 +31,7 @@ export default function OrdersPage() {
     const [page, setPage] = useState(0);
     const [total, setTotal] = useState(0);
     const [showImportModal, setShowImportModal] = useState(false);
+    const [showCreateModal, setShowCreateModal] = useState(false);
     const limit = 20;
 
     useEffect(() => {
@@ -47,7 +49,7 @@ export default function OrdersPage() {
                 limit,
             });
             setOrders(data);
-            setTotal(data.length); // TODO: Get total from API
+            setTotal(data.length);
         } catch (err) {
             setError(err instanceof Error ? err.message : "注文の取得に失敗しました");
         } finally {
@@ -102,6 +104,10 @@ export default function OrdersPage() {
                     <Button variant="outline" className="gap-2" type="button">
                         <Filter className="h-4 w-4" />
                         詳細フィルター
+                    </Button>
+                    <Button variant="outline" className="gap-2" type="button" onClick={() => setShowCreateModal(true)}>
+                        <Plus className="h-4 w-4" />
+                        手動追加
                     </Button>
                     <Button className="gap-2" type="button" onClick={() => setShowImportModal(true)}>
                         <Upload className="h-4 w-4" />
@@ -237,6 +243,13 @@ export default function OrdersPage() {
                     </div>
                 </div>
             </div>
+
+            {/* Create Order Modal */}
+            <CreateOrderModal
+                isOpen={showCreateModal}
+                onClose={() => setShowCreateModal(false)}
+                onSuccess={fetchOrders}
+            />
 
             {/* Import Orders Modal */}
             <ImportOrdersModal
