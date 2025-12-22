@@ -1,35 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import { Search, MapPin, Clock, Star, Plus, Filter } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Search, MapPin, Clock, Star, Plus, Filter, Loader2 } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-
-interface Store {
-    id: string;
-    name: string;
-    address: string;
-    district: string;
-    category: string;
-    operatingHours: string;
-    distance: string;
-    priority: number;
-    ordersToday: number;
-    status: "open" | "closed" | "unknown";
-}
-
-const mockStores: Store[] = [
-    { id: "1", name: "家電プラザ渋谷", address: "渋谷区神南1-21-3", district: "渋谷", category: "家電", operatingHours: "10:00 - 21:00", distance: "2.3 km", priority: 1, ordersToday: 8, status: "open" },
-    { id: "2", name: "ビックカメラ有楽町", address: "千代田区有楽町1-11-1", district: "千代田", category: "家電", operatingHours: "10:00 - 22:00", distance: "4.1 km", priority: 2, ordersToday: 5, status: "open" },
-    { id: "3", name: "グルメマーケット銀座", address: "中央区銀座4-6-16", district: "銀座", category: "食品・飲料", operatingHours: "09:00 - 20:00", distance: "3.8 km", priority: 1, ordersToday: 12, status: "open" },
-    { id: "4", name: "テックハブ秋葉原", address: "千代田区外神田1-15-4", district: "秋葉原", category: "家電", operatingHours: "11:00 - 20:00", distance: "5.2 km", priority: 3, ordersToday: 3, status: "open" },
-    { id: "5", name: "無印良品 新宿", address: "新宿区新宿3-15-15", district: "新宿", category: "生活雑貨", operatingHours: "10:00 - 21:00", distance: "3.0 km", priority: 2, ordersToday: 6, status: "open" },
-    { id: "6", name: "特選食品 代官山", address: "渋谷区猿楽町17-6", district: "代官山", category: "食品・飲料", operatingHours: "10:00 - 19:00", distance: "2.8 km", priority: 2, ordersToday: 4, status: "open" },
-    { id: "7", name: "ユニクロ銀座", address: "中央区銀座5-7-7", district: "銀座", category: "ファッション", operatingHours: "11:00 - 21:00", distance: "4.0 km", priority: 1, ordersToday: 9, status: "open" },
-    { id: "8", name: "伊東屋", address: "中央区銀座2-7-15", district: "銀座", category: "文房具", operatingHours: "10:00 - 20:00", distance: "3.9 km", priority: 3, ordersToday: 2, status: "closed" },
-];
+import { storesApi } from "@/lib/api";
+import { CreateStoreModal } from "@/components/modals/CreateStoreModal";
+import type { StoreWithOrders, Store } from "@/lib/types";
 
 const categoryColors: Record<string, string> = {
     家電: "bg-blue-500/20 text-blue-400",
@@ -40,49 +19,80 @@ const categoryColors: Record<string, string> = {
 };
 
 export default function StoresPage() {
+    const [stores, setStores] = useState<StoreWithOrders[]>([]);
+    const [categories, setCategories] = useState<string[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState("");
     const [categoryFilter, setCategoryFilter] = useState("all");
+    const [showCreateModal, setShowCreateModal] = useState(false);
+    const [editStore, setEditStore] = useState<Store | null>(null);
 
-    const categories = [...new Set(mockStores.map((s) => s.category))];
+    useEffect(() => {
+        fetchData();
+    }, [categoryFilter]);
 
-    const filteredStores = mockStores.filter((store) => {
-        const matchesSearch =
-            store.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            store.district.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesCategory = categoryFilter === "all" || store.category === categoryFilter;
-        return matchesSearch && matchesCategory;
+    async function fetchData() {
+        try {
+            setLoading(true);
+            setError(null);
+            const [storesData, categoriesData] = await Promise.all([
+                storesApi.getAll({
+                    category: categoryFilter !== "all" ? categoryFilter : undefined,
+                    search: searchTerm || undefined,
+                }),
+                storesApi.getCategories().catch(() => ({ categories: [] })),
+            ]);
+            setStores(storesData);
+            setCategories(categoriesData.categories);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "店舗の取得に失敗しました");
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    function handleSearch(e: React.FormEvent) {
+        e.preventDefault();
+        fetchData();
+    }
+
+    const filteredStores = stores.filter((store) => {
+        if (!searchTerm) return true;
+        return (
+            store.store_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            store.district?.toLowerCase().includes(searchTerm.toLowerCase())
+        );
     });
 
+    const activeStores = stores.filter((s) => s.is_active).length;
+    const storesWithOrders = stores.filter((s) => s.orders_today > 0).length;
+    const totalOrders = stores.reduce((acc, s) => acc + s.orders_today, 0);
+
     return (
-        <MainLayout title="店舗一覧" subtitle={`東京都内 ${mockStores.length}店舗`}>
+        <MainLayout title="店舗一覧" subtitle={`登録店舗 ${stores.length}店舗`}>
             {/* Stats */}
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
                 <div className="rounded-xl border border-border bg-card p-4 card-shadow">
                     <p className="text-sm text-muted-foreground">店舗総数</p>
-                    <p className="text-2xl font-bold text-foreground">{mockStores.length}</p>
+                    <p className="text-2xl font-bold text-foreground">{stores.length}</p>
                 </div>
                 <div className="rounded-xl border border-success/20 bg-success/10 p-4">
-                    <p className="text-sm text-muted-foreground">営業中</p>
-                    <p className="text-2xl font-bold text-success">
-                        {mockStores.filter((s) => s.status === "open").length}
-                    </p>
+                    <p className="text-sm text-muted-foreground">有効</p>
+                    <p className="text-2xl font-bold text-success">{activeStores}</p>
                 </div>
                 <div className="rounded-xl border border-primary/20 bg-primary/10 p-4">
                     <p className="text-sm text-muted-foreground">本日訪問予定</p>
-                    <p className="text-2xl font-bold text-primary">
-                        {mockStores.filter((s) => s.ordersToday > 0).length}
-                    </p>
+                    <p className="text-2xl font-bold text-primary">{storesWithOrders}</p>
                 </div>
                 <div className="rounded-xl border border-border bg-card p-4 card-shadow">
                     <p className="text-sm text-muted-foreground">総注文数</p>
-                    <p className="text-2xl font-bold text-foreground">
-                        {mockStores.reduce((acc, s) => acc + s.ordersToday, 0)}
-                    </p>
+                    <p className="text-2xl font-bold text-foreground">{totalOrders}</p>
                 </div>
             </div>
 
             {/* Toolbar */}
-            <div className="flex flex-col sm:flex-row gap-4 mb-6">
+            <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-4 mb-6">
                 <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <input
@@ -106,81 +116,118 @@ export default function StoresPage() {
                             </option>
                         ))}
                     </select>
-                    <Button variant="outline" className="gap-2">
+                    <Button variant="outline" className="gap-2" type="button">
                         <Filter className="h-4 w-4" />
                         詳細フィルター
                     </Button>
-                    <Button className="gap-2">
+                    <Button className="gap-2" type="button" onClick={() => setShowCreateModal(true)}>
                         <Plus className="h-4 w-4" />
                         店舗追加
                     </Button>
                 </div>
-            </div>
+            </form>
 
-            {/* Store Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {filteredStores.map((store, index) => (
-                    <div
-                        key={store.id}
-                        className="rounded-xl border border-border bg-card p-4 card-shadow hover:elevated-shadow transition-all duration-200 animate-slide-up"
-                        style={{ animationDelay: `${index * 30}ms` }}
-                    >
-                        {/* Header */}
-                        <div className="flex items-start justify-between mb-3">
-                            <div className="flex-1 min-w-0">
-                                <h3 className="font-semibold text-foreground truncate">{store.name}</h3>
-                                <div className="flex items-center gap-1 text-sm text-muted-foreground mt-0.5">
-                                    <MapPin className="h-3 w-3" />
-                                    <span className="truncate">{store.district}</span>
+            {/* Content */}
+            {loading ? (
+                <div className="flex items-center justify-center h-64">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+            ) : error ? (
+                <div className="flex items-center justify-center h-64">
+                    <div className="text-center">
+                        <p className="text-destructive mb-2">{error}</p>
+                        <button onClick={fetchData} className="text-primary hover:underline">
+                            再試行
+                        </button>
+                    </div>
+                </div>
+            ) : filteredStores.length === 0 ? (
+                <div className="flex items-center justify-center h-64 text-muted-foreground">
+                    店舗が見つかりません
+                </div>
+            ) : (
+                /* Store Grid */
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {filteredStores.map((store, index) => (
+                        <div
+                            key={store.store_id}
+                            className="rounded-xl border border-border bg-card p-4 card-shadow hover:elevated-shadow transition-all duration-200 animate-slide-up"
+                            style={{ animationDelay: `${index * 30}ms` }}
+                        >
+                            {/* Header */}
+                            <div className="flex items-start justify-between mb-3">
+                                <div className="flex-1 min-w-0">
+                                    <h3 className="font-semibold text-foreground truncate">{store.store_name}</h3>
+                                    <div className="flex items-center gap-1 text-sm text-muted-foreground mt-0.5">
+                                        <MapPin className="h-3 w-3" />
+                                        <span className="truncate">{store.district || "—"}</span>
+                                    </div>
+                                </div>
+                                <Badge
+                                    className={cn(
+                                        "shrink-0 ml-2",
+                                        store.is_active
+                                            ? "bg-success/20 text-success"
+                                            : "bg-destructive/20 text-destructive"
+                                    )}
+                                >
+                                    {store.is_active ? "有効" : "無効"}
+                                </Badge>
+                            </div>
+
+                            {/* Category */}
+                            {store.category && (
+                                <Badge className={cn("mb-3", categoryColors[store.category] || "bg-secondary")}>
+                                    {store.category}
+                                </Badge>
+                            )}
+
+                            {/* Details */}
+                            <div className="space-y-2 mb-4 text-sm">
+                                {store.address && (
+                                    <div className="flex items-center gap-2 text-muted-foreground">
+                                        <MapPin className="h-3.5 w-3.5 shrink-0" />
+                                        <span className="truncate">{store.address}</span>
+                                    </div>
+                                )}
+                                {store.opening_hours && (
+                                    <div className="flex items-center gap-2 text-muted-foreground">
+                                        <Clock className="h-3.5 w-3.5" />
+                                        <span>{store.opening_hours.weekday || "—"}</span>
+                                    </div>
+                                )}
+                                <div className="flex items-center gap-2 text-muted-foreground">
+                                    <Star className="h-3.5 w-3.5" />
+                                    <span>優先度: {store.priority_level}</span>
                                 </div>
                             </div>
-                            <Badge
-                                className={cn(
-                                    "shrink-0 ml-2",
-                                    store.status === "open"
-                                        ? "bg-success/20 text-success"
-                                        : "bg-destructive/20 text-destructive"
-                                )}
-                            >
-                                {store.status === "open" ? "営業中" : "閉店"}
-                            </Badge>
+
+                            {/* Orders Badge */}
+                            {store.orders_today > 0 && (
+                                <div className="flex items-center justify-between p-2 rounded-lg bg-primary/10 border border-primary/20">
+                                    <span className="text-sm text-primary font-medium">
+                                        本日 {store.orders_today}件の注文
+                                    </span>
+                                    <Button variant="ghost" size="sm" className="h-7 text-primary hover:text-primary">
+                                        表示
+                                    </Button>
+                                </div>
+                            )}
                         </div>
+                    ))}
+                </div>
+            )}
 
-                        {/* Category */}
-                        <Badge className={cn("mb-3", categoryColors[store.category] || "bg-secondary")}>
-                            {store.category}
-                        </Badge>
-
-                        {/* Details */}
-                        <div className="space-y-2 mb-4 text-sm">
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                                <Clock className="h-3.5 w-3.5" />
-                                <span>{store.operatingHours}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                                <MapPin className="h-3.5 w-3.5" />
-                                <span>オフィスから {store.distance}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                                <Star className="h-3.5 w-3.5" />
-                                <span>優先度: {store.priority}</span>
-                            </div>
-                        </div>
-
-                        {/* Orders Badge */}
-                        {store.ordersToday > 0 && (
-                            <div className="flex items-center justify-between p-2 rounded-lg bg-primary/10 border border-primary/20">
-                                <span className="text-sm text-primary font-medium">
-                                    本日 {store.ordersToday}件の注文
-                                </span>
-                                <Button variant="ghost" size="sm" className="h-7 text-primary hover:text-primary">
-                                    表示
-                                </Button>
-                            </div>
-                        )}
-                    </div>
-                ))}
-            </div>
+            {/* Create/Edit Store Modal */}
+            <CreateStoreModal
+                isOpen={showCreateModal}
+                onClose={() => {
+                    setShowCreateModal(false);
+                    setEditStore(null);
+                }}
+                onSuccess={fetchData}
+                editStore={editStore}
+            />
         </MainLayout>
     );
 }

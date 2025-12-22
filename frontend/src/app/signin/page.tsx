@@ -1,19 +1,43 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
 import Link from "next/link";
-import { Package, Mail, Lock, Eye, EyeOff } from "lucide-react";
+import { Package, Mail, Lock, Eye, EyeOff, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function SignInPage() {
+    const router = useRouter();
     const [showPassword, setShowPassword] = useState(false);
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+    const [error, setError] = useState("");
+    const [loading, setLoading] = useState(false);
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        // TODO: Implement actual sign in
-        console.log("Sign in:", { email, password });
+        setError("");
+        setLoading(true);
+
+        try {
+            const result = await signIn("credentials", {
+                email,
+                password,
+                redirect: false,
+            });
+
+            if (result?.error) {
+                setError(result.error);
+            } else {
+                router.push("/");
+                router.refresh();
+            }
+        } catch {
+            setError("ログインに失敗しました");
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -33,6 +57,13 @@ export default function SignInPage() {
                 {/* Form */}
                 <div className="rounded-xl border border-border bg-card p-8 card-shadow">
                     <form onSubmit={handleSubmit} className="space-y-6">
+                        {/* Error Message */}
+                        {error && (
+                            <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
+                                {error}
+                            </div>
+                        )}
+
                         {/* Email */}
                         <div className="space-y-2">
                             <label htmlFor="email" className="text-sm font-medium text-foreground">
@@ -48,6 +79,7 @@ export default function SignInPage() {
                                     placeholder="your@email.com"
                                     className="w-full h-11 rounded-lg border border-border bg-secondary pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background transition-all"
                                     required
+                                    disabled={loading}
                                 />
                             </div>
                         </div>
@@ -67,6 +99,7 @@ export default function SignInPage() {
                                     placeholder="••••••••"
                                     className="w-full h-11 rounded-lg border border-border bg-secondary pl-10 pr-12 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background transition-all"
                                     required
+                                    disabled={loading}
                                 />
                                 <button
                                     type="button"
@@ -93,8 +126,15 @@ export default function SignInPage() {
                         </div>
 
                         {/* Submit */}
-                        <Button type="submit" className="w-full h-11" variant="glow">
-                            サインイン
+                        <Button type="submit" className="w-full h-11" variant="glow" disabled={loading}>
+                            {loading ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    サインイン中...
+                                </>
+                            ) : (
+                                "サインイン"
+                            )}
                         </Button>
                     </form>
 

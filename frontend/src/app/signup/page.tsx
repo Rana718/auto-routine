@@ -1,22 +1,69 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
 import Link from "next/link";
-import { Package, Mail, Lock, Eye, EyeOff, User } from "lucide-react";
+import { Package, Mail, Lock, Eye, EyeOff, User, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
 export default function SignUpPage() {
+    const router = useRouter();
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
+    const [error, setError] = useState("");
+    const [loading, setLoading] = useState(false);
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        // TODO: Implement actual sign up
-        console.log("Sign up:", { name, email, password, confirmPassword });
+        setError("");
+
+        // Validate passwords match
+        if (password !== confirmPassword) {
+            setError("パスワードが一致しません");
+            return;
+        }
+
+        setLoading(true);
+
+        try {
+            // Register via backend API
+            const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name, email, password }),
+            });
+
+            if (!response.ok) {
+                const data = await response.json().catch(() => ({}));
+                throw new Error(data.detail || "登録に失敗しました");
+            }
+
+            // Auto-login after registration
+            const result = await signIn("credentials", {
+                email,
+                password,
+                redirect: false,
+            });
+
+            if (result?.error) {
+                // Registration succeeded but login failed - redirect to signin
+                router.push("/signin");
+            } else {
+                router.push("/");
+                router.refresh();
+            }
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "登録に失敗しました");
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -36,6 +83,13 @@ export default function SignUpPage() {
                 {/* Form */}
                 <div className="rounded-xl border border-border bg-card p-8 card-shadow">
                     <form onSubmit={handleSubmit} className="space-y-5">
+                        {/* Error Message */}
+                        {error && (
+                            <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
+                                {error}
+                            </div>
+                        )}
+
                         {/* Name */}
                         <div className="space-y-2">
                             <label htmlFor="name" className="text-sm font-medium text-foreground">
@@ -51,6 +105,7 @@ export default function SignUpPage() {
                                     placeholder="山田 太郎"
                                     className="w-full h-11 rounded-lg border border-border bg-secondary pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background transition-all"
                                     required
+                                    disabled={loading}
                                 />
                             </div>
                         </div>
@@ -70,6 +125,7 @@ export default function SignUpPage() {
                                     placeholder="your@email.com"
                                     className="w-full h-11 rounded-lg border border-border bg-secondary pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background transition-all"
                                     required
+                                    disabled={loading}
                                 />
                             </div>
                         </div>
@@ -89,6 +145,7 @@ export default function SignUpPage() {
                                     placeholder="••••••••"
                                     className="w-full h-11 rounded-lg border border-border bg-secondary pl-10 pr-12 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background transition-all"
                                     required
+                                    disabled={loading}
                                 />
                                 <button
                                     type="button"
@@ -115,6 +172,7 @@ export default function SignUpPage() {
                                     placeholder="••••••••"
                                     className="w-full h-11 rounded-lg border border-border bg-secondary pl-10 pr-12 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background transition-all"
                                     required
+                                    disabled={loading}
                                 />
                                 <button
                                     type="button"
@@ -142,8 +200,15 @@ export default function SignUpPage() {
                         </label>
 
                         {/* Submit */}
-                        <Button type="submit" className="w-full h-11" variant="glow">
-                            アカウント作成
+                        <Button type="submit" className="w-full h-11" variant="glow" disabled={loading}>
+                            {loading ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    登録中...
+                                </>
+                            ) : (
+                                "アカウント作成"
+                            )}
                         </Button>
                     </form>
 

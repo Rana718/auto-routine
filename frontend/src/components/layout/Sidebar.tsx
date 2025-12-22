@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { signOut, useSession } from "next-auth/react";
 import {
     LayoutDashboard,
     ShoppingCart,
@@ -14,6 +15,7 @@ import {
     ChevronRight,
     Package,
     LogOut,
+    User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -29,6 +31,11 @@ const navItems = [
 export function Sidebar() {
     const [collapsed, setCollapsed] = useState(false);
     const pathname = usePathname();
+    const { data: session } = useSession();
+
+    const handleLogout = () => {
+        signOut({ callbackUrl: "/signin" });
+    };
 
     return (
         <aside
@@ -91,16 +98,34 @@ export function Sidebar() {
                 </button>
             )}
 
-            {/* Logout */}
+            {/* User & Logout */}
             {!collapsed && (
-                <div className="absolute bottom-4 left-3 right-3">
-                    <Link
-                        href="/signin"
-                        className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-all duration-200"
+                <div className="absolute bottom-4 left-3 right-3 space-y-2">
+                    {/* User Info */}
+                    {session?.user && (
+                        <div className="flex items-center gap-3 rounded-lg px-3 py-2.5 bg-sidebar-accent/50">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-medium">
+                                {session.user.name?.[0] || <User className="h-4 w-4" />}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-sidebar-foreground truncate">
+                                    {session.user.name}
+                                </p>
+                                <p className="text-xs text-sidebar-foreground/60 truncate">
+                                    {session.user.role === "admin" ? "管理者" : session.user.role === "supervisor" ? "スーパーバイザー" : "バイヤー"}
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Logout Button */}
+                    <button
+                        onClick={handleLogout}
+                        className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-all duration-200"
                     >
                         <LogOut className="h-5 w-5 shrink-0" />
                         <span>ログアウト</span>
-                    </Link>
+                    </button>
                 </div>
             )}
         </aside>
