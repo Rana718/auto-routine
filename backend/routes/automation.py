@@ -6,8 +6,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from db.db import get_db
 from db.schema import Staff
 from middlewares.auth import get_current_user
-from utils.staff_assignment import auto_assign_orders_to_staff
-from utils.route_optimization import generate_optimized_route
 
 router = APIRouter()
 
@@ -18,7 +16,9 @@ async def auto_assign_daily_orders(
     db: AsyncSession = Depends(get_db)
 ):
     """Auto-assign pending orders to available staff for target date"""
-    result = await auto_assign_orders_to_staff(db, target_date)
+    from services.staff_assignment import auto_assign_daily_orders as assign_orders
+    
+    result = await assign_orders(db, target_date)
     await db.commit()
     return result
 
@@ -29,23 +29,12 @@ async def generate_all_routes(
     db: AsyncSession = Depends(get_db)
 ):
     """Generate optimized routes for all purchase lists on target date"""
-    from sqlalchemy import select
-    from db.schema import PurchaseList
+    from services.route_optimization import generate_all_routes_for_date
     
-    result = await db.execute(
-        select(PurchaseList).where(PurchaseList.purchase_date == target_date)
-    )
-    lists = result.scalars().all()
-    
-    generated_routes = []
-    for plist in lists:
-        route_id = await generate_optimized_route(db, plist.list_id, plist.staff_id)
-        if route_id:
-            generated_routes.append(route_id)
-    
+    route_ids = await generate_all_routes_for_date(db, target_date)
     await db.commit()
     
     return {
-        "message": f"Generated {len(generated_routes)} routes",
-        "route_ids": generated_routes
+        "message": f"{len(route_ids)}件のルートを生成しました",
+        "route_ids": route_ids
     }

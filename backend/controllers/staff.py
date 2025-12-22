@@ -110,9 +110,15 @@ async def update_staff_status_controller(db: AsyncSession, staff_id: int, update
     return {"message": "ステータスを更新しました", "new_status": update.status.value}
 
 async def auto_assign_orders_controller(db: AsyncSession, staff_id: int):
+    from services.staff_assignment import assign_to_specific_staff
+    from datetime import date
+    
     result = await db.execute(select(Staff).where(Staff.staff_id == staff_id))
     staff = result.scalar_one_or_none()
     if not staff:
         raise HTTPException(status_code=404, detail="スタッフが見つかりません")
     
-    return {"message": "自動割当を実行しました", "assigned_count": 0}
+    # Use the assignment service
+    assignment_result = await assign_to_specific_staff(db, staff_id, date.today())
+    return assignment_result
+

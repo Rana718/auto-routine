@@ -16,7 +16,12 @@ async def get_all_routes(
     skip: int,
     limit: int
 ) -> List[RouteWithDetails]:
-    query = select(Route).options(selectinload(Route.stops), selectinload(Route.staff))
+    from db.schema import Store
+    
+    query = select(Route).options(
+        selectinload(Route.stops).selectinload(RouteStop.store),
+        selectinload(Route.staff)
+    )
     
     if route_date:
         query = query.where(Route.route_date == route_date)
@@ -44,6 +49,10 @@ async def get_all_routes(
                 {
                     "stop_id": s.stop_id,
                     "store_id": s.store_id,
+                    "store_name": s.store.store_name if s.store else None,
+                    "store_address": s.store.address if s.store else None,
+                    "store_latitude": float(s.store.latitude) if s.store and s.store.latitude else None,
+                    "store_longitude": float(s.store.longitude) if s.store and s.store.longitude else None,
                     "stop_sequence": s.stop_sequence,
                     "stop_status": s.stop_status.value,
                     "items_count": s.items_count,
@@ -122,8 +131,15 @@ async def generate_route_controller(db: AsyncSession, data: RouteGenerate):
     }
 
 async def regenerate_all_routes_controller(db: AsyncSession, route_date: date = None):
+    from services.route_optimization import generate_all_routes_for_date
+    
     target_date = route_date or date.today()
-    return {"message": f"{target_date}のルートを再生成しました", "routes_count": 0}
+    route_ids = await generate_all_routes_for_date(db, target_date)
+    return {
+        "message": f"{target_date}の{len(route_ids)}件のルートを再生成しました", 
+        "routes_count": len(route_ids),
+        "route_ids": route_ids,
+    }
 
 async def update_route_status_controller(db: AsyncSession, route_id: int, status: RouteStatus):
     result = await db.execute(select(Route).where(Route.route_id == route_id))
