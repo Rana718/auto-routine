@@ -10,11 +10,10 @@ class Settings(BaseSettings):
         extra="ignore"
     )
 
-    database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/auto_routine"
-    sync_database_url: str = "postgresql://postgres:postgres@localhost:5432/auto_routine"
-    secret_key: str = "your-secret-key-change-in-production"
-    algorithm: str = "HS256"
-    access_token_expire_minutes: int = 30
+    db_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/auto_routine"
+    jwt_secret_key: str = "your-secret-key-change-in-production"
+    jwt_algorithm: str = "HS256"
+    jwt_expire_minutes: int = 30
 
 
 @lru_cache

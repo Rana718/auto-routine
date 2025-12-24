@@ -11,7 +11,7 @@ from config.env import settings
 
 # Create async engine
 engine = create_async_engine(
-    settings.database_url,
+    settings.db_url,
     echo=False,
     poolclass=NullPool,  
 )
