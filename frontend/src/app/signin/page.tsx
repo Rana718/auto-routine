@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
-import Link from "next/link";
 import { Package, Mail, Lock, Eye, EyeOff, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -111,20 +110,6 @@ export default function SignInPage() {
                             </div>
                         </div>
 
-                        {/* Remember & Forgot */}
-                        <div className="flex items-center justify-between">
-                            <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    className="h-4 w-4 rounded border-border bg-secondary text-primary focus:ring-primary focus:ring-offset-background"
-                                />
-                                ログイン状態を保持
-                            </label>
-                            <Link href="#" className="text-sm text-primary hover:underline">
-                                パスワードを忘れた場合
-                            </Link>
-                        </div>
-
                         {/* Submit */}
                         <Button type="submit" className="w-full h-11" variant="glow" disabled={loading}>
                             {loading ? (
@@ -138,23 +123,6 @@ export default function SignInPage() {
                         </Button>
                     </form>
 
-                    {/* Divider */}
-                    <div className="relative my-6">
-                        <div className="absolute inset-0 flex items-center">
-                            <div className="w-full border-t border-border" />
-                        </div>
-                        <div className="relative flex justify-center text-xs uppercase">
-                            <span className="bg-card px-2 text-muted-foreground">または</span>
-                        </div>
-                    </div>
-
-                    {/* Sign Up Link */}
-                    <p className="text-center text-sm text-muted-foreground">
-                        アカウントをお持ちでない方は{" "}
-                        <Link href="/signup" className="text-primary font-medium hover:underline">
-                            新規登録
-                        </Link>
-                    </p>
                 </div>
 
                 {/* Footer */}

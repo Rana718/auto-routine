@@ -72,3 +72,32 @@ async def import_orders(
     db: AsyncSession = Depends(get_db)
 ):
     return await import_bulk_orders(db, data)
+
+@router.patch("/{order_id}/items/{item_id}/status")
+async def update_item_status(
+    order_id: int,
+    item_id: int,
+    status: str,
+    current_user: Annotated[Staff, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db)
+):
+    """Update individual item status"""
+    from db.schema import OrderItem, ItemStatus
+    from sqlalchemy import select
+    from fastapi import HTTPException
+    
+    result = await db.execute(
+        select(OrderItem).where(
+            OrderItem.item_id == item_id,
+            OrderItem.order_id == order_id
+        )
+    )
+    item = result.scalar_one_or_none()
+    
+    if not item:
+        raise HTTPException(status_code=404, detail="アイテムが見つかりません")
+    
+    item.item_status = ItemStatus(status)
+    await db.commit()
+    
+    return {"message": "ステータスを更新しました"}

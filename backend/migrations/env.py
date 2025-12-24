@@ -22,6 +22,8 @@ db_url = os.getenv("DB_URL")
 if db_url:
     # Convert asyncpg to psycopg2 for Alembic (Alembic doesn't support async engines)
     sync_url = db_url.replace("postgresql+asyncpg://", "postgresql://")
+    # Replace asyncpg SSL parameter with psycopg2 format
+    sync_url = sync_url.replace("?ssl=require", "?sslmode=require")
     config.set_main_option("sqlalchemy.url", sync_url)
 
 

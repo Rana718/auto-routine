@@ -4,9 +4,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.db import get_db
 from db.schema import Staff
-from models.auth import LoginRequest, TokenResponse, RegisterRequest, UserResponse
+from models.auth import LoginRequest, TokenResponse, UserResponse, CreateAdminRequest
 from middlewares.auth import get_current_user
-from controllers.auth import login_user, register_user, get_current_user_info
+from controllers.auth import login_user, create_admin_user, get_current_user_info
 
 router = APIRouter()
 
@@ -14,9 +14,16 @@ router = APIRouter()
 async def login(request: LoginRequest, db: AsyncSession = Depends(get_db)):
     return await login_user(request, db)
 
-@router.post("/register", response_model=UserResponse)
-async def register(request: RegisterRequest, db: AsyncSession = Depends(get_db)):
-    return await register_user(request, db)
+@router.post("/create-admin", response_model=UserResponse)
+async def create_admin(request: CreateAdminRequest, db: AsyncSession = Depends(get_db)):
+    """Create admin user with secret key - no authentication required"""
+    return await create_admin_user(
+        email=request.email,
+        password=request.password,
+        name=request.name,
+        secret_key=request.secret_key,
+        db=db
+    )
 
 @router.get("/me", response_model=UserResponse)
 async def get_me(current_user: Annotated[Staff, Depends(get_current_user)]):

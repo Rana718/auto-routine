@@ -1,0 +1,192 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { Package, Store, Filter, Loader2 } from "lucide-react";
+import { MainLayout } from "@/components/layout/MainLayout";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+interface Product {
+    product_id: number;
+    sku: string;
+    product_name: string;
+    category: string;
+    is_store_fixed: boolean;
+    fixed_store_id: number | null;
+    exclude_from_routing: boolean;
+    is_set_product: boolean;
+}
+
+interface Store {
+    store_id: number;
+    store_name: string;
+}
+
+export default function ProductsPage() {
+    const [products, setProducts] = useState<Product[]>([]);
+    const [stores, setStores] = useState<Store[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        fetchData();
+    }, []);
+
+    async function fetchData() {
+        try {
+            setLoading(true);
+            const [productsRes, storesRes] = await Promise.all([
+                fetch(`${API_BASE_URL}/api/products`, {
+                    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+                }),
+                fetch(`${API_BASE_URL}/api/stores`, {
+                    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+                })
+            ]);
+            
+            const productsData = await productsRes.json();
+            const storesData = await storesRes.json();
+            
+            setProducts(productsData);
+            setStores(storesData);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    async function toggleStoreFixed(productId: number, isFixed: boolean, storeId: number | null) {
+        try {
+            const response = await fetch(
+                `${API_BASE_URL}/api/products/${productId}/store-fixed?is_fixed=${isFixed}&store_id=${storeId || ""}`,
+                {
+                    method: "PATCH",
+                    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+                }
+            );
+            if (!response.ok) throw new Error("更新に失敗しました");
+            await fetchData();
+        } catch (err) {
+            alert(err instanceof Error ? err.message : "エラーが発生しました");
+        }
+    }
+
+    async function toggleRouting(productId: number, exclude: boolean) {
+        try {
+            const response = await fetch(
+                `${API_BASE_URL}/api/products/${productId}/routing?exclude=${exclude}`,
+                {
+                    method: "PATCH",
+                    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+                }
+            );
+            if (!response.ok) throw new Error("更新に失敗しました");
+            await fetchData();
+        } catch (err) {
+            alert(err instanceof Error ? err.message : "エラーが発生しました");
+        }
+    }
+
+    if (loading) {
+        return (
+            <MainLayout title="商品設定" subtitle="商品の店舗固定とルーティング設定">
+                <div className="flex items-center justify-center h-64">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+            </MainLayout>
+        );
+    }
+
+    return (
+        <MainLayout title="商品設定" subtitle="商品の店舗固定とルーティング設定">
+            <div className="rounded-xl border border-border bg-card card-shadow overflow-hidden">
+                <table className="w-full">
+                    <thead>
+                        <tr className="border-b border-border bg-muted/30">
+                            <th className="px-6 py-3 text-left text-xs font-medium uppercase text-muted-foreground">
+                                SKU
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium uppercase text-muted-foreground">
+                                商品名
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium uppercase text-muted-foreground">
+                                店舗固定
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium uppercase text-muted-foreground">
+                                固定店舗
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium uppercase text-muted-foreground">
+                                ルーティング除外
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                        {products.map((product) => (
+                            <tr key={product.product_id} className="hover:bg-muted/20">
+                                <td className="px-6 py-4">
+                                    <span className="font-mono text-sm">{product.sku}</span>
+                                </td>
+                                <td className="px-6 py-4">
+                                    <p className="text-sm font-medium">{product.product_name}</p>
+                                    {product.is_set_product && (
+                                        <Badge className="mt-1 bg-purple-500/20 text-purple-400">
+                                            セット商品
+                                        </Badge>
+                                    )}
+                                </td>
+                                <td className="px-6 py-4">
+                                    <input
+                                        type="checkbox"
+                                        checked={product.is_store_fixed}
+                                        onChange={(e) => toggleStoreFixed(
+                                            product.product_id,
+                                            e.target.checked,
+                                            product.fixed_store_id
+                                        )}
+                                        className="h-4 w-4"
+                                    />
+                                </td>
+                                <td className="px-6 py-4">
+                                    {product.is_store_fixed ? (
+                                        <select
+                                            value={product.fixed_store_id || ""}
+                                            onChange={(e) => toggleStoreFixed(
+                                                product.product_id,
+                                                true,
+                                                Number(e.target.value)
+                                            )}
+                                            className="rounded border border-border bg-secondary px-2 py-1 text-sm"
+                                        >
+                                            <option value="">選択...</option>
+                                            {stores.map((store) => (
+                                                <option key={store.store_id} value={store.store_id}>
+                                                    {store.store_name}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    ) : (
+                                        <span className="text-muted-foreground text-sm">—</span>
+                                    )}
+                                </td>
+                                <td className="px-6 py-4">
+                                    <input
+                                        type="checkbox"
+                                        checked={product.exclude_from_routing}
+                                        onChange={(e) => toggleRouting(
+                                            product.product_id,
+                                            e.target.checked
+                                        )}
+                                        className="h-4 w-4"
+                                    />
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </MainLayout>
+    );
+}

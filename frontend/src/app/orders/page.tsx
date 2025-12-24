@@ -207,7 +207,8 @@ export default function OrdersPage() {
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <Button variant="ghost" size="sm" className="gap-1">
-                                                操作
+                                                詳細
+                                                onClick={() => window.location.href = `/orders/${order.order_id}`}
                                                 <ChevronDown className="h-3 w-3" />
                                             </Button>
                                         </td>

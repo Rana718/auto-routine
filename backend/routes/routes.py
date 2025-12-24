@@ -73,3 +73,28 @@ async def start_all_routes(
     db: AsyncSession = Depends(get_db)
 ):
     return await start_all_routes_controller(db, route_date)
+
+
+@router.patch("/{route_id}/reorder")
+async def reorder_route_stops(
+    route_id: int,
+    current_user: Annotated[Staff, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),
+    stop_ids: List[int] = []
+):
+    """Reorder route stops"""
+    from db.schema import RouteStop
+    
+    for index, stop_id in enumerate(stop_ids):
+        result = await db.execute(
+            select(RouteStop).where(
+                RouteStop.stop_id == stop_id,
+                RouteStop.route_id == route_id
+            )
+        )
+        stop = result.scalar_one_or_none()
+        if stop:
+            stop.stop_sequence = index + 1
+    
+    await db.commit()
+    return {"message": "ルートを並び替えました"}

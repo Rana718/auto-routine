@@ -9,10 +9,11 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
     user: dict
 
-class RegisterRequest(BaseModel):
+class CreateAdminRequest(BaseModel):
     name: str
     email: EmailStr
     password: str
+    secret_key: str
 
 class UserResponse(BaseModel):
     staff_id: int

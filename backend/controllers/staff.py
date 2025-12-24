@@ -22,12 +22,13 @@ async def get_all_staff(db: AsyncSession, active_only: bool, skip: int, limit: i
             staff_name=s.staff_name,
             staff_code=s.staff_code,
             email=s.email,
-            phone=s.phone,
             role=s.role.value,
-            status=s.status,
+            status=s.status.value,
+            is_active=s.is_active,
             assigned_orders=0,
             assigned_stores=0,
             completed_today=0,
+            current_location_name=s.current_location_name,
         )
         for s in staff_list
     ]

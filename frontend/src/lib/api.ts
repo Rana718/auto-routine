@@ -84,6 +84,10 @@ async function fetchApi<T>(
 
     if (!response.ok) {
         let errorMessage = "APIエラーが発生しました";
+        if (response.status === 401 && typeof window !== "undefined") {
+            window.location.href = "/signin";
+            throw new ApiError(401, "認証が必要です");
+        }
         try {
             const errorData = await response.json();
             errorMessage = errorData.detail || errorMessage;

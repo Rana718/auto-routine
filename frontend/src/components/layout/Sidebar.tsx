@@ -16,6 +16,8 @@ import {
     Package,
     LogOut,
     User,
+    Shield,
+    Box,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -24,14 +26,23 @@ const navItems = [
     { icon: ShoppingCart, label: "注文", path: "/orders" },
     { icon: Users, label: "スタッフ", path: "/staff" },
     { icon: Store, label: "店舗", path: "/stores" },
+    { icon: Package, label: "商品", path: "/products" },
+    { icon: Box, label: "セット商品", path: "/products/bundles" },
     { icon: Route, label: "ルート", path: "/routes" },
     { icon: Settings, label: "設定", path: "/settings" },
+];
+
+const adminItems = [
+    { icon: Shield, label: "ユーザー管理", path: "/admin/users", roles: ["admin", "supervisor"] },
 ];
 
 export function Sidebar() {
     const [collapsed, setCollapsed] = useState(false);
     const pathname = usePathname();
     const { data: session } = useSession();
+    
+    const userRole = session?.user?.role || "buyer";
+    const canAccessAdmin = userRole === "admin" || userRole === "supervisor";
 
     const handleLogout = () => {
         signOut({ callbackUrl: "/signin" });
@@ -67,7 +78,7 @@ export function Sidebar() {
             </div>
 
             {/* Navigation */}
-            <nav className="flex flex-col gap-1 p-3">
+            <nav className="flex flex-col gap-1 p-3 overflow-y-auto" style={{ maxHeight: "calc(100vh - 200px)" }}>
                 {navItems.map((item) => {
                     const isActive = pathname === item.path;
                     return (
@@ -86,6 +97,33 @@ export function Sidebar() {
                         </Link>
                     );
                 })}
+                
+                {/* Admin Section */}
+                {canAccessAdmin && !collapsed && (
+                    <div className="mt-4 pt-4 border-t border-sidebar-border">
+                        <p className="px-3 mb-2 text-xs font-semibold text-sidebar-foreground/50 uppercase">
+                            管理
+                        </p>
+                        {adminItems.map((item) => {
+                            const isActive = pathname === item.path;
+                            return (
+                                <Link
+                                    key={item.path}
+                                    href={item.path}
+                                    className={cn(
+                                        "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
+                                        isActive
+                                            ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-md"
+                                            : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+                                    )}
+                                >
+                                    <item.icon className="h-5 w-5 shrink-0" />
+                                    <span>{item.label}</span>
+                                </Link>
+                            );
+                        })}
+                    </div>
+                )}
             </nav>
 
             {/* Expand button */}
@@ -112,7 +150,7 @@ export function Sidebar() {
                                     {session.user.name}
                                 </p>
                                 <p className="text-xs text-sidebar-foreground/60 truncate">
-                                    {session.user.role === "admin" ? "管理者" : session.user.role === "supervisor" ? "スーパーバイザー" : "バイヤー"}
+                                    {userRole === "admin" ? "管理者" : userRole === "supervisor" ? "スーパーバイザー" : "バイヤー"}
                                 </p>
                             </div>
                         </div>

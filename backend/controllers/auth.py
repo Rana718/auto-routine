@@ -3,8 +3,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.schema import Staff, StaffRole, StaffStatus
-from models.auth import LoginRequest, TokenResponse, RegisterRequest, UserResponse
+from models.auth import LoginRequest, TokenResponse, UserResponse
 from middlewares.auth import hash_password, verify_password, create_token
+from config.env import settings
 
 async def login_user(request: LoginRequest, db: AsyncSession) -> TokenResponse:
     result = await db.execute(select(Staff).where(Staff.email == request.email))
@@ -29,20 +30,30 @@ async def login_user(request: LoginRequest, db: AsyncSession) -> TokenResponse:
         }
     )
 
-async def register_user(request: RegisterRequest, db: AsyncSession) -> UserResponse:
-    result = await db.execute(select(Staff).where(Staff.email == request.email))
+async def create_admin_user(email: str, password: str, name: str, secret_key: str, db: AsyncSession) -> UserResponse:
+    """Create admin user with secret key verification"""
+    # Verify secret key
+    if secret_key != settings.admin_secret_key:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="無効なシークレットキーです",
+        )
+    
+    # Check if email already exists
+    result = await db.execute(select(Staff).where(Staff.email == email))
     if result.scalar_one_or_none():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="このメールアドレスは既に登録されています",
         )
     
+    # Create admin user
     user = Staff(
-        staff_name=request.name,
-        email=request.email,
-        password_hash=hash_password(request.password),
-        role=StaffRole.BUYER,
-        status=StaffStatus.OFF_DUTY,
+        staff_name=name,
+        email=email,
+        password_hash=hash_password(password),
+        role=StaffRole.ADMIN,
+        status=StaffStatus.ACTIVE,
         is_active=True,
     )
     
