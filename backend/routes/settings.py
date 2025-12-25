@@ -56,12 +56,18 @@ async def import_stores(
 ):
     return await import_stores_controller(db)
 
-@router.post("/data/export-orders")
+@router.get("/data/export-orders")
 async def export_orders(
     current_user: Annotated[Staff, Depends(get_current_user)],
     db: AsyncSession = Depends(get_db)
 ):
-    return await export_orders_controller(db)
+    from fastapi.responses import Response
+    csv_data = await export_orders_controller(db)
+    return Response(
+        content=csv_data,
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=orders_export.csv"}
+    )
 
 @router.post("/data/backup")
 async def create_backup(

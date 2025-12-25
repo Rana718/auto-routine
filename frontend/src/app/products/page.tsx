@@ -49,10 +49,12 @@ export default function ProductsPage() {
             const productsData = await productsRes.json();
             const storesData = await storesRes.json();
             
-            setProducts(productsData);
-            setStores(storesData);
+            setProducts(Array.isArray(productsData) ? productsData : []);
+            setStores(Array.isArray(storesData) ? storesData : []);
         } catch (err) {
             console.error(err);
+            setProducts([]);
+            setStores([]);
         } finally {
             setLoading(false);
         }

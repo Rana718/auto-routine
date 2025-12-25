@@ -15,15 +15,16 @@ export function QuickActions() {
         try {
             switch (actionType) {
                 case "import":
-                    // Would open import dialog - for now just reload
-                    window.location.reload();
+                    alert("注文取込機能は開発中です");
                     break;
                 case "assign":
                     await automationApi.autoAssignDaily(today);
+                    alert("スタッフ割当が完了しました");
                     window.location.reload();
                     break;
                 case "routes":
                     await automationApi.generateAllRoutes(today);
+                    alert("ルート生成が完了しました");
                     window.location.reload();
                     break;
                 case "sync":

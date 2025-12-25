@@ -117,7 +117,54 @@ async def import_stores_controller(db: AsyncSession):
     return {"message": "店舗データをインポートしました", "count": 0}
 
 async def export_orders_controller(db: AsyncSession):
-    return {"message": "注文データをエクスポートしました"}
+    from sqlalchemy import select
+    from db.schema import Order, OrderItem
+    from sqlalchemy.orm import selectinload
+    from io import StringIO
+    import csv
+    
+    result = await db.execute(
+        select(Order).options(selectinload(Order.items)).order_by(Order.order_id)
+    )
+    orders = result.scalars().all()
+    
+    output = StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "order_id", "robot_in_order_id", "mall_name", "customer_name",
+        "order_date", "target_purchase_date", "order_status",
+        "item_sku", "item_name", "quantity", "unit_price"
+    ])
+    
+    for order in orders:
+        if order.items:
+            for item in order.items:
+                writer.writerow([
+                    order.order_id,
+                    order.robot_in_order_id or "",
+                    order.mall_name or "",
+                    order.customer_name or "",
+                    order.order_date.isoformat() if order.order_date else "",
+                    order.target_purchase_date.isoformat() if order.target_purchase_date else "",
+                    order.order_status.value if order.order_status else "",
+                    item.sku or "",
+                    item.product_name or "",
+                    item.quantity or 0,
+                    float(item.unit_price) if item.unit_price else 0.0
+                ])
+        else:
+            writer.writerow([
+                order.order_id,
+                order.robot_in_order_id or "",
+                order.mall_name or "",
+                order.customer_name or "",
+                order.order_date.isoformat() if order.order_date else "",
+                order.target_purchase_date.isoformat() if order.target_purchase_date else "",
+                order.order_status.value if order.order_status else "",
+                "", "", 0, 0.0
+            ])
+    
+    return output.getvalue()
 
 async def create_backup_controller(db: AsyncSession):
     return {"message": "バックアップを作成しました"}

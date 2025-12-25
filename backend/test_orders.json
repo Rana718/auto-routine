@@ -1,0 +1,133 @@
+{
+  "orders": [
+    {
+      "robot_in_order_id": "RO-2025-1001",
+      "mall_name": "Amazon",
+      "customer_name": "顧客001",
+      "order_date": "2025-12-25T12:00:00",
+      "target_purchase_date": "2025-12-25",
+      "items": [
+        {
+          "sku": "a-iv-066-1-aa",
+          "product_name": "ソニー ワイヤレスイヤホン WF-1000XM5",
+          "quantity": 1,
+          "unit_price": 35000,
+          "priority": "high"
+        },
+        {
+          "sku": "a-iv-067-1-aa",
+          "product_name": "ネスカフェ ゴールドブレンド 120g",
+          "quantity": 2,
+          "unit_price": 1200,
+          "priority": "high"
+        }
+      ]
+    },
+    {
+      "robot_in_order_id": "RO-2025-1002",
+      "mall_name": "楽天市場",
+      "customer_name": "顧客002",
+      "order_date": "2025-12-25T11:30:00",
+      "target_purchase_date": "2025-12-25",
+      "items": [
+        {
+          "sku": "a-iv-066-2-bb",
+          "product_name": "パナソニック ドライヤー ナノケア",
+          "quantity": 1,
+          "unit_price": 28000,
+          "priority": "normal"
+        },
+        {
+          "sku": "a-iv-068-1-aa",
+          "product_name": "花王 アタック 洗濯洗剤",
+          "quantity": 3,
+          "unit_price": 800,
+          "priority": "high"
+        }
+      ]
+    },
+    {
+      "robot_in_order_id": "RO-2025-1003",
+      "mall_name": "Amazon",
+      "customer_name": "顧客003",
+      "order_date": "2025-12-25T10:45:00",
+      "target_purchase_date": "2025-12-25",
+      "items": [
+        {
+          "sku": "a-iv-066-3-cc",
+          "product_name": "シャープ 空気清浄機",
+          "quantity": 1,
+          "unit_price": 45000,
+          "priority": "normal"
+        },
+        {
+          "sku": "a-iv-069-1-bb",
+          "product_name": "ロート製薬 目薬",
+          "quantity": 2,
+          "unit_price": 650,
+          "priority": "normal"
+        },
+        {
+          "sku": "a-iv-067-1-aa",
+          "product_name": "ネスカフェ ゴールドブレンド 120g",
+          "quantity": 1,
+          "unit_price": 1200,
+          "priority": "high"
+        }
+      ]
+    },
+    {
+      "robot_in_order_id": "RO-2025-1004",
+      "mall_name": "楽天市場",
+      "customer_name": "顧客004",
+      "order_date": "2025-12-25T09:20:00",
+      "target_purchase_date": "2025-12-25",
+      "items": [
+        {
+          "sku": "a-iv-067-2-bb",
+          "product_name": "明治 ザ・チョコレート 10枚セット",
+          "quantity": 2,
+          "unit_price": 2500,
+          "priority": "normal"
+        },
+        {
+          "sku": "a-iv-068-2-cc",
+          "product_name": "ユニ・チャーム マスク 50枚入",
+          "quantity": 1,
+          "unit_price": 1500,
+          "priority": "normal"
+        }
+      ]
+    },
+    {
+      "robot_in_order_id": "RO-2025-1005",
+      "mall_name": "Amazon",
+      "customer_name": "顧客005",
+      "order_date": "2025-12-25T08:15:00",
+      "target_purchase_date": "2025-12-25",
+      "items": [
+        {
+          "sku": "a-iv-066-1-aa",
+          "product_name": "ソニー ワイヤレスイヤホン WF-1000XM5",
+          "quantity": 1,
+          "unit_price": 35000,
+          "priority": "high"
+        },
+        {
+          "sku": "a-iv-066-2-bb",
+          "product_name": "パナソニック ドライヤー ナノケア",
+          "quantity": 1,
+          "unit_price": 28000,
+          "priority": "normal"
+        },
+        {
+          "sku": "a-iv-068-1-aa",
+          "product_name": "花王 アタック 洗濯洗剤",
+          "quantity": 2,
+          "unit_price": 800,
+          "priority": "high"
+        }
+      ]
+    }
+  ]
+}

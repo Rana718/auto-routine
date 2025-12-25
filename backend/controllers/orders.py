@@ -33,20 +33,19 @@ async def get_all_orders(
     return result.scalars().all()
 
 async def get_order_statistics(db: AsyncSession, target_date: Optional[date]) -> OrderStats:
-    base_query = select(Order)
+    query = select(func.count(Order.order_id))
     if target_date:
-        base_query = base_query.where(Order.target_purchase_date == target_date)
+        query = query.where(Order.target_purchase_date == target_date)
     
-    total_result = await db.execute(select(func.count(Order.order_id)).select_from(base_query.subquery()))
+    total_result = await db.execute(query)
     total = total_result.scalar() or 0
     
     status_counts = {}
     for status in [OrderStatus.PENDING, OrderStatus.ASSIGNED, OrderStatus.COMPLETED, OrderStatus.FAILED]:
-        result = await db.execute(
-            select(func.count(Order.order_id))
-            .where(Order.order_status == status)
-            .where(Order.target_purchase_date == target_date if target_date else True)
-        )
+        query = select(func.count(Order.order_id)).where(Order.order_status == status)
+        if target_date:
+            query = query.where(Order.target_purchase_date == target_date)
+        result = await db.execute(query)
         status_counts[status.value] = result.scalar() or 0
     
     return OrderStats(

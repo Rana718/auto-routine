@@ -18,4 +18,5 @@ dependencies = [
     "pyjwt>=2.8.0",
     "python-multipart>=0.0.9",
     "python-dateutil>=2.9.0.post0",
+    "requests>=2.32.5",
 ]

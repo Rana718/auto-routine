@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Upload, Filter, Search, ChevronDown, Loader2, Plus } from "lucide-react";
+import { Upload, Filter, Search, ChevronDown, Loader2, Plus, Download } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +10,7 @@ import { ordersApi } from "@/lib/api";
 import { ImportOrdersModal } from "@/components/modals/ImportOrdersModal";
 import { CreateOrderModal } from "@/components/modals/CreateOrderModal";
 import type { OrderWithItems, OrderStatus } from "@/lib/types";
+import { useSession } from "next-auth/react";
 
 const statusConfig: Record<OrderStatus | string, { label: string; className: string }> = {
     pending: { label: "待機中", className: "bg-muted text-muted-foreground" },
@@ -23,6 +24,10 @@ const statusConfig: Record<OrderStatus | string, { label: string; className: str
 };
 
 export default function OrdersPage() {
+    const { data: session } = useSession();
+    const userRole = session?.user?.role || "buyer";
+    const canManageOrders = userRole === "admin" || userRole === "supervisor";
+    
     const [orders, setOrders] = useState<OrderWithItems[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -107,13 +112,23 @@ export default function OrdersPage() {
                     </Button>
                     <Button variant="outline" className="gap-2" type="button" onClick={() => setShowCreateModal(true)}>
                         <Plus className="h-4 w-4" />
+                    {canManageOrders && (
+                        <>
                         手動追加
+                    </Button>
+                    <Button variant="outline" className="gap-2" type="button" onClick={() => {
+                        const token = localStorage.getItem("token");
+                        window.open(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/settings/data/export-orders?token=${token}`, "_blank");
+                    }}>
+                        <Download className="h-4 w-4" />
+                        CSV出力
                     </Button>
                     <Button className="gap-2" type="button" onClick={() => setShowImportModal(true)}>
                         <Upload className="h-4 w-4" />
                         注文取込
                     </Button>
-                </div>
+                        </>
+                    )}
             </form>
 
             {/* Orders Table */}

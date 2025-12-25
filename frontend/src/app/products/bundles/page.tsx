@@ -31,9 +31,10 @@ export default function BundlesPage() {
                 headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
             });
             const data = await response.json();
-            setProducts(data.filter((p: Product) => p.is_set_product));
+            setProducts(Array.isArray(data) ? data.filter((p: Product) => p.is_set_product) : []);
         } catch (err) {
             console.error(err);
+            setProducts([]);
         } finally {
             setLoading(false);
         }
