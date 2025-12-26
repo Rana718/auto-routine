@@ -12,9 +12,9 @@ class StaffRoleUpdate(BaseModel):
 
 class StaffStats(BaseModel):
     total_staff: int
-    active_staff: int
-    on_duty_staff: int
-    total_capacity: int
+    active_today: int
+    en_route: int
+    completed_orders: int
 
 class StaffWithStats(BaseModel):
     staff_id: int

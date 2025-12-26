@@ -101,6 +101,7 @@ async def add_item_to_order(db: AsyncSession, order_id: int, item_data: OrderIte
         quantity=item_data.quantity,
         unit_price=item_data.unit_price,
         is_bundle=item_data.is_bundle,
+        priority=item_data.priority,
         item_status=ItemStatus.PENDING,
     )
     db.add(item)

@@ -112,23 +112,22 @@ export default function OrdersPage() {
                     </Button>
                     <Button variant="outline" className="gap-2" type="button" onClick={() => setShowCreateModal(true)}>
                         <Plus className="h-4 w-4" />
-                    {canManageOrders && (
-                        <>
                         手動追加
                     </Button>
-                    <Button variant="outline" className="gap-2" type="button" onClick={() => {
-                        const token = localStorage.getItem("token");
-                        window.open(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/settings/data/export-orders?token=${token}`, "_blank");
-                    }}>
-                        <Download className="h-4 w-4" />
-                        CSV出力
-                    </Button>
+                    {canManageOrders && (
+                        <Button variant="outline" className="gap-2" type="button" onClick={() => {
+                            const token = localStorage.getItem("token");
+                            window.open(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/settings/data/export-orders?token=${token}`, "_blank");
+                        }}>
+                            <Download className="h-4 w-4" />
+                            CSV出力
+                        </Button>
+                    )}
                     <Button className="gap-2" type="button" onClick={() => setShowImportModal(true)}>
                         <Upload className="h-4 w-4" />
                         注文取込
                     </Button>
-                        </>
-                    )}
+                </div>
             </form>
 
             {/* Orders Table */}
@@ -221,9 +220,13 @@ export default function OrdersPage() {
                                             </Badge>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            <Button variant="ghost" size="sm" className="gap-1">
-                                                詳細
+                                            <Button 
+                                                variant="ghost" 
+                                                size="sm" 
+                                                className="gap-1"
                                                 onClick={() => window.location.href = `/orders/${order.order_id}`}
+                                            >
+                                                詳細
                                                 <ChevronDown className="h-3 w-3" />
                                             </Button>
                                         </td>

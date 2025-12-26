@@ -44,16 +44,10 @@ export function CreateOrderModal({ isOpen, onClose, onSuccess }: CreateOrderModa
         try {
             const today = new Date().toISOString();
             await ordersApi.create({
-                order_number: orderNumber,
+                robot_in_order_id: orderNumber,
                 customer_name: customerName,
                 order_date: today,
-                target_date: today.split("T")[0],
-                items: items.map(item => ({
-                    sku: item.sku,
-                    product_name: item.product_name,
-                    quantity: Number(item.quantity),
-                    unit_price: Number(item.unit_price),
-                })),
+                target_purchase_date: today.split("T")[0],
             });
             onSuccess();
             onClose();
