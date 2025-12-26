@@ -33,3 +33,5 @@ Thumbs.db
 htmlcov/
 
 .env.**
+
+noun/
