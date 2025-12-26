@@ -56,8 +56,7 @@ export function OrdersTable({ orders }: OrdersTableProps) {
                             {orders.map((order, index) => (
                                 <tr
                                     key={order.order_id}
-                                    className="hover:bg-muted/20 transition-colors animate-fade-in"
-                                    style={{ animationDelay: `${index * 50}ms` }}
+                                    className="hover:bg-muted/20 transition-colors"
                                 >
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <span className="font-mono text-sm text-primary">

@@ -11,7 +11,8 @@ app = FastAPI(
     description="注文から店舗選定、スタッフ割当、ルート生成まで、大規模物理調達を迅速かつ正確に自動化",
     docs_url="/docs",
     redoc_url="/redoc",
-    openapi_url="/openapi.json"
+    openapi_url="/openapi.json",
+    redirect_slashes=False
 )
 
 app.add_middleware(

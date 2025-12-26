@@ -316,6 +316,16 @@ export const routesApi = {
             { method: "POST" }
         );
     },
+
+    async updateStop(routeId: number, stopId: number, stop_status: string): Promise<{ message: string; new_status: string }> {
+        return fetchApi<{ message: string; new_status: string }>(
+            `/api/routes/${routeId}/stops/${stopId}`,
+            {
+                method: "PATCH",
+                body: JSON.stringify({ stop_status })
+            }
+        );
+    },
 };
 
 // ============================================================================

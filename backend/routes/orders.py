@@ -11,7 +11,7 @@ from middlewares.auth import get_current_user
 
 router = APIRouter()
 
-@router.get("/", response_model=List[OrderWithItemsResponse])
+@router.get("", response_model=List[OrderWithItemsResponse])
 async def get_orders(
     current_user: Annotated[Staff, Depends(get_current_user)],
     db: AsyncSession = Depends(get_db),
@@ -39,7 +39,7 @@ async def get_order(
 ):
     return await get_order_by_id(db, order_id)
 
-@router.post("/", response_model=OrderResponse)
+@router.post("", response_model=OrderResponse)
 async def create_order(
     order_data: OrderCreate,
     current_user: Annotated[Staff, Depends(get_current_user)],

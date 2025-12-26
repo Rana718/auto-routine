@@ -10,7 +10,7 @@ from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.schema import (
-    Staff, StaffStatus, Order, OrderItem, OrderStatus, ItemStatus,
+    Staff, StaffStatus, StaffRole, Order, OrderItem, OrderStatus, ItemStatus,
     PurchaseList, PurchaseListItem, PurchaseStatus, ListStatus,
     Store
 )
@@ -29,10 +29,11 @@ async def auto_assign_daily_orders(db: AsyncSession, target_date: date) -> Dict[
        - Geographic proximity to items/stores
        - Current workload balance
     """
-    # Get available staff
+    # Get available buyer staff only
     result = await db.execute(
         select(Staff)
         .where(Staff.is_active == True)
+        .where(Staff.role == StaffRole.BUYER)
         .where(Staff.status != StaffStatus.OFF_DUTY)
         .order_by(Staff.staff_id)
     )
@@ -170,13 +171,22 @@ async def auto_assign_daily_orders(db: AsyncSession, target_date: date) -> Dict[
         if pending == 0:
             order.order_status = OrderStatus.ASSIGNED
     
-    # Update purchase list store counts
+    # Update purchase list store counts and staff status
     for staff_id, purchase_list in staff_lists.items():
         result = await db.execute(
             select(func.count(func.distinct(PurchaseListItem.store_id)))
             .where(PurchaseListItem.list_id == purchase_list.list_id)
         )
         purchase_list.total_stores = result.scalar() or 0
+        
+        # Update staff status to IDLE if they have work assigned
+        if purchase_list.total_items > 0:
+            result = await db.execute(
+                select(Staff).where(Staff.staff_id == staff_id)
+            )
+            staff = result.scalar_one_or_none()
+            if staff and staff.status == StaffStatus.OFF_DUTY:
+                staff.status = StaffStatus.IDLE
     
     await db.flush()
     

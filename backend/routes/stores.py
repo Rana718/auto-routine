@@ -10,7 +10,7 @@ from middlewares.auth import get_current_user
 
 router = APIRouter()
 
-@router.get("/", response_model=List[StoreWithOrders])
+@router.get("", response_model=List[StoreWithOrders])
 async def get_stores(
     current_user: Annotated[Staff, Depends(get_current_user)],
     db: AsyncSession = Depends(get_db),
@@ -52,7 +52,7 @@ async def get_store(
 ):
     return await get_store_by_id(db, store_id)
 
-@router.post("/", response_model=StoreResponse)
+@router.post("", response_model=StoreResponse)
 async def create_store(
     store_data: StoreCreate,
     current_user: Annotated[Staff, Depends(get_current_user)],

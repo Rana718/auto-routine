@@ -94,15 +94,18 @@ export function RouteMap({ stops, startLocation, className = "" }: RouteMapProps
 
         // Add stop markers
         const routePoints: [number, number][] = [];
+        const waypoints: string[] = [];
 
         if (startLocation) {
             routePoints.push([startLocation.lat, startLocation.lng]);
+            waypoints.push(`${startLocation.lng},${startLocation.lat}`);
         }
 
         validStops.forEach((stop) => {
             if (stop.latitude && stop.longitude) {
                 const point: [number, number] = [stop.latitude, stop.longitude];
                 routePoints.push(point);
+                waypoints.push(`${stop.longitude},${stop.latitude}`);
 
                 // Choose icon based on status
                 let icon = DefaultIcon;
@@ -123,14 +126,80 @@ export function RouteMap({ stops, startLocation, className = "" }: RouteMapProps
             }
         });
 
-        // Draw route line
-        if (routePoints.length > 1) {
-            L.polyline(routePoints, {
-                color: "#14b8a6",
-                weight: 3,
-                opacity: 0.7,
-                dashArray: "5, 10",
-            }).addTo(map);
+        // Fetch and draw actual road route using OSRM
+        if (waypoints.length > 1) {
+            const coordinates = waypoints.join(";");
+            fetch(`https://router.project-osrm.org/route/v1/driving/${coordinates}?overview=full&geometries=geojson`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.code === "Ok" && data.routes && data.routes.length > 0) {
+                        const route = data.routes[0];
+                        const routeCoordinates = route.geometry.coordinates.map(
+                            (coord: [number, number]) => [coord[1], coord[0]] as [number, number]
+                        );
+                        
+                        // Draw route segments between stops with different colors based on completion
+                        for (let i = 0; i < validStops.length; i++) {
+                            const currentStop = validStops[i];
+                            const isCompleted = currentStop.stop_status === "completed";
+                            
+                            // Get the segment of coordinates for this leg
+                            const startIdx = startLocation ? i : i;
+                            const endIdx = startIdx + 1;
+                            
+                            if (endIdx < waypoints.length) {
+                                // Request route for this specific segment
+                                const segmentWaypoints = [waypoints[startIdx], waypoints[endIdx]].join(";");
+                                fetch(`https://router.project-osrm.org/route/v1/driving/${segmentWaypoints}?overview=full&geometries=geojson`)
+                                    .then(res => res.json())
+                                    .then(segData => {
+                                        if (segData.code === "Ok" && segData.routes && segData.routes.length > 0) {
+                                            const segRoute = segData.routes[0];
+                                            const segCoordinates = segRoute.geometry.coordinates.map(
+                                                (coord: [number, number]) => [coord[1], coord[0]] as [number, number]
+                                            );
+                                            
+                                            L.polyline(segCoordinates, {
+                                                color: isCompleted ? "#10b981" : "#2563eb",
+                                                weight: 5,
+                                                opacity: isCompleted ? 0.9 : 0.7,
+                                            }).addTo(map);
+                                        }
+                                    })
+                                    .catch(err => console.error("Segment routing error:", err));
+                            }
+                        }
+                    } else {
+                        // Fallback to straight lines if routing fails
+                        console.warn("Road routing failed, using straight lines");
+                        for (let i = 0; i < routePoints.length - 1; i++) {
+                            const currentStop = validStops[i - (startLocation ? 1 : 0)];
+                            const isCompleted = currentStop?.stop_status === "completed";
+                            
+                            L.polyline([routePoints[i], routePoints[i + 1]], {
+                                color: isCompleted ? "#10b981" : "#2563eb",
+                                weight: 4,
+                                opacity: isCompleted ? 0.8 : 0.6,
+                                dashArray: "10, 5",
+                            }).addTo(map);
+                        }
+                    }
+                })
+                .catch(err => {
+                    console.error("Routing error:", err);
+                    // Fallback to straight lines with color coding
+                    for (let i = 0; i < routePoints.length - 1; i++) {
+                        const currentStop = validStops[i - (startLocation ? 1 : 0)];
+                        const isCompleted = currentStop?.stop_status === "completed";
+                        
+                        L.polyline([routePoints[i], routePoints[i + 1]], {
+                            color: isCompleted ? "#10b981" : "#2563eb",
+                            weight: 4,
+                            opacity: isCompleted ? 0.8 : 0.6,
+                            dashArray: "10, 5",
+                        }).addTo(map);
+                    }
+                });
         }
 
         // Fit bounds to show all markers

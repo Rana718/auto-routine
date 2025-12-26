@@ -10,7 +10,7 @@ from middlewares.auth import get_current_user
 
 router = APIRouter()
 
-@router.get("/", response_model=List[StaffWithStats])
+@router.get("", response_model=List[StaffWithStats])
 async def get_staff(
     current_user: Annotated[Staff, Depends(get_current_user)],
     db: AsyncSession = Depends(get_db),
@@ -35,7 +35,7 @@ async def get_staff_member(
 ):
     return await get_staff_by_id(db, staff_id)
 
-@router.post("/", response_model=StaffResponse)
+@router.post("", response_model=StaffResponse)
 async def create_staff(
     staff_data: StaffCreate,
     current_user: Annotated[Staff, Depends(get_current_user)],

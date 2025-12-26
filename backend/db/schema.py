@@ -523,7 +523,7 @@ class OrderCreate(OrderBase):
 class OrderResponse(OrderBase):
     model_config = ConfigDict(from_attributes=True)
     
-    pass
+    order_id: int
     order_status: OrderStatus
     created_at: datetime
     updated_at: datetime
@@ -546,7 +546,6 @@ class OrderItemResponse(OrderItemBase):
     model_config = ConfigDict(from_attributes=True)
     
     item_id: int
-    pass
     item_status: ItemStatus
     created_at: datetime
 

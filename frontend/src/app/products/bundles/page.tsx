@@ -16,9 +16,25 @@ interface Product {
     set_split_rule: any;
 }
 
+interface BundleItem {
+    sku: string;
+    name: string;
+    quantity: number;
+}
+
 export default function BundlesPage() {
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
+    const [showCreateModal, setShowCreateModal] = useState(false);
+    const [creating, setCreating] = useState(false);
+    
+    // Form state
+    const [bundleSku, setBundleSku] = useState("");
+    const [bundleName, setBundleName] = useState("");
+    const [bundleCategory, setBundleCategory] = useState("家電");
+    const [bundleItems, setBundleItems] = useState<BundleItem[]>([
+        { sku: "", name: "", quantity: 1 }
+    ]);
 
     useEffect(() => {
         fetchProducts();
@@ -40,6 +56,86 @@ export default function BundlesPage() {
         }
     }
 
+    function addBundleItem() {
+        setBundleItems([...bundleItems, { sku: "", name: "", quantity: 1 }]);
+    }
+
+    function removeBundleItem(index: number) {
+        setBundleItems(bundleItems.filter((_, i) => i !== index));
+    }
+
+    function updateBundleItem(index: number, field: keyof BundleItem, value: string | number) {
+        const updated = [...bundleItems];
+        updated[index] = { ...updated[index], [field]: value };
+        setBundleItems(updated);
+    }
+
+    async function handleCreateBundle() {
+        if (!bundleSku || !bundleName || bundleItems.some(item => !item.sku || !item.name)) {
+            alert("全ての項目を入力してください");
+            return;
+        }
+
+        try {
+            setCreating(true);
+            
+            // Create the bundle product
+            const productResponse = await fetch(`${API_BASE_URL}/api/products`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${localStorage.getItem("token")}`
+                },
+                body: JSON.stringify({
+                    sku: bundleSku,
+                    product_name: bundleName,
+                    category: bundleCategory
+                })
+            });
+
+            if (!productResponse.ok) throw new Error("商品作成に失敗しました");
+            
+            const product = await productResponse.json();
+            
+            // Update product to be a bundle with split rules
+            const updateResponse = await fetch(`${API_BASE_URL}/api/products/${product.product_id}`, {
+                method: "PATCH",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${localStorage.getItem("token")}`
+                },
+                body: JSON.stringify({
+                    is_set_product: true,
+                    set_split_rule: {
+                        items: bundleItems.map(item => ({
+                            sku: item.sku,
+                            name: item.name,
+                            qty: item.quantity
+                        }))
+                    }
+                })
+            });
+
+            if (!updateResponse.ok) throw new Error("バンドル設定に失敗しました");
+
+            alert("セット商品を作成しました");
+            setShowCreateModal(false);
+            resetForm();
+            await fetchProducts();
+        } catch (err) {
+            alert(err instanceof Error ? err.message : "エラーが発生しました");
+        } finally {
+            setCreating(false);
+        }
+    }
+
+    function resetForm() {
+        setBundleSku("");
+        setBundleName("");
+        setBundleCategory("家電");
+        setBundleItems([{ sku: "", name: "", quantity: 1 }]);
+    }
+
     if (loading) {
         return (
             <MainLayout title="セット商品管理" subtitle="バンドル商品の設定">
@@ -53,11 +149,150 @@ export default function BundlesPage() {
     return (
         <MainLayout title="セット商品管理" subtitle="バンドル商品の設定">
             <div className="mb-6">
-                <Button className="gap-2">
+                <Button className="gap-2" onClick={() => setShowCreateModal(true)}>
                     <Plus className="h-4 w-4" />
                     セット商品を追加
                 </Button>
             </div>
+
+            {showCreateModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                    <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl border border-border bg-card p-6 shadow-lg">
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-xl font-bold text-foreground">セット商品を追加</h2>
+                            <button onClick={() => setShowCreateModal(false)} className="text-muted-foreground hover:text-foreground">
+                                ✕
+                            </button>
+                        </div>
+
+                        <div className="space-y-4">
+                            {/* Bundle Info */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-foreground mb-2">
+                                        SKU <span className="text-destructive">*</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={bundleSku}
+                                        onChange={(e) => setBundleSku(e.target.value)}
+                                        placeholder="BUNDLE-001"
+                                        className="w-full h-10 rounded-lg border border-border bg-secondary px-3 text-foreground"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-foreground mb-2">
+                                        カテゴリ
+                                    </label>
+                                    <select
+                                        value={bundleCategory}
+                                        onChange={(e) => setBundleCategory(e.target.value)}
+                                        className="w-full h-10 rounded-lg border border-border bg-secondary px-3 text-foreground"
+                                    >
+                                        <option value="家電">家電</option>
+                                        <option value="食品・飲料">食品・飲料</option>
+                                        <option value="ドラッグストア">ドラッグストア</option>
+                                        <option value="日用品">日用品</option>
+                                        <option value="衣料品">衣料品</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-foreground mb-2">
+                                    商品名 <span className="text-destructive">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    value={bundleName}
+                                    onChange={(e) => setBundleName(e.target.value)}
+                                    placeholder="スターターキット A"
+                                    className="w-full h-10 rounded-lg border border-border bg-secondary px-3 text-foreground"
+                                />
+                            </div>
+
+                            {/* Bundle Items */}
+                            <div>
+                                <div className="flex items-center justify-between mb-3">
+                                    <label className="block text-sm font-medium text-foreground">
+                                        含まれる商品 <span className="text-destructive">*</span>
+                                    </label>
+                                    <Button size="sm" onClick={addBundleItem} className="gap-1">
+                                        <Plus className="h-3 w-3" />
+                                        商品追加
+                                    </Button>
+                                </div>
+
+                                <div className="space-y-3">
+                                    {bundleItems.map((item, index) => (
+                                        <div key={`item-${index}`} className="flex gap-2 p-3 rounded-lg border border-border bg-secondary/50">
+                                            <div className="flex-1 grid grid-cols-2 gap-2">
+                                                <input
+                                                    type="text"
+                                                    value={item.sku}
+                                                    onChange={(e) => updateBundleItem(index, "sku", e.target.value)}
+                                                    placeholder="SKU"
+                                                    className="h-9 rounded border border-border bg-background px-2 text-sm"
+                                                />
+                                                <input
+                                                    type="text"
+                                                    value={item.name}
+                                                    onChange={(e) => updateBundleItem(index, "name", e.target.value)}
+                                                    placeholder="商品名"
+                                                    className="h-9 rounded border border-border bg-background px-2 text-sm"
+                                                />
+                                            </div>
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                value={item.quantity}
+                                                onChange={(e) => updateBundleItem(index, "quantity", parseInt(e.target.value) || 1)}
+                                                className="w-16 h-9 rounded border border-border bg-background px-2 text-sm text-center"
+                                            />
+                                            {bundleItems.length > 1 && (
+                                                <button
+                                                    onClick={() => removeBundleItem(index)}
+                                                    className="h-9 w-9 rounded border border-destructive/30 hover:bg-destructive/10 text-destructive"
+                                                >
+                                                    <Trash2 className="h-4 w-4 mx-auto" />
+                                                </button>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Actions */}
+                            <div className="flex gap-3 pt-4">
+                                <Button
+                                    variant="outline"
+                                    className="flex-1"
+                                    onClick={() => {
+                                        setShowCreateModal(false);
+                                        resetForm();
+                                    }}
+                                >
+                                    キャンセル
+                                </Button>
+                                <Button
+                                    className="flex-1"
+                                    onClick={handleCreateBundle}
+                                    disabled={creating}
+                                >
+                                    {creating ? (
+                                        <>
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            作成中...
+                                        </>
+                                    ) : (
+                                        "作成"
+                                    )}
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {products.map((product) => (
@@ -76,7 +311,7 @@ export default function BundlesPage() {
                         <div className="space-y-2">
                             <p className="text-sm font-medium text-foreground">含まれる商品:</p>
                             {product.set_split_rule?.items?.map((item: any, idx: number) => (
-                                <div key={idx} className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <div key={`split-${idx}-${item.sku || idx}`} className="flex items-center gap-2 text-sm text-muted-foreground">
                                     <Package className="h-3 w-3" />
                                     <span>{item.name} × {item.quantity}</span>
                                 </div>

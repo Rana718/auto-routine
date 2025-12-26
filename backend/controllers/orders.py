@@ -30,7 +30,30 @@ async def get_all_orders(
     
     query = query.order_by(Order.order_date.desc()).offset(skip).limit(limit)
     result = await db.execute(query)
-    return result.scalars().all()
+    orders = result.scalars().all()
+    
+    # Convert SQLAlchemy objects to response model
+    return [
+        OrderWithItemsResponse(
+            order_id=order.order_id,
+            robot_in_order_id=order.robot_in_order_id,
+            mall_name=order.mall_name,
+            customer_name=order.customer_name,
+            order_status=order.order_status,
+            target_purchase_date=order.target_purchase_date,
+            items=[
+                {
+                    "item_id": item.item_id,
+                    "sku": item.sku,
+                    "product_name": item.product_name,
+                    "quantity": item.quantity,
+                    "item_status": item.item_status.value if item.item_status else "pending"
+                }
+                for item in order.items
+            ]
+        )
+        for order in orders
+    ]
 
 async def get_order_statistics(db: AsyncSession, target_date: Optional[date]) -> OrderStats:
     query = select(func.count(Order.order_id))

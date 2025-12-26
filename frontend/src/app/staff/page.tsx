@@ -52,6 +52,8 @@ export default function StaffPage() {
             setAutoAssigning(true);
             const today = new Date().toISOString().split("T")[0];
             await automationApi.autoAssignDaily(today);
+            // Add delay before refresh to prevent DOM manipulation conflicts
+            await new Promise(resolve => setTimeout(resolve, 300));
             await fetchStaff(); // Refresh data
         } catch (err) {
             setError(err instanceof Error ? err.message : "自動割当に失敗しました");
@@ -136,8 +138,7 @@ export default function StaffPage() {
                     {staff.map((member, index) => (
                         <div
                             key={member.staff_id}
-                            className="rounded-xl border border-border bg-card p-5 card-shadow hover:elevated-shadow transition-all duration-200 animate-slide-up"
-                            style={{ animationDelay: `${index * 50}ms` }}
+                            className="rounded-xl border border-border bg-card p-5 card-shadow hover:elevated-shadow transition-all duration-200"
                         >
                             {/* Header */}
                             <div className="flex items-start justify-between mb-4">

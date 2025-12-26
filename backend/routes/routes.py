@@ -11,7 +11,7 @@ from middlewares.auth import get_current_user
 
 router = APIRouter()
 
-@router.get("/", response_model=List[RouteWithDetails])
+@router.get("", response_model=List[RouteWithDetails])
 async def get_routes(
     current_user: Annotated[Staff, Depends(get_current_user)],
     db: AsyncSession = Depends(get_db),
@@ -64,7 +64,7 @@ async def update_stop(
     current_user: Annotated[Staff, Depends(get_current_user)],
     db: AsyncSession = Depends(get_db)
 ):
-    return await update_stop_controller(db, route_id, stop_id, update)
+    return await update_stop_controller(db, route_id, stop_id, update, current_user.staff_id)
 
 @router.post("/start-all")
 async def start_all_routes(

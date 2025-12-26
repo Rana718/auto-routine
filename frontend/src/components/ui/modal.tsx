@@ -29,7 +29,6 @@ export function Modal({ isOpen, onClose, title, children, className }: ModalProp
                 className={cn(
                     "relative z-10 w-full max-w-md max-h-[90vh] overflow-auto",
                     "rounded-xl border border-border bg-card shadow-xl",
-                    "animate-in fade-in-0 zoom-in-95 duration-200",
                     className
                 )}
             >

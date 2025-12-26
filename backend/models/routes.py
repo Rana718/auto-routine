@@ -1,6 +1,6 @@
 from datetime import date
 from typing import List, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from db.schema import RouteStatus, StopStatus
 
 class RouteWithDetails(BaseModel):
@@ -21,6 +21,6 @@ class RouteGenerate(BaseModel):
     optimization_priority: str = "speed"
 
 class StopUpdate(BaseModel):
-    stop_status: StopStatus
+    stop_status: str = Field(..., pattern="^(pending|current|completed|skipped)$")
     actual_arrival: Optional[str] = None
     actual_departure: Optional[str] = None

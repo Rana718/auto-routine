@@ -150,7 +150,7 @@ async def update_route_status_controller(db: AsyncSession, route_id: int, status
     route.route_status = status
     return {"message": "ステータスを更新しました", "new_status": status.value}
 
-async def update_stop_controller(db: AsyncSession, route_id: int, stop_id: int, update: StopUpdate):
+async def update_stop_controller(db: AsyncSession, route_id: int, stop_id: int, update: StopUpdate, current_user_id: int = None):
     result = await db.execute(
         select(RouteStop)
         .where(RouteStop.route_id == route_id)
@@ -160,8 +160,28 @@ async def update_stop_controller(db: AsyncSession, route_id: int, stop_id: int, 
     if not stop:
         raise HTTPException(status_code=404, detail="ストップが見つかりません")
     
-    stop.stop_status = update.stop_status
-    return {"message": "ストップを更新しました", "new_status": update.stop_status.value}
+    # Get route to check staff assignment
+    result = await db.execute(select(Route).where(Route.route_id == route_id))
+    route = result.scalar_one_or_none()
+    
+    # Permission check: only assigned staff or supervisors/admins can update
+    if current_user_id and route:
+        result = await db.execute(select(Staff).where(Staff.staff_id == current_user_id))
+        current_user = result.scalar_one_or_none()
+        
+        if current_user:
+            from db.schema import StaffRole
+            is_assigned_staff = route.staff_id == current_user_id
+            is_supervisor_or_admin = current_user.role in [StaffRole.SUPERVISOR, StaffRole.ADMIN]
+            
+            if not (is_assigned_staff or is_supervisor_or_admin):
+                raise HTTPException(status_code=403, detail="このルートを更新する権限がありません")
+    
+    # Convert string to StopStatus enum
+    from db.schema import StopStatus
+    stop.stop_status = StopStatus(update.stop_status)
+    await db.commit()
+    return {"message": "ストップを更新しました", "new_status": update.stop_status}
 
 async def start_all_routes_controller(db: AsyncSession, route_date: date = None):
     target_date = route_date or date.today()
@@ -175,4 +195,5 @@ async def start_all_routes_controller(db: AsyncSession, route_date: date = None)
     for route in routes:
         route.route_status = RouteStatus.IN_PROGRESS
     
+    await db.commit()
     return {"message": f"{len(routes)}件のルートを開始しました", "count": len(routes)}

@@ -211,13 +211,17 @@ async def generate_all_routes_for_date(
     optimization_priority: str = "speed"
 ) -> List[int]:
     """
-    Generate routes for all staff members with purchase lists on the target date.
+    Generate routes for all buyer staff members with purchase lists on the target date.
     Returns list of created route IDs.
     """
+    from db.schema import StaffRole
     result = await db.execute(
         select(PurchaseList)
+        .join(Staff, Staff.staff_id == PurchaseList.staff_id)
         .where(PurchaseList.purchase_date == target_date)
         .where(PurchaseList.total_items > 0)
+        .where(Staff.role == StaffRole.BUYER)
+        .where(Staff.is_active == True)
     )
     purchase_lists = result.scalars().all()
     

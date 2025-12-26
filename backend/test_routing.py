@@ -39,11 +39,14 @@ def create_tokyo_stores():
     """Create stores across Tokyo with real GPS coordinates"""
     print("\n🏪 Creating Tokyo stores with GPS coordinates...")
     
+    import time
+    timestamp = int(time.time())
+    
     stores = [
         # Shibuya area
         {
             "store_name": "ヨドバシカメラ マルチメディア渋谷",
-            "store_code": "YODO-SBY",
+            "store_code": f"YODO-SBY-{timestamp}",
             "address": "東京都渋谷区神南1-19-18",
             "district": "渋谷区",
             "latitude": 35.6627,
@@ -54,7 +57,7 @@ def create_tokyo_stores():
         # Shinjuku area
         {
             "store_name": "ビックカメラ 新宿西口店",
-            "store_code": "BIC-SJK",
+            "store_code": f"BIC-SJK-{timestamp}",
             "address": "東京都新宿区西新宿1-5-1",
             "district": "新宿区",
             "latitude": 35.6896,
@@ -65,7 +68,7 @@ def create_tokyo_stores():
         # Akihabara area
         {
             "store_name": "ヨドバシカメラ マルチメディアAkiba",
-            "store_code": "YODO-AKB",
+            "store_code": f"YODO-AKB-{timestamp}",
             "address": "東京都千代田区神田花岡町1-1",
             "district": "千代田区",
             "latitude": 35.6984,
@@ -76,7 +79,7 @@ def create_tokyo_stores():
         # Ikebukuro area
         {
             "store_name": "ビックカメラ 池袋本店",
-            "store_code": "BIC-IKB",
+            "store_code": f"BIC-IKB-{timestamp}",
             "address": "東京都豊島区東池袋1-41-5",
             "district": "豊島区",
             "latitude": 35.7295,
@@ -87,7 +90,7 @@ def create_tokyo_stores():
         # Ginza area
         {
             "store_name": "マツモトキヨシ 銀座5丁目店",
-            "store_code": "MAT-GNZ",
+            "store_code": f"MAT-GNZ-{timestamp}",
             "address": "東京都中央区銀座5-8-17",
             "district": "中央区",
             "latitude": 35.6717,
@@ -98,7 +101,7 @@ def create_tokyo_stores():
         # Roppongi area
         {
             "store_name": "ドン・キホーテ 六本木店",
-            "store_code": "DON-ROP",
+            "store_code": f"DON-ROP-{timestamp}",
             "address": "東京都港区六本木3-14-10",
             "district": "港区",
             "latitude": 35.6627,
@@ -109,7 +112,7 @@ def create_tokyo_stores():
         # Ueno area
         {
             "store_name": "多慶屋 上野本店",
-            "store_code": "TAK-UEN",
+            "store_code": f"TAK-UEN-{timestamp}",
             "address": "東京都台東区台東4-33-2",
             "district": "台東区",
             "latitude": 35.7089,
@@ -120,7 +123,7 @@ def create_tokyo_stores():
         # Asakusa area
         {
             "store_name": "成城石井 浅草店",
-            "store_code": "SEI-ASK",
+            "store_code": f"SEI-ASK-{timestamp}",
             "address": "東京都台東区雷門2-17-12",
             "district": "台東区",
             "latitude": 35.7117,
@@ -131,7 +134,7 @@ def create_tokyo_stores():
         # Odaiba area
         {
             "store_name": "ダイバーシティ東京 プラザ",
-            "store_code": "DIV-ODB",
+            "store_code": f"DIV-ODB-{timestamp}",
             "address": "東京都江東区青海1-1-10",
             "district": "江東区",
             "latitude": 35.6252,
@@ -142,7 +145,7 @@ def create_tokyo_stores():
         # Nakano area
         {
             "store_name": "まんだらけ 中野店",
-            "store_code": "MAN-NAK",
+            "store_code": f"MAN-NAK-{timestamp}",
             "address": "東京都中野区中野5-52-15",
             "district": "中野区",
             "latitude": 35.7065,
@@ -155,7 +158,7 @@ def create_tokyo_stores():
     created_stores = []
     for store in stores:
         response = requests.post(
-            f"{BASE_URL}/api/stores",
+            f"{BASE_URL}/api/stores",  # Add trailing slash
             headers=get_headers(),
             json=store
         )
@@ -170,10 +173,13 @@ def create_staff_with_locations():
     """Create staff with different start locations"""
     print("\n👥 Creating staff with start locations...")
     
+    import time
+    timestamp = int(time.time())
+    
     staff_list = [
         {
             "name": "田中太郎",
-            "email": "tanaka@example.com",
+            "email": f"tanaka-{timestamp}@example.com",
             "password": "password123",
             "role": "buyer",
             "start_location_lat": 35.6627,  # Shibuya
@@ -182,7 +188,7 @@ def create_staff_with_locations():
         },
         {
             "name": "佐藤花子",
-            "email": "sato@example.com",
+            "email": f"sato-{timestamp}@example.com",
             "password": "password123",
             "role": "buyer",
             "start_location_lat": 35.6896,  # Shinjuku
@@ -191,7 +197,7 @@ def create_staff_with_locations():
         },
         {
             "name": "鈴木一郎",
-            "email": "suzuki@example.com",
+            "email": f"suzuki-{timestamp}@example.com",
             "password": "password123",
             "role": "buyer",
             "start_location_lat": 35.7295,  # Ikebukuro
@@ -203,7 +209,7 @@ def create_staff_with_locations():
     created_staff = []
     for staff in staff_list:
         response = requests.post(
-            f"{BASE_URL}/api/admin/users",
+            f"{BASE_URL}/api/admin/users",  # Add trailing slash
             headers=get_headers(),
             json=staff
         )
@@ -211,6 +217,8 @@ def create_staff_with_locations():
             staff_data = response.json()
             created_staff.append(staff_data)
             print(f"✓ Created: {staff['name']} (ID: {staff_data['staff_id']})")
+        else:
+            print(f"✗ Failed to create {staff['name']}: {response.text}")
     
     return created_staff
 
@@ -218,6 +226,8 @@ def create_orders_for_routing():
     """Create orders with items from different stores"""
     print("\n📦 Creating orders for routing test...")
     
+    import time
+    timestamp = int(time.time())
     today = datetime.now().isoformat()
     target_date = date.today().isoformat()
     
@@ -225,7 +235,7 @@ def create_orders_for_routing():
     orders = []
     for i in range(1, 6):
         order = {
-            "robot_in_order_id": f"ROUTE-TEST-{i:03d}",
+            "robot_in_order_id": f"ROUTE-TEST-{timestamp}-{i:03d}",
             "mall_name": "楽天市場",
             "customer_name": f"ルートテスト顧客{i}",
             "order_date": today,
@@ -233,7 +243,7 @@ def create_orders_for_routing():
         }
         
         response = requests.post(
-            f"{BASE_URL}/api/orders",
+            f"{BASE_URL}/api/orders",  # Add trailing slash
             headers=get_headers(),
             json=order
         )
@@ -241,7 +251,11 @@ def create_orders_for_routing():
         if response.status_code == 200:
             order_data = response.json()
             orders.append(order_data)
-            print(f"✓ Created order: {order['robot_in_order_id']} (ID: {order_data['order_id']})")
+            # Use correct field name from response
+            order_id = order_data.get('order_id') or order_data.get('id')
+            print(f"✓ Created order: {order['robot_in_order_id']} (ID: {order_id})")
+        else:
+            print(f"✗ Failed to create order: {response.text}")
     
     return orders
 
@@ -279,10 +293,45 @@ def add_items_to_orders(orders, stores):
             store_by_category[category] = []
         store_by_category[category].append(store["store_id"])
     
+    # First, create products and map them to stores
+    print("\n📦 Creating products and store mappings...")
+    for category, products in products_by_category.items():
+        for product in products:
+            # Create product
+            product_data = {
+                "sku": product["sku"],
+                "product_name": product["name"],
+                "category": category,
+                "price": product["price"]
+            }
+            response = requests.post(
+                f"{BASE_URL}/api/products",
+                headers=get_headers(),
+                json=product_data
+            )
+            
+            if response.status_code == 200:
+                product_id = response.json()["product_id"]
+                
+                # Map product to stores in this category
+                if category in store_by_category:
+                    for store_id in store_by_category[category]:
+                        mapping_data = {
+                            "product_id": product_id,
+                            "store_id": store_id,
+                            "stock_status": "in_stock",
+                            "priority": 1
+                        }
+                        requests.post(
+                            f"{BASE_URL}/api/products/store-mappings",
+                            headers=get_headers(),
+                            json=mapping_data
+                        )
+    
     # Add items to each order
     import random
     for order in orders:
-        order_id = order["order_id"]
+        order_id = order.get('order_id') or order.get('id')
         
         # Add 3-5 items per order from different categories
         num_items = random.randint(3, 5)
@@ -300,7 +349,7 @@ def add_items_to_orders(orders, stores):
             }
             
             response = requests.post(
-                f"{BASE_URL}/api/orders/{order_id}/items",
+                f"{BASE_URL}/api/orders/{order_id}/items",  # Add trailing slash
                 headers=get_headers(),
                 json=item
             )

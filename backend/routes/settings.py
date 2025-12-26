@@ -10,7 +10,7 @@ from middlewares.auth import get_current_user
 
 router = APIRouter()
 
-@router.get("/", response_model=AllSettings)
+@router.get("", response_model=AllSettings)
 async def get_settings(
     current_user: Annotated[Staff, Depends(get_current_user)],
     db: AsyncSession = Depends(get_db)

@@ -76,7 +76,9 @@ export default function RoutesPage() {
         try {
             setStartingAll(true);
             await routesApi.startAll(today);
-            await fetchRoutes();
+            // Small delay to let backend commit changes
+            await new Promise(resolve => setTimeout(resolve, 300));
+            await fetchRoutes(); // Refresh to show updated status
         } catch (err) {
             setError(err instanceof Error ? err.message : "ルート開始に失敗しました");
         } finally {
@@ -145,12 +147,11 @@ export default function RoutesPage() {
                                 key={route.route_id}
                                 onClick={() => setSelectedRoute(route.route_id)}
                                 className={cn(
-                                    "w-full rounded-xl border p-4 text-left transition-all duration-200 animate-slide-up",
+                                    "w-full rounded-xl border p-4 text-left transition-all duration-200",
                                     selectedRoute === route.route_id
                                         ? "border-primary bg-primary/10 shadow-lg"
                                         : "border-border bg-card hover:border-primary/50 card-shadow"
                                 )}
-                                style={{ animationDelay: `${index * 50}ms` }}
                             >
                                 <div className="flex items-center gap-3 mb-3">
                                     <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground font-semibold">
@@ -226,12 +227,25 @@ export default function RoutesPage() {
                                             <div
                                                 key={stop.stop_id}
                                                 className={cn(
-                                                    "flex items-center gap-4 p-4 rounded-lg border-l-4 transition-all animate-fade-in",
+                                                    "flex items-center gap-4 p-4 rounded-lg border-l-4 transition-all",
                                                     stopStatusConfig[stop.stop_status as StopStatus] || stopStatusConfig.pending
                                                 )}
-                                                style={{ animationDelay: `${index * 50}ms` }}
                                             >
-                                                {/* Step Number */}
+                                                {/* Step Number / Checkbox */}
+                                                <input
+                                                    type="checkbox"
+                                                    checked={stop.stop_status === "completed"}
+                                                    onChange={async () => {
+                                                        try {
+                                                            const newStatus = stop.stop_status === "completed" ? "pending" : "completed";
+                                                            await routesApi.updateStop(activeRoute.route_id, stop.stop_id, newStatus);
+                                                            await fetchRoutes();
+                                                        } catch (err) {
+                                                            console.error("Failed to update stop:", err);
+                                                        }
+                                                    }}
+                                                    className="h-6 w-6 rounded border-2 border-primary cursor-pointer"
+                                                />
                                                 <div
                                                     className={cn(
                                                         "flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold shrink-0",
