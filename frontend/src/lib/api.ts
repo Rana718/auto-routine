@@ -407,4 +407,17 @@ export const automationApi = {
     },
 };
 
+// ============================================================================
+// ADMIN API
+// ============================================================================
+
+export const adminApi = {
+    async deleteUser(userId: number): Promise<{ message: string }> {
+        return fetchApi<{ message: string }>(
+            `/api/admin/users/${userId}`,
+            { method: "DELETE" }
+        );
+    },
+};
+
 export { ApiError };

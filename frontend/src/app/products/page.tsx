@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { Package, Store, Filter, Loader2 } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
@@ -26,23 +27,28 @@ interface Store {
 }
 
 export default function ProductsPage() {
+    const { data: session } = useSession();
     const [products, setProducts] = useState<Product[]>([]);
     const [stores, setStores] = useState<Store[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        fetchData();
-    }, []);
+        if (session?.accessToken) {
+            fetchData();
+        }
+    }, [session]);
 
     async function fetchData() {
+        if (!session?.accessToken) return;
+        
         try {
             setLoading(true);
             const [productsRes, storesRes] = await Promise.all([
                 fetch(`${API_BASE_URL}/api/products`, {
-                    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+                    headers: { Authorization: `Bearer ${session.accessToken}` }
                 }),
                 fetch(`${API_BASE_URL}/api/stores`, {
-                    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+                    headers: { Authorization: `Bearer ${session.accessToken}` }
                 })
             ]);
             
@@ -61,12 +67,14 @@ export default function ProductsPage() {
     }
 
     async function toggleStoreFixed(productId: number, isFixed: boolean, storeId: number | null) {
+        if (!session?.accessToken) return;
+        
         try {
             const response = await fetch(
                 `${API_BASE_URL}/api/products/${productId}/store-fixed?is_fixed=${isFixed}&store_id=${storeId || ""}`,
                 {
                     method: "PATCH",
-                    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+                    headers: { Authorization: `Bearer ${session.accessToken}` }
                 }
             );
             if (!response.ok) throw new Error("更新に失敗しました");
@@ -77,12 +85,14 @@ export default function ProductsPage() {
     }
 
     async function toggleRouting(productId: number, exclude: boolean) {
+        if (!session?.accessToken) return;
+        
         try {
             const response = await fetch(
                 `${API_BASE_URL}/api/products/${productId}/routing?exclude=${exclude}`,
                 {
                     method: "PATCH",
-                    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+                    headers: { Authorization: `Bearer ${session.accessToken}` }
                 }
             );
             if (!response.ok) throw new Error("更新に失敗しました");

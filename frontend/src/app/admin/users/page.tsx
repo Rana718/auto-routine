@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { UserPlus, Shield, Trash2, Loader2, CheckCircle, XCircle } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,7 @@ const roleConfig: Record<string, { label: string; className: string }> = {
 };
 
 export default function AdminUsersPage() {
+    const { data: session } = useSession();
     const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -33,14 +35,18 @@ export default function AdminUsersPage() {
     const [newUser, setNewUser] = useState({ name: "", email: "", password: "", role: "buyer" });
 
     useEffect(() => {
-        fetchUsers();
-    }, []);
+        if (session?.accessToken) {
+            fetchUsers();
+        }
+    }, [session]);
 
     async function fetchUsers() {
+        if (!session?.accessToken) return;
+        
         try {
             setLoading(true);
             const response = await fetch(`${API_BASE_URL}/api/admin/users?include_inactive=true`, {
-                headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+                headers: { Authorization: `Bearer ${session.accessToken}` }
             });
             if (!response.ok) throw new Error("ユーザーの取得に失敗しました");
             const data = await response.json();
@@ -53,12 +59,14 @@ export default function AdminUsersPage() {
     }
 
     async function createUser() {
+        if (!session?.accessToken) return;
+        
         try {
             const response = await fetch(`${API_BASE_URL}/api/admin/users`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
-                    Authorization: `Bearer ${localStorage.getItem("token")}`
+                    Authorization: `Bearer ${session.accessToken}`
                 },
                 body: JSON.stringify(newUser)
             });
@@ -72,12 +80,14 @@ export default function AdminUsersPage() {
     }
 
     async function toggleActive(userId: number, active: boolean) {
+        if (!session?.accessToken) return;
+        
         try {
             const response = await fetch(
                 `${API_BASE_URL}/api/admin/users/${userId}/activate?active=${active}`,
                 {
                     method: "PATCH",
-                    headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+                    headers: { Authorization: `Bearer ${session.accessToken}` }
                 }
             );
             if (!response.ok) throw new Error("更新に失敗しました");
@@ -88,12 +98,14 @@ export default function AdminUsersPage() {
     }
 
     async function updateRole(userId: number, role: string) {
+        if (!session?.accessToken) return;
+        
         try {
             const response = await fetch(`${API_BASE_URL}/api/admin/users/${userId}/role`, {
                 method: "PATCH",
                 headers: {
                     "Content-Type": "application/json",
-                    Authorization: `Bearer ${localStorage.getItem("token")}`
+                    Authorization: `Bearer ${session.accessToken}`
                 },
                 body: JSON.stringify({ role })
             });
@@ -105,12 +117,13 @@ export default function AdminUsersPage() {
     }
 
     async function deleteUser(userId: number) {
+        if (!session?.accessToken) return;
         if (!confirm("本当にこのユーザーを削除しますか？")) return;
         
         try {
             const response = await fetch(`${API_BASE_URL}/api/admin/users/${userId}`, {
                 method: "DELETE",
-                headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+                headers: { Authorization: `Bearer ${session.accessToken}` }
             });
             if (!response.ok) throw new Error("削除に失敗しました");
             await fetchUsers();
