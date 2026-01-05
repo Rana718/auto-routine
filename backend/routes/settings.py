@@ -75,3 +75,15 @@ async def create_backup(
     db: AsyncSession = Depends(get_db)
 ):
     return await create_backup_controller(db)
+
+
+@router.post("/data/calculate-distances")
+async def calculate_distances(
+    current_user: Annotated[Staff, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db)
+):
+    """Pre-calculate store distance matrix for route optimization"""
+    from services.distance_matrix import calculate_store_distance_matrix
+    
+    count = await calculate_store_distance_matrix(db)
+    return {"message": f"{count}件の距離を計算しました", "calculated_pairs": count}

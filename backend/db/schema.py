@@ -504,6 +504,21 @@ class SystemLog(Base):
     )
 
 
+class Holiday(Base):
+    """Holiday calendar for cutoff logic"""
+    __tablename__ = "holidays"
+
+    holiday_id = Column(Integer, primary_key=True, autoincrement=True)
+    holiday_date = Column(Date, nullable=False, unique=True)
+    holiday_name = Column(String(100), nullable=True)
+    is_working = Column(Boolean, default=False)  # Override to work on holiday
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        Index("idx_holiday_date", "holiday_date"),
+    )
+
+
 # ============================================================================
 # PYDANTIC SCHEMAS (for API validation)
 # ============================================================================

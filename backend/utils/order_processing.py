@@ -7,6 +7,8 @@ from db.schema import Order, OrderItem, OrderStatus, ItemStatus
 
 async def apply_cutoff_logic(db: AsyncSession, order_date: datetime) -> date:
     """Determine target purchase date based on cutoff time (13:10)"""
+    from db.schema import Holiday
+    
     cutoff_time = time(13, 10)
     order_time = order_date.time()
     order_day = order_date.date()
@@ -18,10 +20,33 @@ async def apply_cutoff_logic(db: AsyncSession, order_date: datetime) -> date:
         # After cutoff -> next business day
         from datetime import timedelta
         target_date = order_day + timedelta(days=1)
+    
+    # Skip weekends and holidays
+    from datetime import timedelta
+    max_iterations = 30  # Safety limit
+    iterations = 0
+    
+    while iterations < max_iterations:
+        iterations += 1
         
         # Skip weekends
-        while target_date.weekday() >= 5:  # 5=Saturday, 6=Sunday
+        if target_date.weekday() >= 5:  # 5=Saturday, 6=Sunday
             target_date += timedelta(days=1)
+            continue
+        
+        # Check if holiday (non-working)
+        result = await db.execute(
+            select(Holiday).where(
+                Holiday.holiday_date == target_date,
+                Holiday.is_working == False
+            )
+        )
+        if result.scalar_one_or_none():
+            target_date += timedelta(days=1)
+            continue
+        
+        # Found a valid business day
+        break
     
     return target_date
 

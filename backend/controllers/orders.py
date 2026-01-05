@@ -144,17 +144,25 @@ async def update_order_status_controller(db: AsyncSession, order_id: int, status
 
 async def import_bulk_orders(db: AsyncSession, data: BulkOrderImport):
     from dateutil import parser
+    from utils.order_processing import apply_cutoff_logic, split_bundle_items
     
     created_count = 0
+    order_ids = []
+    
     for order_data in data.orders:
         # Parse date string to datetime
         order_date = order_data.get("order_date")
         if isinstance(order_date, str):
             order_date = parser.parse(order_date).replace(tzinfo=None)
         
+        # Apply cutoff logic if target_date not provided
         target_date = order_data.get("target_purchase_date")
-        if isinstance(target_date, str):
-            target_date = parser.parse(target_date).date()
+        if target_date:
+            if isinstance(target_date, str):
+                target_date = parser.parse(target_date).date()
+        else:
+            # Auto-calculate target date based on cutoff logic
+            target_date = await apply_cutoff_logic(db, order_date)
         
         order = Order(
             robot_in_order_id=order_data.get("robot_in_order_id"),
@@ -165,7 +173,31 @@ async def import_bulk_orders(db: AsyncSession, data: BulkOrderImport):
             order_status=OrderStatus.PENDING,
         )
         db.add(order)
+        await db.flush()
+        await db.refresh(order)
+        order_ids.append(order.order_id)
         created_count += 1
+        
+        # Add order items if provided
+        items = order_data.get("items", [])
+        for item_data in items:
+            item = OrderItem(
+                order_id=order.order_id,
+                sku=item_data.get("sku", ""),
+                product_name=item_data.get("product_name", ""),
+                quantity=item_data.get("quantity", 1),
+                unit_price=item_data.get("unit_price"),
+                is_bundle=item_data.get("is_bundle", False),
+                priority=item_data.get("priority", "normal"),
+                item_status=ItemStatus.PENDING,
+            )
+            db.add(item)
+        
+        await db.flush()
     
-    await db.flush()
-    return {"message": f"{created_count}件の注文をインポートしました", "count": created_count}
+    # Process bundle items for all imported orders
+    for order_id in order_ids:
+        await split_bundle_items(db, order_id)
+    
+    await db.commit()
+    return {"message": f"{created_count}件の注文をインポートしました", "count": created_count, "order_ids": order_ids}

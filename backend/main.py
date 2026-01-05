@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from config.env import settings
-from routes import orders, staff, stores, routes as routes_router, settings as settings_router, auth, automation, admin, purchase, products
+from routes import orders, staff, stores, routes as routes_router, settings as settings_router, auth, automation, admin, purchase, products, holidays
 from middlewares.logging import log_requests
 
 app = FastAPI(
@@ -46,3 +46,4 @@ if __name__ == "__main__":
 app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
 app.include_router(purchase.router, prefix="/api/purchase", tags=["Purchase"])
 app.include_router(products.router, prefix="/api/products", tags=["Products"])
+app.include_router(holidays.router, prefix="/api/holidays", tags=["Holidays"])
