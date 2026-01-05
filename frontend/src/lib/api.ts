@@ -420,4 +420,69 @@ export const adminApi = {
     },
 };
 
+// ============================================================================
+// HOLIDAYS API
+// ============================================================================
+
+export interface Holiday {
+    holiday_id: number;
+    holiday_date: string;
+    holiday_name: string | null;
+    is_working: boolean;
+}
+
+export interface HolidayCreate {
+    holiday_date: string;
+    holiday_name?: string;
+    is_working?: boolean;
+}
+
+export const holidaysApi = {
+    async getAll(year?: number): Promise<Holiday[]> {
+        const query = year ? `?year=${year}` : "";
+        return fetchApi<Holiday[]>(`/api/holidays${query}`);
+    },
+
+    async create(data: HolidayCreate): Promise<Holiday> {
+        return fetchApi<Holiday>("/api/holidays", {
+            method: "POST",
+            body: JSON.stringify(data),
+        });
+    },
+
+    async update(holidayId: number, data: HolidayCreate): Promise<{ message: string }> {
+        return fetchApi<{ message: string }>(`/api/holidays/${holidayId}`, {
+            method: "PATCH",
+            body: JSON.stringify(data),
+        });
+    },
+
+    async delete(holidayId: number): Promise<{ message: string }> {
+        return fetchApi<{ message: string }>(`/api/holidays/${holidayId}`, {
+            method: "DELETE",
+        });
+    },
+
+    async importJapanHolidays(year?: number): Promise<{ message: string; year: number }> {
+        const query = year ? `?year=${year}` : "";
+        return fetchApi<{ message: string; year: number }>(
+            `/api/holidays/import-japan-holidays${query}`,
+            { method: "POST" }
+        );
+    },
+};
+
+// ============================================================================
+// EXTENDED SETTINGS API
+// ============================================================================
+
+export const extendedSettingsApi = {
+    async calculateDistances(): Promise<{ message: string; calculated_pairs: number }> {
+        return fetchApi<{ message: string; calculated_pairs: number }>(
+            "/api/settings/data/calculate-distances",
+            { method: "POST" }
+        );
+    },
+};
+
 export { ApiError };

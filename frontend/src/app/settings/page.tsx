@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Clock, Users, MapPin, Bell, Database, Loader2 } from "lucide-react";
+import { Clock, Users, MapPin, Bell, Database, Loader2, Calendar } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { settingsApi } from "@/lib/api";
+import { settingsApi, extendedSettingsApi } from "@/lib/api";
 import type { AllSettings } from "@/lib/types";
+import Link from "next/link";
 
 export default function SettingsPage() {
     const [settings, setSettings] = useState<AllSettings | null>(null);
@@ -425,10 +426,32 @@ export default function SettingsPage() {
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
                         <Button variant="outline" onClick={handleImportStores}>店舗インポート</Button>
                         <Button variant="outline" onClick={handleExportOrders}>注文エクスポート</Button>
                         <Button variant="outline" onClick={handleBackup}>データバックアップ</Button>
+                        <Button variant="outline" onClick={async () => {
+                            try {
+                                const result = await extendedSettingsApi.calculateDistances();
+                                alert(result.message);
+                            } catch (err) {
+                                alert(err instanceof Error ? err.message : "距離計算に失敗しました");
+                            }
+                        }}>距離マトリックス計算</Button>
+                    </div>
+
+                    {/* Holiday Calendar Link */}
+                    <div className="mt-4 pt-4 border-t border-border">
+                        <Link href="/settings/holidays" className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted/30 transition-colors">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                                <Calendar className="h-5 w-5" />
+                            </div>
+                            <div className="flex-1">
+                                <h4 className="font-medium text-foreground">祝日カレンダー</h4>
+                                <p className="text-sm text-muted-foreground">注文締切に影響する祝日を管理</p>
+                            </div>
+                            <span className="text-muted-foreground">→</span>
+                        </Link>
                     </div>
                 </div>
 
