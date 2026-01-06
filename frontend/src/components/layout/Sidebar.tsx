@@ -18,10 +18,20 @@ import {
     User,
     Shield,
     Box,
+    MapPin,
+    ClipboardCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const navItems = [
+// Navigation items for buyers (field staff) - minimal view
+const buyerNavItems = [
+    { icon: LayoutDashboard, label: "ダッシュボード", path: "/" },
+    { icon: MapPin, label: "今日のルート", path: "/routes/my-route" },
+    { icon: ClipboardCheck, label: "買付状況", path: "/routes" },
+];
+
+// Navigation items for admin/supervisor - full management view
+const adminNavItems = [
     { icon: LayoutDashboard, label: "ダッシュボード", path: "/" },
     { icon: ShoppingCart, label: "注文", path: "/orders" },
     { icon: Users, label: "スタッフ", path: "/staff" },
@@ -32,17 +42,20 @@ const navItems = [
     { icon: Settings, label: "設定", path: "/settings" },
 ];
 
-const adminItems = [
-    { icon: Shield, label: "ユーザー管理", path: "/admin/users", roles: ["admin", "supervisor"] },
+const managementItems = [
+    { icon: Shield, label: "ユーザー管理", path: "/admin/users" },
 ];
 
 export function Sidebar() {
     const [collapsed, setCollapsed] = useState(false);
     const pathname = usePathname();
     const { data: session } = useSession();
-    
+
     const userRole = session?.user?.role || "buyer";
-    const canAccessAdmin = userRole === "admin" || userRole === "supervisor";
+    const isAdmin = userRole === "admin" || userRole === "supervisor";
+
+    // Choose nav items based on role
+    const navItems = isAdmin ? adminNavItems : buyerNavItems;
 
     const handleLogout = () => {
         signOut({ callbackUrl: "/signin" });
@@ -97,14 +110,14 @@ export function Sidebar() {
                         </Link>
                     );
                 })}
-                
+
                 {/* Admin Section */}
-                {canAccessAdmin && !collapsed && (
+                {isAdmin && !collapsed && (
                     <div className="mt-4 pt-4 border-t border-sidebar-border">
                         <p className="px-3 mb-2 text-xs font-semibold text-sidebar-foreground/50 uppercase">
                             管理
                         </p>
-                        {adminItems.map((item) => {
+                        {managementItems.map((item) => {
                             const isActive = pathname === item.path;
                             return (
                                 <Link

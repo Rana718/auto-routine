@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { Package, Plus, Trash2, Loader2 } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
@@ -23,11 +24,12 @@ interface BundleItem {
 }
 
 export default function BundlesPage() {
+    const { data: session } = useSession();
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [creating, setCreating] = useState(false);
-    
+
     // Form state
     const [bundleSku, setBundleSku] = useState("");
     const [bundleName, setBundleName] = useState("");
@@ -37,14 +39,17 @@ export default function BundlesPage() {
     ]);
 
     useEffect(() => {
-        fetchProducts();
-    }, []);
+        if (session?.accessToken) {
+            fetchProducts();
+        }
+    }, [session]);
 
     async function fetchProducts() {
+        if (!session?.accessToken) return;
         try {
             setLoading(true);
             const response = await fetch(`${API_BASE_URL}/api/products`, {
-                headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+                headers: { Authorization: `Bearer ${session.accessToken}` }
             });
             const data = await response.json();
             setProducts(Array.isArray(data) ? data.filter((p: Product) => p.is_set_product) : []);
@@ -78,13 +83,13 @@ export default function BundlesPage() {
 
         try {
             setCreating(true);
-            
+
             // Create the bundle product
             const productResponse = await fetch(`${API_BASE_URL}/api/products`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
-                    Authorization: `Bearer ${localStorage.getItem("token")}`
+                    Authorization: `Bearer ${session?.accessToken}`
                 },
                 body: JSON.stringify({
                     sku: bundleSku,
@@ -94,15 +99,15 @@ export default function BundlesPage() {
             });
 
             if (!productResponse.ok) throw new Error("商品作成に失敗しました");
-            
+
             const product = await productResponse.json();
-            
+
             // Update product to be a bundle with split rules
             const updateResponse = await fetch(`${API_BASE_URL}/api/products/${product.product_id}`, {
                 method: "PATCH",
                 headers: {
                     "Content-Type": "application/json",
-                    Authorization: `Bearer ${localStorage.getItem("token")}`
+                    Authorization: `Bearer ${session?.accessToken}`
                 },
                 body: JSON.stringify({
                     is_set_product: true,
