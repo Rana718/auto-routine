@@ -195,7 +195,7 @@ export function Header({ title, subtitle }: HeaderProps) {
 
                             {/* Menu Items */}
                             <div className="py-1">
-                                <button
+                                {/* <button
                                     onClick={() => {
                                         router.push("/settings");
                                         setShowProfile(false);
@@ -204,7 +204,7 @@ export function Header({ title, subtitle }: HeaderProps) {
                                 >
                                     <Settings className="h-4 w-4" />
                                     設定
-                                </button>
+                                </button> */}
                                 <button
                                     onClick={handleLogout}
                                     className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-destructive hover:bg-muted/50 transition-colors"
