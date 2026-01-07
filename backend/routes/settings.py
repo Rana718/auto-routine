@@ -58,10 +58,41 @@ async def import_stores(
 
 @router.get("/data/export-orders")
 async def export_orders(
-    current_user: Annotated[Staff, Depends(get_current_user)],
+    token: str,
     db: AsyncSession = Depends(get_db)
 ):
+    """Export orders as CSV - accepts token as query parameter for direct URL access"""
     from fastapi.responses import Response
+    from fastapi import HTTPException
+    from datetime import datetime
+    import base64
+    import json
+    
+    # Validate token manually since this endpoint uses query param auth
+    try:
+        payload = json.loads(base64.b64decode(token))
+        staff_id = payload.get("staff_id")
+        exp = datetime.fromisoformat(payload.get("exp"))
+        
+        if datetime.utcnow() > exp:
+            raise HTTPException(status_code=401, detail="Token expired")
+        
+        from sqlalchemy import select
+        result = await db.execute(select(Staff).where(Staff.staff_id == staff_id))
+        user = result.scalar_one_or_none()
+        
+        if not user:
+            raise HTTPException(status_code=401, detail="User not found")
+            
+        # Check if user has permission (admin or supervisor)
+        if user.role not in ["admin", "supervisor"]:
+            raise HTTPException(status_code=403, detail="Permission denied")
+            
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    
     csv_data = await export_orders_controller(db)
     return Response(
         content=csv_data,
