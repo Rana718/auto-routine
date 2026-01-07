@@ -127,7 +127,7 @@ export default function SignInPage() {
 
                 {/* Footer */}
                 <p className="text-center text-xs text-muted-foreground">
-                    © 2024 買付フロー. All rights reserved.
+                    © 2026 買付フロー. All rights reserved.
                 </p>
             </div>
         </div>

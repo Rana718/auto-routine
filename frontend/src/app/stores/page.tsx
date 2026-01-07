@@ -116,10 +116,10 @@ export default function StoresPage() {
                             </option>
                         ))}
                     </select>
-                    <Button variant="outline" className="gap-2" type="button">
+                    {/* <Button variant="outline" className="gap-2" type="button">
                         <Filter className="h-4 w-4" />
                         詳細フィルター
-                    </Button>
+                    </Button> */}
                     <Button className="gap-2" type="button" onClick={() => setShowCreateModal(true)}>
                         <Plus className="h-4 w-4" />
                         店舗追加

@@ -485,4 +485,23 @@ export const extendedSettingsApi = {
     },
 };
 
+// ============================================================================
+// NOTIFICATIONS API
+// ============================================================================
+
+export interface NotificationItem {
+    id: string;
+    type: "info" | "warning" | "success";
+    title: string;
+    message: string;
+    time: string;
+    read: boolean;
+}
+
+export const notificationsApi = {
+    async getAll(): Promise<NotificationItem[]> {
+        return fetchApi<NotificationItem[]>("/api/notifications");
+    },
+};
+
 export { ApiError };

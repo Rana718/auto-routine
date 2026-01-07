@@ -3,64 +3,48 @@
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
-import { Bell, Search, User, Settings, LogOut, X, Clock, AlertTriangle, CheckCircle } from "lucide-react";
+import { Bell, Search, User, Settings, LogOut, X, Clock, AlertTriangle, CheckCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { notificationsApi, NotificationItem } from "@/lib/api";
 
 interface HeaderProps {
     title: string;
     subtitle?: string;
 }
 
-interface Notification {
-    id: string;
-    type: "info" | "warning" | "success";
-    title: string;
-    message: string;
-    time: string;
-    read: boolean;
-}
-
-// Sample notifications - in real app these would come from backend
-const sampleNotifications: Notification[] = [
-    {
-        id: "1",
-        type: "warning",
-        title: "カットオフ時間経過",
-        message: "本日の注文締切時間（13:10）を過ぎました",
-        time: "5分前",
-        read: false,
-    },
-    {
-        id: "2",
-        type: "info",
-        title: "新規注文",
-        message: "Robot-in から3件の注文が追加されました",
-        time: "30分前",
-        read: false,
-    },
-    {
-        id: "3",
-        type: "success",
-        title: "ルート完了",
-        message: "田中さんのルートが完了しました",
-        time: "1時間前",
-        read: true,
-    },
-];
-
 export function Header({ title, subtitle }: HeaderProps) {
     const router = useRouter();
     const { data: session } = useSession();
     const [showNotifications, setShowNotifications] = useState(false);
     const [showProfile, setShowProfile] = useState(false);
-    const [notifications, setNotifications] = useState<Notification[]>(sampleNotifications);
+    const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+    const [loadingNotifications, setLoadingNotifications] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
 
     const notifRef = useRef<HTMLDivElement>(null);
     const profileRef = useRef<HTMLDivElement>(null);
 
     const unreadCount = notifications.filter(n => !n.read).length;
+
+    // Fetch notifications on mount and every 60 seconds
+    useEffect(() => {
+        async function fetchNotifications() {
+            try {
+                setLoadingNotifications(true);
+                const data = await notificationsApi.getAll();
+                setNotifications(data);
+            } catch (error) {
+                console.error("Failed to fetch notifications:", error);
+            } finally {
+                setLoadingNotifications(false);
+            }
+        }
+
+        fetchNotifications();
+        const interval = setInterval(fetchNotifications, 60000); // Refresh every 60 seconds
+        return () => clearInterval(interval);
+    }, []);
 
     // Close dropdowns when clicking outside
     useEffect(() => {

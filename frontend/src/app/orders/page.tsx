@@ -27,7 +27,7 @@ export default function OrdersPage() {
     const { data: session } = useSession();
     const userRole = session?.user?.role || "buyer";
     const canManageOrders = userRole === "admin" || userRole === "supervisor";
-    
+
     const [orders, setOrders] = useState<OrderWithItems[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -106,17 +106,21 @@ export default function OrdersPage() {
                         <option value="completed">完了</option>
                         <option value="failed">失敗</option>
                     </select>
-                    <Button variant="outline" className="gap-2" type="button">
+                    {/* <Button variant="outline" className="gap-2" type="button">
                         <Filter className="h-4 w-4" />
                         詳細フィルター
-                    </Button>
+                    </Button> */}
                     <Button variant="outline" className="gap-2" type="button" onClick={() => setShowCreateModal(true)}>
                         <Plus className="h-4 w-4" />
                         手動追加
                     </Button>
                     {canManageOrders && (
                         <Button variant="outline" className="gap-2" type="button" onClick={() => {
-                            const token = localStorage.getItem("token");
+                            const token = (session as any)?.accessToken;
+                            if (!token) {
+                                alert("認証トークンが見つかりません。再度ログインしてください。");
+                                return;
+                            }
                             window.open(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/settings/data/export-orders?token=${token}`, "_blank");
                         }}>
                             <Download className="h-4 w-4" />
@@ -220,9 +224,9 @@ export default function OrdersPage() {
                                             </Badge>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
-                                            <Button 
-                                                variant="ghost" 
-                                                size="sm" 
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
                                                 className="gap-1"
                                                 onClick={() => window.location.href = `/orders/${order.order_id}`}
                                             >

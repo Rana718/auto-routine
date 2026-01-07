@@ -39,7 +39,7 @@ const adminNavItems = [
     { icon: Package, label: "商品", path: "/products" },
     { icon: Box, label: "セット商品", path: "/products/bundles" },
     { icon: Route, label: "ルート", path: "/routes" },
-    { icon: Settings, label: "設定", path: "/settings" },
+    // { icon: Settings, label: "設定", path: "/settings" },
 ];
 
 const managementItems = [

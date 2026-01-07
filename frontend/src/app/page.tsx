@@ -19,9 +19,11 @@ export default function Dashboard() {
   const [storeStats, setStoreStats] = useState<StoreStats | null>(null);
   const [recentOrders, setRecentOrders] = useState<OrderWithItems[]>([]);
 
-  const today = new Date();
-  const dateStr = `${today.getFullYear()}年${today.getMonth() + 1}月${today.getDate()}日`;
-  const todayISO = today.toISOString().split("T")[0];
+  // Use Japan timezone for all date calculations
+  const now = new Date();
+  const japanTime = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Tokyo" }));
+  const dateStr = `${japanTime.getFullYear()}年${japanTime.getMonth() + 1}月${japanTime.getDate()}日`;
+  const todayISO = japanTime.toISOString().split("T")[0];
 
   useEffect(() => {
     async function fetchData() {
