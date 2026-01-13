@@ -171,6 +171,8 @@ async def update_store_fixed(
     product.is_store_fixed = is_fixed
     product.fixed_store_id = store_id if is_fixed else None
     
+    await db.flush()
+    await db.refresh(product)
     await db.commit()
     return {"message": "更新しました"}
 

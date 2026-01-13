@@ -69,11 +69,15 @@ export default function ProductsPage() {
     async function toggleStoreFixed(productId: number, isFixed: boolean, storeId: number | null) {
         if (!session?.accessToken) return;
 
-        // If enabling store-fixed but no store selected, show alert
+        // If enabling store-fixed but no store selected, auto-select first store
         if (isFixed && !storeId) {
-            alert("店舗固定を有効にする前に、店舗を選択してください");
-            await fetchData(); // Refresh to reset checkbox
-            return;
+            if (stores.length === 0) {
+                alert("店舗が登録されていません");
+                await fetchData();
+                return;
+            }
+            // Auto-select first store
+            storeId = stores[0].store_id;
         }
 
         try {
