@@ -3,10 +3,12 @@
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
-import { Bell, Search, User, Settings, LogOut, X, Clock, AlertTriangle, CheckCircle, Loader2 } from "lucide-react";
+import { Bell, Search, User, Settings, LogOut, X, Clock, AlertTriangle, CheckCircle, Loader2, Mail, Key } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { notificationsApi, NotificationItem } from "@/lib/api";
+import { ChangePasswordModal } from "@/components/modals/ChangePasswordModal";
+import { ChangeEmailModal } from "@/components/modals/ChangeEmailModal";
 
 interface HeaderProps {
     title: string;
@@ -21,6 +23,8 @@ export function Header({ title, subtitle }: HeaderProps) {
     const [notifications, setNotifications] = useState<NotificationItem[]>([]);
     const [loadingNotifications, setLoadingNotifications] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
+    const [showChangePassword, setShowChangePassword] = useState(false);
+    const [showChangeEmail, setShowChangeEmail] = useState(false);
 
     const notifRef = useRef<HTMLDivElement>(null);
     const profileRef = useRef<HTMLDivElement>(null);
@@ -195,16 +199,26 @@ export function Header({ title, subtitle }: HeaderProps) {
 
                             {/* Menu Items */}
                             <div className="py-1">
-                                {/* <button
+                                <button
                                     onClick={() => {
-                                        router.push("/settings");
+                                        setShowChangeEmail(true);
                                         setShowProfile(false);
                                     }}
                                     className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-foreground hover:bg-muted/50 transition-colors"
                                 >
-                                    <Settings className="h-4 w-4" />
-                                    設定
-                                </button> */}
+                                    <Mail className="h-4 w-4" />
+                                    メールアドレス変更
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setShowChangePassword(true);
+                                        setShowProfile(false);
+                                    }}
+                                    className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-foreground hover:bg-muted/50 transition-colors"
+                                >
+                                    <Key className="h-4 w-4" />
+                                    パスワード変更
+                                </button>
                                 <button
                                     onClick={handleLogout}
                                     className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-destructive hover:bg-muted/50 transition-colors"
@@ -217,6 +231,16 @@ export function Header({ title, subtitle }: HeaderProps) {
                     )}
                 </div>
             </div>
+
+            {/* Modals */}
+            <ChangePasswordModal
+                isOpen={showChangePassword}
+                onClose={() => setShowChangePassword(false)}
+            />
+            <ChangeEmailModal
+                isOpen={showChangeEmail}
+                onClose={() => setShowChangeEmail(false)}
+            />
         </header>
     );
 }

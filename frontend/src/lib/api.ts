@@ -504,4 +504,34 @@ export const notificationsApi = {
     },
 };
 
+// ============================================================================
+// AUTH API
+// ============================================================================
+
+export interface UpdateEmailRequest {
+    new_email: string;
+    password: string;
+}
+
+export interface UpdatePasswordRequest {
+    current_password: string;
+    new_password: string;
+}
+
+export const authApi = {
+    async updateEmail(data: UpdateEmailRequest): Promise<{ message: string; email: string }> {
+        return fetchApi<{ message: string; email: string }>(
+            "/api/auth/me/email",
+            { method: "PATCH", body: JSON.stringify(data) }
+        );
+    },
+
+    async updatePassword(data: UpdatePasswordRequest): Promise<{ message: string }> {
+        return fetchApi<{ message: string }>(
+            "/api/auth/me/password",
+            { method: "PATCH", body: JSON.stringify(data) }
+        );
+    },
+};
+
 export { ApiError };

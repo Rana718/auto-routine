@@ -108,7 +108,7 @@ async def update_staff_status_controller(db: AsyncSession, staff_id: int, update
     if update.current_location_lng:
         staff.current_location_lng = update.current_location_lng
     
-    return {"message": "ステータスを更新しました", "new_status": update.status.value}
+    return {"message": "ステータスを更新しました", "new_status": update.status}
 
 async def auto_assign_orders_controller(db: AsyncSession, staff_id: int):
     from services.staff_assignment import assign_to_specific_staff

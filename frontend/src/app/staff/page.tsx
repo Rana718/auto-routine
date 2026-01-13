@@ -30,6 +30,7 @@ export default function StaffPage() {
     const [autoAssigning, setAutoAssigning] = useState(false);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [openMenuId, setOpenMenuId] = useState<number | null>(null);
+    const [updatingStatusIds, setUpdatingStatusIds] = useState<Set<number>>(new Set());
 
     useEffect(() => {
         fetchStaff();
@@ -65,18 +66,28 @@ export default function StaffPage() {
 
     async function handleToggleStatus(staffId: number, currentStatus: StaffStatus) {
         try {
+            // Add to loading set
+            setUpdatingStatusIds(prev => new Set(prev).add(staffId));
+
             const newStatus: StaffStatus = currentStatus === "off_duty" ? "idle" : "off_duty";
             await staffApi.updateStatus(staffId, { status: newStatus });
             await fetchStaff();
             setOpenMenuId(null);
         } catch (err) {
             setError(err instanceof Error ? err.message : "ステータス変更に失敗しました");
+        } finally {
+            // Remove from loading set
+            setUpdatingStatusIds(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(staffId);
+                return newSet;
+            });
         }
     }
 
     async function handleDeleteStaff(staffId: number, staffName: string) {
         if (!confirm(`${staffName}を削除してもよろしいですか？`)) return;
-        
+
         try {
             await adminApi.deleteUser(staffId);
             await fetchStaff();
@@ -198,9 +209,9 @@ export default function StaffPage() {
                                     </div>
                                 </div>
                                 <div className="relative">
-                                    <Button 
-                                        variant="ghost" 
-                                        size="icon" 
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
                                         className="h-8 w-8"
                                         onClick={() => toggleMenu(member.staff_id)}
                                     >
@@ -208,16 +219,22 @@ export default function StaffPage() {
                                     </Button>
                                     {openMenuId === member.staff_id && (
                                         <>
-                                            <div 
-                                                className="fixed inset-0 z-10" 
+                                            <div
+                                                className="fixed inset-0 z-10"
                                                 onClick={() => setOpenMenuId(null)}
                                             />
                                             <div className="absolute right-0 top-10 z-20 w-48 rounded-lg border border-border bg-card shadow-lg overflow-hidden">
                                                 <button
                                                     onClick={() => handleToggleStatus(member.staff_id, member.status)}
-                                                    className="w-full px-4 py-2 text-sm text-left hover:bg-muted/50 flex items-center gap-2"
+                                                    disabled={updatingStatusIds.has(member.staff_id)}
+                                                    className="w-full px-4 py-2 text-sm text-left hover:bg-muted/50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                                                 >
-                                                    {member.status === "off_duty" ? (
+                                                    {updatingStatusIds.has(member.staff_id) ? (
+                                                        <>
+                                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                                            更新中...
+                                                        </>
+                                                    ) : member.status === "off_duty" ? (
                                                         <>
                                                             <UserCheck className="h-4 w-4" />
                                                             稼働開始
@@ -281,18 +298,18 @@ export default function StaffPage() {
 
                             {/* Actions */}
                             <div className="flex gap-2">
-                                <Button 
-                                    variant="outline" 
-                                    size="sm" 
+                                <Button
+                                    variant="outline"
+                                    size="sm"
                                     className="flex-1 gap-1"
                                     onClick={() => handleViewOrders(member.staff_id)}
                                 >
                                     <Package className="h-3 w-3" />
                                     割当
                                 </Button>
-                                <Button 
-                                    variant="outline" 
-                                    size="sm" 
+                                <Button
+                                    variant="outline"
+                                    size="sm"
                                     className="flex-1 gap-1"
                                     onClick={() => handleViewRoutes(member.staff_id)}
                                 >

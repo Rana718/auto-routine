@@ -22,7 +22,7 @@ async def get_notifications(
     now_utc = datetime.utcnow()
     jst_offset = timedelta(hours=9)
     now_jst = now_utc + jst_offset
-    today_str = now_jst.strftime("%Y-%m-%d")
+    today_date = now_jst.date()  # Use date object instead of string
     
     # 1. Check for cutoff time (default 13:10 JST)
     cutoff_hour = 13
@@ -49,7 +49,7 @@ async def get_notifications(
         select(func.count(Order.order_id)).where(
             and_(
                 Order.order_status == "pending",
-                func.date(Order.target_date) == today_str
+                Order.target_purchase_date == today_date
             )
         )
     )
@@ -69,10 +69,10 @@ async def get_notifications(
     completed_routes_result = await db.execute(
         select(Route).where(
             and_(
-                Route.status == "completed",
-                func.date(Route.route_date) == today_str
+                Route.route_status == "completed",
+                Route.route_date == today_date
             )
-        ).order_by(Route.updated_at.desc()).limit(3)
+        ).order_by(Route.created_at.desc()).limit(3)
     )
     completed_routes = completed_routes_result.scalars().all()
     
@@ -108,7 +108,7 @@ async def get_notifications(
         select(func.count(Order.order_id)).where(
             and_(
                 Order.order_status == "failed",
-                func.date(Order.target_date) == today_str
+                Order.target_purchase_date == today_date
             )
         )
     )
@@ -127,7 +127,7 @@ async def get_notifications(
     # 5. Check for active staff count
     active_staff_result = await db.execute(
         select(func.count(Staff.staff_id)).where(
-            Staff.status.in_(["available", "on_route"])
+            Staff.status.in_(["active", "en_route"])
         )
     )
     active_staff = active_staff_result.scalar() or 0

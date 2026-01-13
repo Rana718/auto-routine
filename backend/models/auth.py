@@ -15,6 +15,14 @@ class CreateAdminRequest(BaseModel):
     password: str
     secret_key: str
 
+class UpdateEmailRequest(BaseModel):
+    new_email: EmailStr
+    password: str  # Require password confirmation for security
+
+class UpdatePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
 class UserResponse(BaseModel):
     staff_id: int
     staff_name: str

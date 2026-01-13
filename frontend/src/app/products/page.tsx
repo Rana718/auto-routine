@@ -40,7 +40,7 @@ export default function ProductsPage() {
 
     async function fetchData() {
         if (!session?.accessToken) return;
-        
+
         try {
             setLoading(true);
             const [productsRes, storesRes] = await Promise.all([
@@ -51,10 +51,10 @@ export default function ProductsPage() {
                     headers: { Authorization: `Bearer ${session.accessToken}` }
                 })
             ]);
-            
+
             const productsData = await productsRes.json();
             const storesData = await storesRes.json();
-            
+
             setProducts(Array.isArray(productsData) ? productsData : []);
             setStores(Array.isArray(storesData) ? storesData : []);
         } catch (err) {
@@ -68,15 +68,23 @@ export default function ProductsPage() {
 
     async function toggleStoreFixed(productId: number, isFixed: boolean, storeId: number | null) {
         if (!session?.accessToken) return;
-        
+
+        // If enabling store-fixed but no store selected, show alert
+        if (isFixed && !storeId) {
+            alert("店舗固定を有効にする前に、店舗を選択してください");
+            await fetchData(); // Refresh to reset checkbox
+            return;
+        }
+
         try {
-            const response = await fetch(
-                `${API_BASE_URL}/api/products/${productId}/store-fixed?is_fixed=${isFixed}&store_id=${storeId || ""}`,
-                {
-                    method: "PATCH",
-                    headers: { Authorization: `Bearer ${session.accessToken}` }
-                }
-            );
+            const url = isFixed
+                ? `${API_BASE_URL}/api/products/${productId}/store-fixed?is_fixed=true&store_id=${storeId}`
+                : `${API_BASE_URL}/api/products/${productId}/store-fixed?is_fixed=false`;
+
+            const response = await fetch(url, {
+                method: "PATCH",
+                headers: { Authorization: `Bearer ${session.accessToken}` }
+            });
             if (!response.ok) throw new Error("更新に失敗しました");
             await fetchData();
         } catch (err) {
@@ -86,7 +94,7 @@ export default function ProductsPage() {
 
     async function toggleRouting(productId: number, exclude: boolean) {
         if (!session?.accessToken) return;
-        
+
         try {
             const response = await fetch(
                 `${API_BASE_URL}/api/products/${productId}/routing?exclude=${exclude}`,
