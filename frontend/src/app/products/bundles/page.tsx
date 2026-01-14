@@ -30,6 +30,8 @@ export default function BundlesPage() {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
     const [creating, setCreating] = useState(false);
+    const [updating, setUpdating] = useState(false);
+    const [deleting, setDeleting] = useState<number | null>(null);
     const [editingProductId, setEditingProductId] = useState<number | null>(null);
 
     // Form state
@@ -166,7 +168,7 @@ export default function BundlesPage() {
         }
 
         try {
-            setCreating(true);
+            setUpdating(true);
 
             const updateResponse = await fetch(`${API_BASE_URL}/api/products/${editingProductId}`, {
                 method: "PATCH",
@@ -197,7 +199,30 @@ export default function BundlesPage() {
         } catch (err) {
             alert(err instanceof Error ? err.message : "エラーが発生しました");
         } finally {
-            setCreating(false);
+            setUpdating(false);
+        }
+    }
+
+    async function deleteBundle(productId: number) {
+        if (!confirm("このセット商品を削除しますか？")) return;
+
+        try {
+            setDeleting(productId);
+            const response = await fetch(`${API_BASE_URL}/api/products/${productId}`, {
+                method: "DELETE",
+                headers: {
+                    Authorization: `Bearer ${session?.accessToken}`
+                }
+            });
+
+            if (!response.ok) throw new Error("削除に失敗しました");
+
+            alert("セット商品を削除しました");
+            await fetchProducts();
+        } catch (err) {
+            alert(err instanceof Error ? err.message : "エラーが発生しました");
+        } finally {
+            setDeleting(null);
         }
     }
 
@@ -481,9 +506,9 @@ export default function BundlesPage() {
                                 <Button
                                     className="flex-1"
                                     onClick={handleUpdateBundle}
-                                    disabled={creating}
+                                    disabled={updating}
                                 >
-                                    {creating ? (
+                                    {updating ? (
                                         <>
                                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                             更新中...
@@ -531,8 +556,17 @@ export default function BundlesPage() {
                             >
                                 編集
                             </Button>
-                            <Button variant="ghost" size="sm">
-                                <Trash2 className="h-4 w-4 text-destructive" />
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => deleteBundle(product.product_id)}
+                                disabled={deleting === product.product_id}
+                            >
+                                {deleting === product.product_id ? (
+                                    <Loader2 className="h-4 w-4 animate-spin text-destructive" />
+                                ) : (
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                )}
                             </Button>
                         </div>
                     </div>
