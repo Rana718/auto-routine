@@ -152,7 +152,7 @@ export default function ProductsPage() {
                                             e.target.checked,
                                             product.fixed_store_id
                                         )}
-                                        className="h-5 w-5 touch-target"
+                                        className="h-4 w-4 cursor-pointer"
                                     />
                                 </label>
 
@@ -187,7 +187,7 @@ export default function ProductsPage() {
                                             product.product_id,
                                             e.target.checked
                                         )}
-                                        className="h-5 w-5 touch-target"
+                                        className="h-4 w-4 cursor-pointer"
                                     />
                                 </label>
                             </div>

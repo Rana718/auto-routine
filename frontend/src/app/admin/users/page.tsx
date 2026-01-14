@@ -42,7 +42,7 @@ export default function AdminUsersPage() {
 
     async function fetchUsers() {
         if (!session?.accessToken) return;
-        
+
         try {
             setLoading(true);
             const response = await fetch(`${API_BASE_URL}/api/admin/users?include_inactive=true`, {
@@ -60,7 +60,7 @@ export default function AdminUsersPage() {
 
     async function createUser() {
         if (!session?.accessToken) return;
-        
+
         try {
             const response = await fetch(`${API_BASE_URL}/api/admin/users`, {
                 method: "POST",
@@ -81,7 +81,7 @@ export default function AdminUsersPage() {
 
     async function toggleActive(userId: number, active: boolean) {
         if (!session?.accessToken) return;
-        
+
         try {
             const response = await fetch(
                 `${API_BASE_URL}/api/admin/users/${userId}/activate?active=${active}`,
@@ -99,7 +99,7 @@ export default function AdminUsersPage() {
 
     async function updateRole(userId: number, role: string) {
         if (!session?.accessToken) return;
-        
+
         try {
             const response = await fetch(`${API_BASE_URL}/api/admin/users/${userId}/role`, {
                 method: "PATCH",
@@ -119,7 +119,7 @@ export default function AdminUsersPage() {
     async function deleteUser(userId: number) {
         if (!session?.accessToken) return;
         if (!confirm("本当にこのユーザーを削除しますか？")) return;
-        
+
         try {
             const response = await fetch(`${API_BASE_URL}/api/admin/users/${userId}`, {
                 method: "DELETE",
@@ -158,83 +158,150 @@ export default function AdminUsersPage() {
             </div>
 
             <div className="rounded-xl border border-border bg-card card-shadow overflow-hidden">
-                <table className="w-full">
-                    <thead>
-                        <tr className="border-b border-border bg-muted/30">
-                            <th className="px-6 py-3 text-left text-xs font-medium uppercase text-muted-foreground">
-                                名前
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium uppercase text-muted-foreground">
-                                メール
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium uppercase text-muted-foreground">
-                                ロール
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium uppercase text-muted-foreground">
-                                ステータス
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium uppercase text-muted-foreground">
-                                操作
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                        {users.map((user) => (
-                            <tr key={user.staff_id} className="hover:bg-muted/20">
-                                <td className="px-6 py-4">
+                {/* Mobile card layout */}
+                <div className="md:hidden divide-y divide-border">
+                    {users.map((user) => (
+                        <div key={user.staff_id} className="p-4 space-y-3">
+                            <div className="flex items-start justify-between">
+                                <div>
                                     <p className="font-medium text-foreground">{user.staff_name}</p>
-                                </td>
-                                <td className="px-6 py-4 text-sm text-muted-foreground">
-                                    {user.email}
-                                </td>
-                                <td className="px-6 py-4">
-                                    <select
-                                        value={user.role}
-                                        onChange={(e) => updateRole(user.staff_id, e.target.value)}
-                                        className="rounded border border-border bg-secondary px-2 py-1 text-sm"
-                                    >
-                                        <option value="buyer">バイヤー</option>
-                                        <option value="supervisor">スーパーバイザー</option>
-                                        <option value="admin">管理者</option>
-                                    </select>
-                                </td>
-                                <td className="px-6 py-4">
-                                    <Badge
-                                        className={cn(
-                                            user.is_active
-                                                ? "bg-success/20 text-success"
-                                                : "bg-destructive/20 text-destructive"
-                                        )}
-                                    >
-                                        {user.is_active ? "有効" : "無効"}
-                                    </Badge>
-                                </td>
-                                <td className="px-6 py-4">
-                                    <div className="flex gap-2">
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => toggleActive(user.staff_id, !user.is_active)}
-                                        >
-                                            {user.is_active ? (
-                                                <XCircle className="h-4 w-4" />
-                                            ) : (
-                                                <CheckCircle className="h-4 w-4" />
-                                            )}
-                                        </Button>
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => deleteUser(user.staff_id)}
-                                        >
-                                            <Trash2 className="h-4 w-4 text-destructive" />
-                                        </Button>
-                                    </div>
-                                </td>
+                                    <p className="text-sm text-muted-foreground">{user.email}</p>
+                                </div>
+                                <Badge
+                                    className={cn(
+                                        user.is_active
+                                            ? "bg-success/20 text-success"
+                                            : "bg-destructive/20 text-destructive"
+                                    )}
+                                >
+                                    {user.is_active ? "有効" : "無効"}
+                                </Badge>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs text-muted-foreground mb-1">ロール</label>
+                                <select
+                                    value={user.role}
+                                    onChange={(e) => updateRole(user.staff_id, e.target.value)}
+                                    className="w-full rounded border border-border bg-secondary px-3 py-2 text-sm"
+                                >
+                                    <option value="buyer">バイヤー</option>
+                                    <option value="supervisor">スーパーバイザー</option>
+                                    <option value="admin">管理者</option>
+                                </select>
+                            </div>
+
+                            <div className="flex gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="flex-1 gap-2"
+                                    onClick={() => toggleActive(user.staff_id, !user.is_active)}
+                                >
+                                    {user.is_active ? (
+                                        <>
+                                            <XCircle className="h-4 w-4" />
+                                            無効化
+                                        </>
+                                    ) : (
+                                        <>
+                                            <CheckCircle className="h-4 w-4" />
+                                            有効化
+                                        </>
+                                    )}
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => deleteUser(user.staff_id)}
+                                >
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Desktop table layout */}
+                <div className="hidden md:block overflow-x-auto">
+                    <table className="w-full">
+                        <thead>
+                            <tr className="border-b border-border bg-muted/30">
+                                <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium uppercase text-muted-foreground">
+                                    名前
+                                </th>
+                                <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium uppercase text-muted-foreground">
+                                    メール
+                                </th>
+                                <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium uppercase text-muted-foreground">
+                                    ロール
+                                </th>
+                                <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium uppercase text-muted-foreground">
+                                    ステータス
+                                </th>
+                                <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium uppercase text-muted-foreground">
+                                    操作
+                                </th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                            {users.map((user) => (
+                                <tr key={user.staff_id} className="hover:bg-muted/20">
+                                    <td className="px-4 lg:px-6 py-4">
+                                        <p className="font-medium text-foreground">{user.staff_name}</p>
+                                    </td>
+                                    <td className="px-4 lg:px-6 py-4 text-sm text-muted-foreground">
+                                        {user.email}
+                                    </td>
+                                    <td className="px-4 lg:px-6 py-4">
+                                        <select
+                                            value={user.role}
+                                            onChange={(e) => updateRole(user.staff_id, e.target.value)}
+                                            className="rounded border border-border bg-secondary px-2 py-1 text-sm"
+                                        >
+                                            <option value="buyer">バイヤー</option>
+                                            <option value="supervisor">スーパーバイザー</option>
+                                            <option value="admin">管理者</option>
+                                        </select>
+                                    </td>
+                                    <td className="px-4 lg:px-6 py-4">
+                                        <Badge
+                                            className={cn(
+                                                user.is_active
+                                                    ? "bg-success/20 text-success"
+                                                    : "bg-destructive/20 text-destructive"
+                                            )}
+                                        >
+                                            {user.is_active ? "有効" : "無効"}
+                                        </Badge>
+                                    </td>
+                                    <td className="px-4 lg:px-6 py-4">
+                                        <div className="flex gap-2">
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => toggleActive(user.staff_id, !user.is_active)}
+                                            >
+                                                {user.is_active ? (
+                                                    <XCircle className="h-4 w-4" />
+                                                ) : (
+                                                    <CheckCircle className="h-4 w-4" />
+                                                )}
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => deleteUser(user.staff_id)}
+                                            >
+                                                <Trash2 className="h-4 w-4 text-destructive" />
+                                            </Button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             {/* Create User Modal */}
