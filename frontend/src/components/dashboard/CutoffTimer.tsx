@@ -43,7 +43,8 @@ export function CutoffTimer() {
     return (
         <div
             className={cn(
-                "rounded-xl border p-5 card-shadow transition-all duration-300",
+                "rounded-xl border card-shadow transition-all duration-300",
+                "p-3 sm:p-4 md:p-5",
                 timeRemaining.isPast
                     ? "bg-muted/50 border-border"
                     : isUrgent
@@ -51,47 +52,47 @@ export function CutoffTimer() {
                         : "bg-primary/10 border-primary/20"
             )}
         >
-            <div className="flex items-center gap-3 mb-3">
+            <div className="flex items-center gap-2 md:gap-3 mb-2 md:mb-3">
                 {isUrgent && !timeRemaining.isPast ? (
-                    <AlertTriangle className="h-5 w-5 text-warning" />
+                    <AlertTriangle className="h-4 w-4 md:h-5 md:w-5 text-warning shrink-0" />
                 ) : (
-                    <Clock className="h-5 w-5 text-primary" />
+                    <Clock className="h-4 w-4 md:h-5 md:w-5 text-primary shrink-0" />
                 )}
-                <span className="text-sm font-medium text-muted-foreground">
+                <span className="text-xs sm:text-sm font-medium text-muted-foreground">
                     本日締切 (13:10)
                 </span>
             </div>
 
             {timeRemaining.isPast ? (
                 <div className="space-y-1">
-                    <p className="text-lg font-semibold text-muted-foreground">
+                    <p className="text-base md:text-lg font-semibold text-muted-foreground">
                         締切時間を過ぎました
                     </p>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-xs md:text-sm text-muted-foreground">
                         新規注文は翌営業日のリストに追加されます
                     </p>
                 </div>
             ) : (
-                <div className="flex items-baseline gap-1">
+                <div className="flex items-baseline gap-0.5 sm:gap-1">
                     <span
                         className={cn(
-                            "text-3xl font-bold font-mono tabular-nums",
+                            "text-2xl sm:text-3xl font-bold font-mono tabular-nums",
                             isUrgent ? "text-warning" : "text-foreground"
                         )}
                     >
                         {String(timeRemaining.hours).padStart(2, "0")}
                     </span>
-                    <span className="text-xl text-muted-foreground">:</span>
+                    <span className="text-lg sm:text-xl text-muted-foreground">:</span>
                     <span
                         className={cn(
-                            "text-3xl font-bold font-mono tabular-nums",
+                            "text-2xl sm:text-3xl font-bold font-mono tabular-nums",
                             isUrgent ? "text-warning" : "text-foreground"
                         )}
                     >
                         {String(timeRemaining.minutes).padStart(2, "0")}
                     </span>
-                    <span className="text-xl text-muted-foreground">:</span>
-                    <span className="text-xl font-semibold font-mono tabular-nums text-muted-foreground">
+                    <span className="text-lg sm:text-xl text-muted-foreground">:</span>
+                    <span className="text-lg sm:text-xl font-semibold font-mono tabular-nums text-muted-foreground">
                         {String(timeRemaining.seconds).padStart(2, "0")}
                     </span>
                 </div>

@@ -40,22 +40,22 @@ export default function SignInPage() {
     };
 
     return (
-        <div className="min-h-screen bg-background flex items-center justify-center p-4">
-            <div className="w-full max-w-md space-y-8 animate-slide-up">
+        <div className="min-h-screen bg-background flex items-center justify-center p-3 sm:p-4">
+            <div className="w-full max-w-md space-y-6 sm:space-y-8 animate-slide-up">
                 {/* Logo */}
                 <div className="text-center">
-                    <div className="flex justify-center mb-4">
-                        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg glow">
-                            <Package className="h-8 w-8" />
+                    <div className="flex justify-center mb-3 sm:mb-4">
+                        <div className="flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg glow">
+                            <Package className="h-7 w-7 sm:h-8 sm:w-8" />
                         </div>
                     </div>
-                    <h1 className="text-2xl font-bold text-foreground">買付フロー</h1>
-                    <p className="text-muted-foreground mt-2">アカウントにサインイン</p>
+                    <h1 className="text-xl sm:text-2xl font-bold text-foreground">買付フロー</h1>
+                    <p className="text-sm sm:text-base text-muted-foreground mt-2">アカウントにサインイン</p>
                 </div>
 
                 {/* Form */}
-                <div className="rounded-xl border border-border bg-card p-8 card-shadow">
-                    <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="rounded-xl border border-border bg-card p-5 sm:p-6 md:p-8 card-shadow">
+                    <form onSubmit={handleSubmit} className="space-y-5 sm:space-y-6">
                         {/* Error Message */}
                         {error && (
                             <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
@@ -76,7 +76,7 @@ export default function SignInPage() {
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
                                     placeholder="your@email.com"
-                                    className="w-full h-11 rounded-lg border border-border bg-secondary pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background transition-all"
+                                    className="w-full h-10 sm:h-11 rounded-lg border border-border bg-secondary pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background transition-all"
                                     required
                                     disabled={loading}
                                 />
@@ -96,14 +96,14 @@ export default function SignInPage() {
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     placeholder="••••••••"
-                                    className="w-full h-11 rounded-lg border border-border bg-secondary pl-10 pr-12 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background transition-all"
+                                    className="w-full h-10 sm:h-11 rounded-lg border border-border bg-secondary pl-10 pr-12 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background transition-all"
                                     required
                                     disabled={loading}
                                 />
                                 <button
                                     type="button"
                                     onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors touch-target"
                                 >
                                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                                 </button>
@@ -111,7 +111,7 @@ export default function SignInPage() {
                         </div>
 
                         {/* Submit */}
-                        <Button type="submit" className="w-full h-11" variant="glow" disabled={loading}>
+                        <Button type="submit" className="w-full h-10 sm:h-11 touch-target" variant="glow" disabled={loading}>
                             {loading ? (
                                 <>
                                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />

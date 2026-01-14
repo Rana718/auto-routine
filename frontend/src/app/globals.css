@@ -127,18 +127,51 @@
     @apply border-border;
   }
 
+  html {
+    overflow-x: hidden;
+  }
+
   body {
     @apply bg-background text-foreground antialiased;
     font-family: 'Inter', system-ui, sans-serif;
+    overflow-x: hidden;
   }
 
-  h1,
-  h2,
-  h3,
-  h4,
-  h5,
+  /* Responsive Typography */
+  h1 {
+    @apply font-semibold tracking-tight;
+    font-size: clamp(1.75rem, 4vw, 2.5rem);
+    /* 28px - 40px */
+  }
+
+  h2 {
+    @apply font-semibold tracking-tight;
+    font-size: clamp(1.5rem, 3.5vw, 2rem);
+    /* 24px - 32px */
+  }
+
+  h3 {
+    @apply font-semibold tracking-tight;
+    font-size: clamp(1.25rem, 3vw, 1.75rem);
+    /* 20px - 28px */
+  }
+
+  h4 {
+    @apply font-semibold tracking-tight;
+    font-size: clamp(1.125rem, 2.5vw, 1.5rem);
+    /* 18px - 24px */
+  }
+
+  h5 {
+    @apply font-semibold tracking-tight;
+    font-size: clamp(1rem, 2vw, 1.25rem);
+    /* 16px - 20px */
+  }
+
   h6 {
     @apply font-semibold tracking-tight;
+    font-size: clamp(0.875rem, 1.5vw, 1rem);
+    /* 14px - 16px */
   }
 
   code,
@@ -162,6 +195,50 @@
 
   .elevated-shadow {
     box-shadow: var(--shadow-elevated);
+  }
+
+  /* Responsive Utilities */
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .container-responsive {
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  @media (min-width: 640px) {
+    .container-responsive {
+      padding-left: 1.5rem;
+      padding-right: 1.5rem;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .container-responsive {
+      padding-left: 2rem;
+      padding-right: 2rem;
+    }
+  }
+
+  /* Mobile text utilities */
+  .text-mobile-sm {
+    font-size: 0.75rem;
+    /* 12px */
+  }
+
+  .text-mobile-base {
+    font-size: 0.875rem;
+    /* 14px */
+  }
+
+  .text-mobile-lg {
+    font-size: 1rem;
+    /* 16px */
   }
 }
 
@@ -217,6 +294,7 @@
     opacity: 0;
     transform: translateX(100%);
   }
+
   to {
     opacity: 1;
     transform: translateX(0);

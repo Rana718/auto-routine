@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
-import { Bell, Search, User, Settings, LogOut, X, Clock, AlertTriangle, CheckCircle, Loader2, Mail, Key } from "lucide-react";
+import { Bell, Search, User, Settings, LogOut, X, Clock, AlertTriangle, CheckCircle, Loader2, Mail, Key, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { notificationsApi, NotificationItem } from "@/lib/api";
@@ -13,9 +13,10 @@ import { ChangeEmailModal } from "@/components/modals/ChangeEmailModal";
 interface HeaderProps {
     title: string;
     subtitle?: string;
+    onMenuClick?: () => void;
 }
 
-export function Header({ title, subtitle }: HeaderProps) {
+export function Header({ title, subtitle, onMenuClick }: HeaderProps) {
     const router = useRouter();
     const { data: session } = useSession();
     const [showNotifications, setShowNotifications] = useState(false);
@@ -87,17 +88,30 @@ export function Header({ title, subtitle }: HeaderProps) {
     };
 
     return (
-        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-background/80 backdrop-blur-xl px-6">
-            <div>
-                <h1 className="text-xl font-semibold text-foreground">{title}</h1>
-                {subtitle && (
-                    <p className="text-sm text-muted-foreground">{subtitle}</p>
+        <header className="sticky top-0 z-30 flex h-14 md:h-16 items-center justify-between border-b border-border bg-background/80 backdrop-blur-xl px-3 sm:px-4 md:px-6">
+            <div className="flex items-center gap-2 md:gap-4 flex-1 min-w-0">
+                {/* Hamburger menu for mobile */}
+                {onMenuClick && (
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="md:hidden shrink-0"
+                        onClick={onMenuClick}
+                    >
+                        <Menu className="h-5 w-5" />
+                    </Button>
                 )}
+                <div className="min-w-0">
+                    <h1 className="text-base md:text-xl font-semibold text-foreground truncate">{title}</h1>
+                    {subtitle && (
+                        <p className="text-xs md:text-sm text-muted-foreground truncate hidden sm:block">{subtitle}</p>
+                    )}
+                </div>
             </div>
 
-            <div className="flex items-center gap-3">
-                {/* Search */}
-                <div className="relative hidden md:block">
+            <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3 shrink-0">
+                {/* Search - hidden on mobile, shown on md+ */}
+                <div className="relative hidden lg:block">
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <input
                         type="text"
@@ -105,7 +119,7 @@ export function Header({ title, subtitle }: HeaderProps) {
                         onChange={(e) => setSearchQuery(e.target.value)}
                         onKeyDown={handleSearch}
                         placeholder="注文・店舗を検索..."
-                        className="h-9 w-64 rounded-lg border border-border bg-secondary pl-9 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background transition-all"
+                        className="h-9 w-48 xl:w-64 rounded-lg border border-border bg-secondary pl-9 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background transition-all"
                     />
                 </div>
 
@@ -129,7 +143,7 @@ export function Header({ title, subtitle }: HeaderProps) {
                     </Button>
 
                     {showNotifications && (
-                        <div className="absolute right-0 top-full mt-2 w-80 rounded-xl border border-border bg-card shadow-lg overflow-hidden z-50">
+                        <div className="absolute right-0 top-full mt-2 w-[calc(100vw-2rem)] sm:w-80 max-w-md rounded-xl border border-border bg-card shadow-lg overflow-hidden z-50">
                             <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
                                 <h3 className="font-semibold text-sm">通知</h3>
                                 {unreadCount > 0 && (
@@ -186,7 +200,7 @@ export function Header({ title, subtitle }: HeaderProps) {
                     </Button>
 
                     {showProfile && (
-                        <div className="absolute right-0 top-full mt-2 w-56 rounded-xl border border-border bg-card shadow-lg overflow-hidden z-50">
+                        <div className="absolute right-0 top-full mt-2 w-64 sm:w-56 rounded-xl border border-border bg-card shadow-lg overflow-hidden z-50">
                             {/* User Info */}
                             <div className="px-4 py-3 border-b border-border bg-muted/30">
                                 <p className="font-medium text-sm text-foreground">{session?.user?.name || "ユーザー"}</p>

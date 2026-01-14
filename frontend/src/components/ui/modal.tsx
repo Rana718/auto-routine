@@ -17,7 +17,7 @@ export function Modal({ isOpen, onClose, title, children, className }: ModalProp
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4">
             {/* Backdrop */}
             <div
                 className="absolute inset-0 bg-black/50 backdrop-blur-sm"
@@ -27,26 +27,26 @@ export function Modal({ isOpen, onClose, title, children, className }: ModalProp
             {/* Modal Content */}
             <div
                 className={cn(
-                    "relative z-10 w-full max-w-md max-h-[90vh] overflow-auto",
+                    "relative z-10 w-full max-w-md max-h-[95vh] overflow-auto",
                     "rounded-xl border border-border bg-card shadow-xl",
                     className
                 )}
             >
                 {/* Header */}
-                <div className="flex items-center justify-between p-4 border-b border-border">
-                    <h2 className="text-lg font-semibold text-foreground">{title}</h2>
+                <div className="flex items-center justify-between p-3 sm:p-4 border-b border-border">
+                    <h2 className="text-base sm:text-lg font-semibold text-foreground">{title}</h2>
                     <Button
                         variant="ghost"
                         size="icon"
                         onClick={onClose}
-                        className="h-8 w-8"
+                        className="h-8 w-8 touch-target"
                     >
                         <X className="h-4 w-4" />
                     </Button>
                 </div>
 
                 {/* Body */}
-                <div className="p-4">
+                <div className="p-3 sm:p-4">
                     {children}
                 </div>
             </div>

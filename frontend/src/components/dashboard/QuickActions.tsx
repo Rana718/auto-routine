@@ -126,11 +126,11 @@ export function QuickActions() {
 
     return (
         <>
-            <div className="rounded-xl border border-border bg-card card-shadow p-5">
-                <h3 className="text-lg font-semibold text-foreground mb-4">
+            <div className="rounded-xl border border-border bg-card card-shadow p-4 md:p-5">
+                <h3 className="text-base md:text-lg font-semibold text-foreground mb-3 md:mb-4">
                     クイックアクション
                 </h3>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 md:gap-3">
                     {actions.map((action, index) => {
                         const Icon = action.icon;
 

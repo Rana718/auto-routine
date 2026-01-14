@@ -80,7 +80,7 @@ export default function OrdersPage() {
     return (
         <MainLayout title="注文管理" subtitle="すべての買付注文を管理・追跡">
             {/* Toolbar */}
-            <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-4 mb-6">
+            <form onSubmit={handleSearch} className="flex flex-col gap-3 mb-4 md:mb-6">
                 <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <input
@@ -91,14 +91,14 @@ export default function OrdersPage() {
                         className="w-full h-10 rounded-lg border border-border bg-secondary pl-9 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background transition-all"
                     />
                 </div>
-                <div className="flex gap-3">
+                <div className="flex flex-wrap gap-2">
                     <select
                         value={statusFilter}
                         onChange={(e) => {
                             setStatusFilter(e.target.value);
                             setPage(0);
                         }}
-                        className="h-10 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                        className="h-10 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary flex-1 sm:flex-none"
                     >
                         <option value="all">全てのステータス</option>
                         <option value="pending">待機中</option>
@@ -106,16 +106,13 @@ export default function OrdersPage() {
                         <option value="completed">完了</option>
                         <option value="failed">失敗</option>
                     </select>
-                    {/* <Button variant="outline" className="gap-2" type="button">
-                        <Filter className="h-4 w-4" />
-                        詳細フィルター
-                    </Button> */}
-                    <Button variant="outline" className="gap-2" type="button" onClick={() => setShowCreateModal(true)}>
+                    <Button variant="outline" className="gap-2 flex-1 sm:flex-none" type="button" onClick={() => setShowCreateModal(true)}>
                         <Plus className="h-4 w-4" />
-                        手動追加
+                        <span className="hidden sm:inline">手動追加</span>
+                        <span className="sm:hidden">追加</span>
                     </Button>
                     {canManageOrders && (
-                        <Button variant="outline" className="gap-2" type="button" onClick={() => {
+                        <Button variant="outline" className="gap-2 flex-1 sm:flex-none" type="button" onClick={() => {
                             const token = (session as any)?.accessToken;
                             if (!token) {
                                 alert("認証トークンが見つかりません。再度ログインしてください。");
@@ -124,12 +121,14 @@ export default function OrdersPage() {
                             window.open(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/settings/data/export-orders?token=${token}`, "_blank");
                         }}>
                             <Download className="h-4 w-4" />
-                            CSV出力
+                            <span className="hidden sm:inline">CSV出力</span>
+                            <span className="sm:hidden">CSV</span>
                         </Button>
                     )}
-                    <Button className="gap-2" type="button" onClick={() => setShowImportModal(true)}>
+                    <Button className="gap-2 flex-1 sm:flex-none" type="button" onClick={() => setShowImportModal(true)}>
                         <Upload className="h-4 w-4" />
-                        注文取込
+                        <span className="hidden sm:inline">注文取込</span>
+                        <span className="sm:hidden">取込</span>
                     </Button>
                 </div>
             </form>
@@ -154,95 +153,136 @@ export default function OrdersPage() {
                         注文が見つかりません
                     </div>
                 ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead>
-                                <tr className="border-b border-border bg-muted/30">
-                                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                                        注文ID
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                                        顧客名
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                                        商品数
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                                        モール
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                                        注文日
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                                        ステータス
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                                        操作
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-border">
-                                {filteredOrders.map((order, index) => (
-                                    <tr
-                                        key={order.order_id}
-                                        className="hover:bg-muted/20 transition-colors animate-fade-in"
-                                        style={{ animationDelay: `${index * 30}ms` }}
-                                    >
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className="font-mono text-sm text-primary">
-                                                {order.robot_in_order_id || `#${order.order_id}`}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <p className="text-sm font-medium text-foreground truncate max-w-[200px]">
-                                                {order.customer_name || "—"}
-                                            </p>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className="text-sm font-medium text-foreground">
-                                                {order.items?.length || 0}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <span className="text-sm text-foreground truncate max-w-[150px] block">
-                                                {order.mall_name || "—"}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className="text-sm text-muted-foreground">
-                                                {order.order_date ? new Date(order.order_date).toLocaleDateString("ja-JP") : "—"}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <Badge
-                                                className={cn(
-                                                    "border-none font-medium",
-                                                    statusConfig[order.order_status]?.className || statusConfig.pending.className
-                                                )}
-                                            >
-                                                {statusConfig[order.order_status]?.label || order.order_status}
-                                            </Badge>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className="gap-1"
-                                                onClick={() => window.location.href = `/orders/${order.order_id}`}
-                                            >
-                                                詳細
-                                                <ChevronDown className="h-3 w-3" />
-                                            </Button>
-                                        </td>
+                    <>
+                        {/* Mobile card layout */}
+                        <div className="md:hidden divide-y divide-border">
+                            {filteredOrders.map((order, index) => (
+                                <div
+                                    key={order.order_id}
+                                    className="p-4 hover:bg-muted/20 transition-colors animate-fade-in"
+                                    style={{ animationDelay: `${index * 30}ms` }}
+                                    onClick={() => window.location.href = `/orders/${order.order_id}`}
+                                >
+                                    <div className="flex items-start justify-between mb-2">
+                                        <span className="font-mono text-sm text-primary font-medium">
+                                            {order.robot_in_order_id || `#${order.order_id}`}
+                                        </span>
+                                        <Badge
+                                            className={cn(
+                                                "border-none font-medium text-xs",
+                                                statusConfig[order.order_status]?.className || statusConfig.pending.className
+                                            )}
+                                        >
+                                            {statusConfig[order.order_status]?.label || order.order_status}
+                                        </Badge>
+                                    </div>
+                                    <p className="text-sm font-medium text-foreground truncate mb-1">
+                                        {order.customer_name || "—"}
+                                    </p>
+                                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                                        <span>商品数: {order.items?.length || 0}</span>
+                                        <span>モール: {order.mall_name || "—"}</span>
+                                    </div>
+                                    {order.order_date && (
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                            {new Date(order.order_date).toLocaleDateString("ja-JP")}
+                                        </p>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Desktop table layout */}
+                        <div className="hidden md:block overflow-x-auto">
+                            <table className="w-full">
+                                <thead>
+                                    <tr className="border-b border-border bg-muted/30">
+                                        <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                                            注文ID
+                                        </th>
+                                        <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                                            顧客名
+                                        </th>
+                                        <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                                            商品数
+                                        </th>
+                                        <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                                            モール
+                                        </th>
+                                        <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                                            注文日
+                                        </th>
+                                        <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                                            ステータス
+                                        </th>
+                                        <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                                            操作
+                                        </th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+                                <tbody className="divide-y divide-border">
+                                    {filteredOrders.map((order, index) => (
+                                        <tr
+                                            key={order.order_id}
+                                            className="hover:bg-muted/20 transition-colors animate-fade-in"
+                                            style={{ animationDelay: `${index * 30}ms` }}
+                                        >
+                                            <td className="px-4 lg:px-6 py-4 whitespace-nowrap">
+                                                <span className="font-mono text-sm text-primary">
+                                                    {order.robot_in_order_id || `#${order.order_id}`}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 lg:px-6 py-4">
+                                                <p className="text-sm font-medium text-foreground truncate max-w-[150px] lg:max-w-[200px]">
+                                                    {order.customer_name || "—"}
+                                                </p>
+                                            </td>
+                                            <td className="px-4 lg:px-6 py-4 whitespace-nowrap">
+                                                <span className="text-sm font-medium text-foreground">
+                                                    {order.items?.length || 0}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 lg:px-6 py-4">
+                                                <span className="text-sm text-foreground truncate max-w-[120px] lg:max-w-[150px] block">
+                                                    {order.mall_name || "—"}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 lg:px-6 py-4 whitespace-nowrap">
+                                                <span className="text-sm text-muted-foreground">
+                                                    {order.order_date ? new Date(order.order_date).toLocaleDateString("ja-JP") : "—"}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 lg:px-6 py-4 whitespace-nowrap">
+                                                <Badge
+                                                    className={cn(
+                                                        "border-none font-medium",
+                                                        statusConfig[order.order_status]?.className || statusConfig.pending.className
+                                                    )}
+                                                >
+                                                    {statusConfig[order.order_status]?.label || order.order_status}
+                                                </Badge>
+                                            </td>
+                                            <td className="px-4 lg:px-6 py-4 whitespace-nowrap">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="gap-1"
+                                                    onClick={() => window.location.href = `/orders/${order.order_id}`}
+                                                >
+                                                    詳細
+                                                    <ChevronDown className="h-3 w-3" />
+                                                </Button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </>
                 )}
 
                 {/* Pagination */}
-                <div className="flex items-center justify-between border-t border-border px-6 py-4 bg-muted/20">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-border px-4 md:px-6 py-3 md:py-4 bg-muted/20">
                     <p className="text-sm text-muted-foreground">
                         {filteredOrders.length}件を表示
                     </p>

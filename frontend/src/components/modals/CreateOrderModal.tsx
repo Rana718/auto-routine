@@ -63,26 +63,26 @@ export function CreateOrderModal({ isOpen, onClose, onSuccess }: CreateOrderModa
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <div className="w-full max-w-2xl rounded-xl border border-border bg-card p-6 shadow-lg">
-                <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-xl font-bold text-foreground">注文を追加</h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-2 sm:p-4">
+            <div className="w-full max-w-2xl max-h-[95vh] overflow-y-auto rounded-xl border border-border bg-card p-4 sm:p-5 md:p-6 shadow-lg">
+                <div className="flex items-center justify-between mb-4 sm:mb-5 md:mb-6">
+                    <h2 className="text-lg sm:text-xl font-bold text-foreground">注文を追加</h2>
                     <button
                         onClick={onClose}
-                        className="rounded-lg p-2 hover:bg-secondary transition-colors"
+                        className="rounded-lg p-2 hover:bg-secondary transition-colors touch-target"
                     >
                         <X className="h-5 w-5" />
                     </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-4">
+                <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
                     {error && (
                         <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
                             {error}
                         </div>
                     )}
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                         <div>
                             <label className="block text-sm font-medium mb-2">注文番号</label>
                             <input
@@ -115,7 +115,7 @@ export function CreateOrderModal({ isOpen, onClose, onSuccess }: CreateOrderModa
                                 variant="outline"
                                 size="sm"
                                 onClick={handleAddItem}
-                                className="gap-1"
+                                className="gap-1 text-xs sm:text-sm"
                             >
                                 <Plus className="h-3 w-3" />
                                 商品追加
@@ -124,8 +124,8 @@ export function CreateOrderModal({ isOpen, onClose, onSuccess }: CreateOrderModa
 
                         <div className="space-y-2 max-h-64 overflow-y-auto">
                             {items.map((item, index) => (
-                                <div key={index} className="flex gap-2 p-3 rounded-lg border border-border bg-secondary/50">
-                                    <div className="flex-1 grid grid-cols-4 gap-2">
+                                <div key={index} className="flex gap-2 p-2 sm:p-3 rounded-lg border border-border bg-secondary/50">
+                                    <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
                                         <input
                                             type="text"
                                             value={item.sku}
@@ -139,7 +139,7 @@ export function CreateOrderModal({ isOpen, onClose, onSuccess }: CreateOrderModa
                                             value={item.product_name}
                                             onChange={(e) => handleItemChange(index, "product_name", e.target.value)}
                                             placeholder="商品名"
-                                            className="h-9 rounded border border-border bg-background px-2 text-sm"
+                                            className="h-9 rounded border border-border bg-background px-2 text-sm sm:col-span-2 lg:col-span-1"
                                             required
                                         />
                                         <input
@@ -165,7 +165,7 @@ export function CreateOrderModal({ isOpen, onClose, onSuccess }: CreateOrderModa
                                         <button
                                             type="button"
                                             onClick={() => handleRemoveItem(index)}
-                                            className="p-2 rounded hover:bg-destructive/10 text-destructive"
+                                            className="p-2 rounded hover:bg-destructive/10 text-destructive touch-target shrink-0"
                                         >
                                             <Trash2 className="h-4 w-4" />
                                         </button>
@@ -175,17 +175,17 @@ export function CreateOrderModal({ isOpen, onClose, onSuccess }: CreateOrderModa
                         </div>
                     </div>
 
-                    <div className="flex gap-3 pt-4">
+                    <div className="flex flex-col sm:flex-row gap-3 pt-3 sm:pt-4">
                         <Button
                             type="button"
                             variant="outline"
                             onClick={onClose}
                             disabled={loading}
-                            className="flex-1"
+                            className="flex-1 touch-target"
                         >
                             キャンセル
                         </Button>
-                        <Button type="submit" disabled={loading} className="flex-1">
+                        <Button type="submit" disabled={loading} className="flex-1 touch-target">
                             {loading ? "作成中..." : "注文を作成"}
                         </Button>
                     </div>

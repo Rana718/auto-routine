@@ -127,41 +127,23 @@ export default function ProductsPage() {
     return (
         <MainLayout title="商品設定" subtitle="商品の店舗固定とルーティング設定">
             <div className="rounded-xl border border-border bg-card card-shadow overflow-hidden">
-                <table className="w-full">
-                    <thead>
-                        <tr className="border-b border-border bg-muted/30">
-                            <th className="px-6 py-3 text-left text-xs font-medium uppercase text-muted-foreground">
-                                SKU
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium uppercase text-muted-foreground">
-                                商品名
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium uppercase text-muted-foreground">
-                                店舗固定
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium uppercase text-muted-foreground">
-                                固定店舗
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium uppercase text-muted-foreground">
-                                ルーティング除外
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                        {products.map((product) => (
-                            <tr key={product.product_id} className="hover:bg-muted/20">
-                                <td className="px-6 py-4">
-                                    <span className="font-mono text-sm">{product.sku}</span>
-                                </td>
-                                <td className="px-6 py-4">
-                                    <p className="text-sm font-medium">{product.product_name}</p>
-                                    {product.is_set_product && (
-                                        <Badge className="mt-1 bg-purple-500/20 text-purple-400">
-                                            セット商品
-                                        </Badge>
-                                    )}
-                                </td>
-                                <td className="px-6 py-4">
+                {/* Mobile card layout */}
+                <div className="md:hidden divide-y divide-border">
+                    {products.map((product) => (
+                        <div key={product.product_id} className="p-4 space-y-3">
+                            <div>
+                                <span className="font-mono text-xs text-muted-foreground block mb-1">{product.sku}</span>
+                                <p className="text-sm font-medium">{product.product_name}</p>
+                                {product.is_set_product && (
+                                    <Badge className="mt-1 bg-purple-500/20 text-purple-400 text-xs">
+                                        セット商品
+                                    </Badge>
+                                )}
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="flex items-center justify-between text-sm">
+                                    <span className="text-muted-foreground">店舗固定</span>
                                     <input
                                         type="checkbox"
                                         checked={product.is_store_fixed}
@@ -170,11 +152,13 @@ export default function ProductsPage() {
                                             e.target.checked,
                                             product.fixed_store_id
                                         )}
-                                        className="h-4 w-4"
+                                        className="h-5 w-5 touch-target"
                                     />
-                                </td>
-                                <td className="px-6 py-4">
-                                    {product.is_store_fixed ? (
+                                </label>
+
+                                {product.is_store_fixed && (
+                                    <div>
+                                        <label className="block text-xs text-muted-foreground mb-1">固定店舗</label>
                                         <select
                                             value={product.fixed_store_id || ""}
                                             onChange={(e) => toggleStoreFixed(
@@ -182,7 +166,7 @@ export default function ProductsPage() {
                                                 true,
                                                 Number(e.target.value)
                                             )}
-                                            className="rounded border border-border bg-secondary px-2 py-1 text-sm"
+                                            className="w-full rounded border border-border bg-secondary px-3 py-2 text-sm"
                                         >
                                             <option value="">選択...</option>
                                             {stores.map((store) => (
@@ -191,11 +175,11 @@ export default function ProductsPage() {
                                                 </option>
                                             ))}
                                         </select>
-                                    ) : (
-                                        <span className="text-muted-foreground text-sm">—</span>
-                                    )}
-                                </td>
-                                <td className="px-6 py-4">
+                                    </div>
+                                )}
+
+                                <label className="flex items-center justify-between text-sm">
+                                    <span className="text-muted-foreground">ルーティング除外</span>
                                     <input
                                         type="checkbox"
                                         checked={product.exclude_from_routing}
@@ -203,13 +187,100 @@ export default function ProductsPage() {
                                             product.product_id,
                                             e.target.checked
                                         )}
-                                        className="h-4 w-4"
+                                        className="h-5 w-5 touch-target"
                                     />
-                                </td>
+                                </label>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Desktop table layout */}
+                <div className="hidden md:block overflow-x-auto">
+                    <table className="w-full">
+                        <thead>
+                            <tr className="border-b border-border bg-muted/30">
+                                <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium uppercase text-muted-foreground">
+                                    SKU
+                                </th>
+                                <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium uppercase text-muted-foreground">
+                                    商品名
+                                </th>
+                                <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium uppercase text-muted-foreground">
+                                    店舗固定
+                                </th>
+                                <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium uppercase text-muted-foreground">
+                                    固定店舗
+                                </th>
+                                <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium uppercase text-muted-foreground">
+                                    ルーティング除外
+                                </th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                            {products.map((product) => (
+                                <tr key={product.product_id} className="hover:bg-muted/20">
+                                    <td className="px-4 lg:px-6 py-4">
+                                        <span className="font-mono text-sm">{product.sku}</span>
+                                    </td>
+                                    <td className="px-4 lg:px-6 py-4">
+                                        <p className="text-sm font-medium">{product.product_name}</p>
+                                        {product.is_set_product && (
+                                            <Badge className="mt-1 bg-purple-500/20 text-purple-400">
+                                                セット商品
+                                            </Badge>
+                                        )}
+                                    </td>
+                                    <td className="px-4 lg:px-6 py-4">
+                                        <input
+                                            type="checkbox"
+                                            checked={product.is_store_fixed}
+                                            onChange={(e) => toggleStoreFixed(
+                                                product.product_id,
+                                                e.target.checked,
+                                                product.fixed_store_id
+                                            )}
+                                            className="h-4 w-4"
+                                        />
+                                    </td>
+                                    <td className="px-4 lg:px-6 py-4">
+                                        {product.is_store_fixed ? (
+                                            <select
+                                                value={product.fixed_store_id || ""}
+                                                onChange={(e) => toggleStoreFixed(
+                                                    product.product_id,
+                                                    true,
+                                                    Number(e.target.value)
+                                                )}
+                                                className="rounded border border-border bg-secondary px-2 py-1 text-sm"
+                                            >
+                                                <option value="">選択...</option>
+                                                {stores.map((store) => (
+                                                    <option key={store.store_id} value={store.store_id}>
+                                                        {store.store_name}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        ) : (
+                                            <span className="text-muted-foreground text-sm">—</span>
+                                        )}
+                                    </td>
+                                    <td className="px-4 lg:px-6 py-4">
+                                        <input
+                                            type="checkbox"
+                                            checked={product.exclude_from_routing}
+                                            onChange={(e) => toggleRouting(
+                                                product.product_id,
+                                                e.target.checked
+                                            )}
+                                            className="h-4 w-4"
+                                        />
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </MainLayout>
     );

@@ -24,9 +24,9 @@ export function StaffOverview({ staff }: StaffOverviewProps) {
 
     return (
         <div className="rounded-xl border border-border bg-card card-shadow">
-            <div className="border-b border-border px-6 py-4">
-                <h3 className="text-lg font-semibold text-foreground">スタッフ状況</h3>
-                <p className="text-sm text-muted-foreground">
+            <div className="border-b border-border px-4 md:px-6 py-3 md:py-4">
+                <h3 className="text-base md:text-lg font-semibold text-foreground">スタッフ状況</h3>
+                <p className="text-xs md:text-sm text-muted-foreground">
                     本日稼働: {activeCount}名
                 </p>
             </div>
@@ -40,12 +40,12 @@ export function StaffOverview({ staff }: StaffOverviewProps) {
                         {displayedStaff.map((member, index) => (
                             <div
                                 key={member.staff_id}
-                                className="flex items-center gap-4 px-6 py-4 hover:bg-muted/20 transition-colors animate-fade-in"
+                                className="flex items-center gap-3 md:gap-4 px-4 md:px-6 py-3 md:py-4 hover:bg-muted/20 transition-colors animate-fade-in"
                                 style={{ animationDelay: `${index * 50}ms` }}
                             >
                                 {/* Avatar */}
-                                <div className="relative">
-                                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground font-semibold">
+                                <div className="relative shrink-0">
+                                    <div className="flex h-9 w-9 md:h-10 md:w-10 items-center justify-center rounded-full bg-primary text-primary-foreground font-semibold text-sm md:text-base">
                                         {member.staff_name[0]}
                                     </div>
                                     <span
@@ -76,8 +76,8 @@ export function StaffOverview({ staff }: StaffOverviewProps) {
                                     )}
                                 </div>
 
-                                {/* Stats */}
-                                <div className="flex items-center gap-4 text-sm shrink-0">
+                                {/* Stats - hidden on small mobile */}
+                                <div className="hidden sm:flex items-center gap-3 md:gap-4 text-xs md:text-sm shrink-0">
                                     <div className="flex items-center gap-1.5 text-muted-foreground">
                                         <Package className="h-4 w-4" />
                                         <span>{member.assigned_orders}</span>

@@ -90,8 +90,8 @@ export default function Dashboard() {
       title="ダッシュボード"
       subtitle={`${dateStr} — 本日の買付概要`}
     >
-      {/* Stats Row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      {/* Stats Row - 1 col on mobile, 2 on tablet, 4 on desktop */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-4 md:mb-6">
         <StatCard
           title="本日の注文数"
           value={totalOrders}
@@ -122,8 +122,8 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* Status Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      {/* Status Overview - 1 col on mobile, 3 on tablet+ */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4 mb-4 md:mb-6">
         <StatCard
           title="割当待ち"
           value={orderStats?.pending_orders || 0}
@@ -144,15 +144,15 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Orders Table - 2 columns */}
+      {/* Main Content Grid - stacked on mobile, 3-col layout on lg+ */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
+        {/* Orders Table - full width on mobile, 2 columns on lg+ */}
         <div className="lg:col-span-2">
           <OrdersTable orders={recentOrders} />
         </div>
 
-        {/* Sidebar - 1 column */}
-        <div className="space-y-6">
+        {/* Sidebar - full width on mobile, 1 column on lg+ */}
+        <div className="space-y-4 md:space-y-6">
           <CutoffTimer />
           <QuickActions />
           <StaffOverview staff={staffList} />

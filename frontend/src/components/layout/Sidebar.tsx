@@ -20,6 +20,7 @@ import {
     Box,
     MapPin,
     ClipboardCheck,
+    X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -46,7 +47,13 @@ const managementItems = [
     { icon: Shield, label: "ユーザー管理", path: "/admin/users" },
 ];
 
-export function Sidebar() {
+interface SidebarProps {
+    mobileOpen: boolean;
+    onMobileClose: () => void;
+    onCollapsedChange?: (collapsed: boolean) => void;
+}
+
+export function Sidebar({ mobileOpen, onMobileClose, onCollapsedChange }: SidebarProps) {
     const [collapsed, setCollapsed] = useState(false);
     const pathname = usePathname();
     const { data: session } = useSession();
@@ -61,109 +68,156 @@ export function Sidebar() {
         signOut({ callbackUrl: "/signin" });
     };
 
+    const handleToggleCollapse = () => {
+        setCollapsed(!collapsed);
+        onCollapsedChange?.(!collapsed);
+    };
+
     return (
-        <aside
-            className={cn(
-                "fixed left-0 top-0 z-40 h-screen bg-sidebar border-r border-sidebar-border transition-all duration-300",
-                collapsed ? "w-16" : "w-64"
+        <>
+            {/* Mobile backdrop overlay */}
+            {mobileOpen && (
+                <div
+                    className="fixed inset-0 z-30 bg-black/50 md:hidden"
+                    onClick={onMobileClose}
+                />
             )}
-        >
-            {/* Logo */}
-            <div className="flex h-16 items-center justify-between px-4 border-b border-sidebar-border">
-                <div className={cn("flex items-center gap-3", collapsed && "justify-center w-full")}>
-                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                        <Package className="h-5 w-5" />
-                    </div>
-                    {!collapsed && (
-                        <span className="font-semibold text-sidebar-foreground">
-                            買付フロー
-                        </span>
+
+            <aside
+                className={cn(
+                    "fixed left-0 top-0 z-40 h-screen bg-sidebar border-r border-sidebar-border transition-all duration-300",
+                    // Mobile: hidden by default, full-width when open
+                    "max-md:-translate-x-full max-md:w-64",
+                    mobileOpen && "max-md:translate-x-0",
+                    // Tablet and desktop: always visible
+                    collapsed ? "md:w-16" : "md:w-64"
+                )}
+            >
+                {/* Logo */}
+                <div className={cn(
+                    "flex h-16 items-center border-b border-sidebar-border",
+                    collapsed ? "justify-center px-2" : "justify-between px-3 md:px-4"
+                )}>
+                    {collapsed ? (
+                        // Collapsed state: Just logo icon, clickable to expand
+                        <button
+                            onClick={handleToggleCollapse}
+                            className="hidden md:flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                            title="サイドバーを展開"
+                        >
+                            <Package className="h-4 w-4" />
+                        </button>
+                    ) : (
+                        // Expanded state: Logo + text + buttons
+                        <>
+                            <div className="flex items-center gap-2 md:gap-3">
+                                <div className="flex h-8 w-8 md:h-9 md:w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                                    <Package className="h-4 w-4 md:h-5 md:w-5" />
+                                </div>
+                                <span className="font-semibold text-sm md:text-base text-sidebar-foreground">
+                                    買付フロー
+                                </span>
+                            </div>
+
+                            {/* Close button for mobile */}
+                            <button
+                                onClick={onMobileClose}
+                                className="md:hidden p-1.5 rounded-md hover:bg-sidebar-accent text-sidebar-foreground/60 hover:text-sidebar-foreground transition-colors touch-target"
+                                aria-label="閉じる"
+                            >
+                                <X className="h-5 w-5" />
+                            </button>
+
+                            {/* Collapse button for desktop */}
+                            <button
+                                onClick={handleToggleCollapse}
+                                className="hidden md:block p-1.5 rounded-md hover:bg-sidebar-accent text-sidebar-foreground/60 hover:text-sidebar-foreground transition-colors"
+                                aria-label="サイドバーを折りたたむ"
+                            >
+                                <ChevronLeft className="h-4 w-4" />
+                            </button>
+                        </>
                     )}
                 </div>
-                {!collapsed && (
-                    <button
-                        onClick={() => setCollapsed(true)}
-                        className="p-1.5 rounded-md hover:bg-sidebar-accent text-sidebar-foreground/60 hover:text-sidebar-foreground transition-colors"
-                    >
-                        <ChevronLeft className="h-4 w-4" />
-                    </button>
-                )}
-            </div>
 
-            {/* Navigation */}
-            <nav className="flex flex-col gap-1 p-3 overflow-y-auto" style={{ maxHeight: "calc(100vh - 200px)" }}>
-                {navItems.map((item) => {
-                    const isActive = pathname === item.path;
-                    return (
-                        <Link
-                            key={item.path}
-                            href={item.path}
-                            className={cn(
-                                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
-                                isActive
-                                    ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-md"
-                                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+                {/* Navigation */}
+                <nav className="flex flex-col gap-1 p-2 md:p-3">
+                    {navItems.map((item) => {
+                        const isActive = pathname === item.path;
+                        return (
+                            <Link
+                                key={item.path}
+                                href={item.path}
+                                onClick={onMobileClose}
+                                className={cn(
+                                    "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 touch-target",
+                                    isActive
+                                        ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-md"
+                                        : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground",
+                                    collapsed && "md:justify-center md:px-2"
+                                )}
+                            >
+                                <item.icon className="h-5 w-5 shrink-0" />
+                                {/* Show label on mobile always, hide on desktop only when collapsed */}
+                                <span className={cn(collapsed && "md:hidden")}>{item.label}</span>
+                            </Link>
+                        );
+                    })}
+
+                    {/* Admin Section */}
+                    {isAdmin && (
+                        <div className={cn("mt-4 pt-4 border-t border-sidebar-border", collapsed && "md:mt-2 md:pt-2")}>
+                            {!collapsed && (
+                                <p className="px-3 mb-2 text-xs font-semibold text-sidebar-foreground/50 uppercase">
+                                    管理
+                                </p>
                             )}
-                        >
-                            <item.icon className="h-5 w-5 shrink-0" />
-                            {!collapsed && <span>{item.label}</span>}
-                        </Link>
-                    );
-                })}
+                            {managementItems.map((item) => {
+                                const isActive = pathname === item.path;
+                                return (
+                                    <Link
+                                        key={item.path}
+                                        href={item.path}
+                                        onClick={onMobileClose}
+                                        className={cn(
+                                            "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 touch-target",
+                                            isActive
+                                                ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-md"
+                                                : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground",
+                                            collapsed && "md:justify-center md:px-2"
+                                        )}
+                                    >
+                                        <item.icon className="h-5 w-5 shrink-0" />
+                                        {/* Show label on mobile always, hide on desktop only when collapsed */}
+                                        <span className={cn(collapsed && "md:hidden")}>{item.label}</span>
+                                    </Link>
+                                );
+                            })}
+                        </div>
+                    )}
+                </nav>
 
-                {/* Admin Section */}
-                {isAdmin && !collapsed && (
-                    <div className="mt-4 pt-4 border-t border-sidebar-border">
-                        <p className="px-3 mb-2 text-xs font-semibold text-sidebar-foreground/50 uppercase">
-                            管理
-                        </p>
-                        {managementItems.map((item) => {
-                            const isActive = pathname === item.path;
-                            return (
-                                <Link
-                                    key={item.path}
-                                    href={item.path}
-                                    className={cn(
-                                        "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
-                                        isActive
-                                            ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-md"
-                                            : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
-                                    )}
-                                >
-                                    <item.icon className="h-5 w-5 shrink-0" />
-                                    <span>{item.label}</span>
-                                </Link>
-                            );
-                        })}
-                    </div>
-                )}
-            </nav>
 
-            {/* Expand button */}
-            {collapsed && (
-                <button
-                    onClick={() => setCollapsed(false)}
-                    className="absolute bottom-4 left-1/2 -translate-x-1/2 p-2 rounded-lg hover:bg-sidebar-accent text-sidebar-foreground/60 hover:text-sidebar-foreground transition-colors"
-                >
-                    <ChevronRight className="h-4 w-4" />
-                </button>
-            )}
-
-            {/* User & Logout */}
-            {!collapsed && (
-                <div className="absolute bottom-4 left-3 right-3 space-y-2">
+                {/* User & Logout - always show */}
+                <div className="absolute bottom-3 md:bottom-4 left-2 md:left-3 right-2 md:right-3 space-y-2">
                     {/* User Info */}
                     {session?.user && (
-                        <div className="flex items-center gap-3 rounded-lg px-3 py-2.5 bg-sidebar-accent/50">
-                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-medium">
-                                {session.user.name?.[0] || <User className="h-4 w-4" />}
+                        <div className={cn(
+                            "flex items-center gap-2 md:gap-3 rounded-lg px-2 md:px-3 py-2 md:py-2.5 bg-sidebar-accent/50",
+                            collapsed && "md:justify-center md:px-2"
+                        )}>
+                            <div className="flex h-7 w-7 md:h-8 md:w-8 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs md:text-sm font-medium shrink-0">
+                                {session.user.name?.[0] || <User className="h-3 w-3 md:h-4 md:w-4" />}
                             </div>
-                            <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-sidebar-foreground truncate">
+                            {/* Show on mobile always, hide on desktop when collapsed */}
+                            <div className={cn("flex-1 min-w-0", collapsed && "md:hidden")}>
+                                <p className="text-xs md:text-sm font-medium text-sidebar-foreground truncate">
                                     {session.user.name}
                                 </p>
-                                <p className="text-xs text-sidebar-foreground/60 truncate">
-                                    {userRole === "admin" ? "管理者" : userRole === "supervisor" ? "スーパーバイザー" : "バイヤー"}
+                                <p className="text-xs text-sidebar-foreground/60 flex items-center gap-1">
+                                    <Shield className="h-3 w-3" />
+                                    {session.user.role === "admin" ? "管理者" :
+                                        session.user.role === "supervisor" ? "スーパーバイザー" : "バイヤー"}
                                 </p>
                             </div>
                         </div>
@@ -172,13 +226,17 @@ export function Sidebar() {
                     {/* Logout Button */}
                     <button
                         onClick={handleLogout}
-                        className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-all duration-200"
+                        className={cn(
+                            "w-full flex items-center gap-2 md:gap-3 rounded-lg px-2 md:px-3 py-2 md:py-2.5 text-xs md:text-sm font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-all touch-target",
+                            collapsed && "md:justify-center md:px-2"
+                        )}
                     >
-                        <LogOut className="h-5 w-5 shrink-0" />
-                        <span>ログアウト</span>
+                        <LogOut className="h-4 w-4 md:h-5 md:w-5 shrink-0" />
+                        {/* Show on mobile always, hide on desktop when collapsed */}
+                        <span className={cn(collapsed && "md:hidden")}>ログアウト</span>
                     </button>
                 </div>
-            )}
-        </aside>
+            </aside>
+        </>
     );
 }

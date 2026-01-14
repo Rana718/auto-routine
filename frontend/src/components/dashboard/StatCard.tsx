@@ -40,21 +40,22 @@ export function StatCard({
     return (
         <div
             className={cn(
-                "rounded-xl border p-5 card-shadow transition-all duration-200 hover:elevated-shadow animate-slide-up",
+                "rounded-xl border card-shadow transition-all duration-200 hover:elevated-shadow animate-slide-up",
+                "p-3 sm:p-4 md:p-5",
                 variantStyles[variant]
             )}
         >
             <div className="flex items-start justify-between">
-                <div className="space-y-1">
-                    <p className="text-sm font-medium text-muted-foreground">{title}</p>
-                    <p className="text-3xl font-bold text-foreground">{value}</p>
+                <div className="space-y-0.5 sm:space-y-1 flex-1 min-w-0">
+                    <p className="text-xs sm:text-sm font-medium text-muted-foreground truncate">{title}</p>
+                    <p className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground truncate">{value}</p>
                     {subtitle && (
-                        <p className="text-sm text-muted-foreground">{subtitle}</p>
+                        <p className="text-xs sm:text-sm text-muted-foreground truncate">{subtitle}</p>
                     )}
                     {trend && (
                         <div
                             className={cn(
-                                "flex items-center gap-1 text-sm font-medium",
+                                "flex items-center gap-1 text-xs sm:text-sm font-medium",
                                 trend.positive ? "text-success" : "text-destructive"
                             )}
                         >
@@ -66,11 +67,12 @@ export function StatCard({
                 </div>
                 <div
                     className={cn(
-                        "flex h-12 w-12 items-center justify-center rounded-xl",
+                        "flex items-center justify-center rounded-xl shrink-0",
+                        "h-10 w-10 sm:h-11 sm:w-11 md:h-12 md:w-12",
                         iconStyles[variant]
                     )}
                 >
-                    <Icon className="h-6 w-6" />
+                    <Icon className="h-5 w-5 sm:h-5.5 sm:w-5.5 md:h-6 md:w-6" />
                 </div>
             </div>
         </div>
