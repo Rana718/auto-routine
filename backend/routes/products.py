@@ -119,7 +119,8 @@ async def get_products(
             "is_store_fixed": p.is_store_fixed,
             "fixed_store_id": p.fixed_store_id,
             "exclude_from_routing": p.exclude_from_routing,
-            "is_set_product": p.is_set_product
+            "is_set_product": p.is_set_product,
+            "set_split_rule": p.set_split_rule
         }
         for p in products
     ]
@@ -194,3 +195,21 @@ async def update_routing_exclusion(
     product.exclude_from_routing = exclude
     await db.commit()
     return {"message": "更新しました"}
+
+@router.delete("/{product_id}")
+@require_role(StaffRole.ADMIN, StaffRole.SUPERVISOR)
+async def delete_product(
+    product_id: int,
+    current_user: Annotated[Staff, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db)
+):
+    """Delete a product"""
+    result = await db.execute(select(Product).where(Product.product_id == product_id))
+    product = result.scalar_one_or_none()
+    
+    if not product:
+        raise HTTPException(status_code=404, detail="商品が見つかりません")
+    
+    await db.delete(product)
+    await db.commit()
+    return {"message": "削除しました"}
