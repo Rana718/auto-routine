@@ -133,7 +133,7 @@ export default function ProductsPage() {
                         <div key={product.product_id} className="p-4 space-y-3">
                             <div>
                                 <span className="font-mono text-xs text-muted-foreground block mb-1">{product.sku}</span>
-                                <p className="text-sm font-medium">{product.product_name}</p>
+                                <p className="text-sm font-medium truncate">{product.product_name}</p>
                                 {product.is_set_product && (
                                     <Badge className="mt-1 bg-purple-500/20 text-purple-400 text-xs">
                                         セット商品

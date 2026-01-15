@@ -201,9 +201,9 @@ export default function StaffPage() {
                                             )}
                                         />
                                     </div>
-                                    <div>
-                                        <h3 className="font-semibold text-foreground">{member.staff_name}</h3>
-                                        <Badge className={cn("text-xs", roleConfig[member.role]?.className || roleConfig.buyer.className)}>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-semibold text-foreground truncate">{member.staff_name}</p>
+                                        <Badge className={cn("text-xs mt-0.5", roleConfig[member.role]?.className || roleConfig.buyer.className)}>
                                             {roleConfig[member.role]?.label || member.role}
                                         </Badge>
                                     </div>
@@ -263,7 +263,7 @@ export default function StaffPage() {
                             <div className="flex items-center gap-2 mb-4">
                                 <span
                                     className={cn(
-                                        "text-sm font-medium",
+                                        "text-xs font-medium",
                                         statusConfig[member.status]?.textColor || statusConfig.idle.textColor
                                     )}
                                 >
@@ -271,10 +271,10 @@ export default function StaffPage() {
                                 </span>
                                 {member.current_location_name && (
                                     <>
-                                        <span className="text-muted-foreground">•</span>
-                                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                                            <MapPin className="h-3 w-3" />
-                                            {member.current_location_name}
+                                        <span className="text-muted-foreground text-xs">•</span>
+                                        <div className="flex items-center gap-1 text-xs text-muted-foreground truncate">
+                                            <MapPin className="h-3 w-3 shrink-0" />
+                                            <span className="truncate">{member.current_location_name}</span>
                                         </div>
                                     </>
                                 )}

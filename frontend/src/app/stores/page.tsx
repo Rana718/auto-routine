@@ -157,8 +157,8 @@ export default function StoresPage() {
                             {/* Header */}
                             <div className="flex items-start justify-between mb-3">
                                 <div className="flex-1 min-w-0">
-                                    <h3 className="font-semibold text-foreground truncate">{store.store_name}</h3>
-                                    <div className="flex items-center gap-1 text-sm text-muted-foreground mt-0.5">
+                                    <p className="text-sm font-semibold text-foreground truncate">{store.store_name}</p>
+                                    <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
                                         <MapPin className="h-3 w-3" />
                                         <span className="truncate">{store.district || "—"}</span>
                                     </div>
