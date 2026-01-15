@@ -2,9 +2,10 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from db.db import get_db
-from db.schema import Staff, PurchaseFailure, PurchaseListItem, FailureType, ItemStatus, PurchaseStatus
+from db.schema import Staff, PurchaseFailure, PurchaseListItem, FailureType, ItemStatus, PurchaseStatus, OrderItem, Store
 from models.purchase import PurchaseFailureCreate
 from middlewares.auth import get_current_user
 
@@ -43,7 +44,6 @@ async def record_purchase_failure(
     list_item.failure_reason = failure.failure_type
     
     # Update order item status
-    from db.schema import OrderItem
     result = await db.execute(select(OrderItem).where(OrderItem.item_id == failure.item_id))
     order_item = result.scalar_one_or_none()
     if order_item:
@@ -61,8 +61,16 @@ async def get_purchase_failures(
     skip: int = 0,
     limit: int = 50
 ):
-    """Get purchase failures"""
-    query = select(PurchaseFailure).order_by(PurchaseFailure.failure_date.desc())
+    """Get purchase failures with eager loading"""
+    # OPTIMIZED: Eager load related data
+    query = (
+        select(PurchaseFailure)
+        .options(
+            selectinload(PurchaseFailure.item),
+            selectinload(PurchaseFailure.store)
+        )
+        .order_by(PurchaseFailure.failure_date.desc())
+    )
     
     if failure_type:
         query = query.where(PurchaseFailure.failure_type == FailureType(failure_type))

@@ -1,16 +1,15 @@
 from typing import List
 from fastapi import HTTPException
-from sqlalchemy import select, func
+from sqlalchemy import select, func, case, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from datetime import date
 
-from db.schema import Staff, StaffRole, StaffStatus, StaffCreate, StaffResponse, Order, OrderStatus
+from db.schema import Staff, StaffRole, StaffStatus, StaffCreate, StaffResponse, PurchaseList, ListStatus
 from models.staff import StaffStats, StaffWithStats, StaffStatusUpdate
 from middlewares.auth import hash_password
 
 async def get_all_staff(db: AsyncSession, active_only: bool, skip: int, limit: int) -> List[StaffWithStats]:
-    # Base query for staff
     query = select(Staff)
     if active_only:
         query = query.where(Staff.is_active == True)
@@ -19,46 +18,32 @@ async def get_all_staff(db: AsyncSession, active_only: bool, skip: int, limit: i
     result = await db.execute(query)
     staff_list = result.scalars().all()
     
-    # Batch query for order stats to avoid N+1
+    if not staff_list:
+        return []
+    
+    # OPTIMIZED: Single query with all aggregations using CASE
     staff_ids = [s.staff_id for s in staff_list]
     today = date.today()
     
-    # Get assigned orders count per staff
-    assigned_query = select(
-        Order.assigned_staff_id,
-        func.count(Order.order_id).label('count')
+    stats_query = select(
+        PurchaseList.staff_id,
+        func.count(PurchaseList.list_id).label('total_lists'),
+        func.sum(case((PurchaseList.list_status == ListStatus.COMPLETED, 1), else_=0)).label('completed_lists'),
+        func.sum(PurchaseList.total_stores).label('unique_stores')
     ).where(
-        Order.assigned_staff_id.in_(staff_ids),
-        Order.target_purchase_date == today
-    ).group_by(Order.assigned_staff_id)
+        PurchaseList.staff_id.in_(staff_ids),
+        PurchaseList.purchase_date == today
+    ).group_by(PurchaseList.staff_id)
     
-    assigned_result = await db.execute(assigned_query)
-    assigned_counts = {row[0]: row[1] for row in assigned_result.all()}
-    
-    # Get completed orders count per staff
-    completed_query = select(
-        Order.assigned_staff_id,
-        func.count(Order.order_id).label('count')
-    ).where(
-        Order.assigned_staff_id.in_(staff_ids),
-        Order.target_purchase_date == today,
-        Order.order_status == OrderStatus.COMPLETED
-    ).group_by(Order.assigned_staff_id)
-    
-    completed_result = await db.execute(completed_query)
-    completed_counts = {row[0]: row[1] for row in completed_result.all()}
-    
-    # Get unique store count per staff
-    store_query = select(
-        Order.assigned_staff_id,
-        func.count(func.distinct(Order.assigned_store_id)).label('count')
-    ).where(
-        Order.assigned_staff_id.in_(staff_ids),
-        Order.target_purchase_date == today
-    ).group_by(Order.assigned_staff_id)
-    
-    store_result = await db.execute(store_query)
-    store_counts = {row[0]: row[1] for row in store_result.all()}
+    stats_result = await db.execute(stats_query)
+    stats_map = {
+        row.staff_id: {
+            'assigned': row.total_lists,
+            'completed': row.completed_lists,
+            'stores': row.unique_stores or 0
+        }
+        for row in stats_result.all()
+    }
     
     return [
         StaffWithStats(
@@ -69,32 +54,32 @@ async def get_all_staff(db: AsyncSession, active_only: bool, skip: int, limit: i
             role=s.role.value,
             status=s.status.value,
             is_active=s.is_active,
-            assigned_orders=assigned_counts.get(s.staff_id, 0),
-            assigned_stores=store_counts.get(s.staff_id, 0),
-            completed_today=completed_counts.get(s.staff_id, 0),
+            assigned_orders=stats_map.get(s.staff_id, {}).get('assigned', 0),
+            assigned_stores=stats_map.get(s.staff_id, {}).get('stores', 0),
+            completed_today=stats_map.get(s.staff_id, {}).get('completed', 0),
             current_location_name=s.current_location_name,
         )
         for s in staff_list
     ]
 
 async def get_staff_statistics(db: AsyncSession) -> StaffStats:
-    result = await db.execute(select(func.count(Staff.staff_id)).where(Staff.is_active == True))
-    total = result.scalar() or 0
+    # OPTIMIZED: Single query with conditional aggregations
+    query = select(
+        func.count(Staff.staff_id).label('total'),
+        func.sum(case(
+            (and_(Staff.is_active == True, Staff.status != StaffStatus.OFF_DUTY), 1),
+            else_=0
+        )).label('active_today'),
+        func.sum(case((Staff.status == StaffStatus.EN_ROUTE, 1), else_=0)).label('en_route')
+    ).where(Staff.is_active == True)
     
-    result = await db.execute(
-        select(func.count(Staff.staff_id))
-        .where(Staff.is_active == True)
-        .where(Staff.status != StaffStatus.OFF_DUTY)
-    )
-    active_today = result.scalar() or 0
-    
-    result = await db.execute(select(func.count(Staff.staff_id)).where(Staff.status == StaffStatus.EN_ROUTE))
-    en_route = result.scalar() or 0
+    result = await db.execute(query)
+    row = result.one()
     
     return StaffStats(
-        total_staff=total,
-        active_today=active_today,
-        en_route=en_route,
+        total_staff=row.total or 0,
+        active_today=row.active_today or 0,
+        en_route=row.en_route or 0,
         completed_orders=0,
     )
 
@@ -163,7 +148,5 @@ async def auto_assign_orders_controller(db: AsyncSession, staff_id: int):
     if not staff:
         raise HTTPException(status_code=404, detail="スタッフが見つかりません")
     
-    # Use the assignment service
     assignment_result = await assign_to_specific_staff(db, staff_id, date.today())
     return assignment_result
-

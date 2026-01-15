@@ -1,15 +1,6 @@
 from pydantic import BaseModel
 from typing import Optional
 
-class StaffUpdate(BaseModel):
-    staff_name: Optional[str] = None
-    email: Optional[str] = None
-    phone: Optional[str] = None
-    max_daily_capacity: Optional[int] = None
-
-class StaffRoleUpdate(BaseModel):
-    role: str  # "buyer", "supervisor", "admin"
-
 class StaffStats(BaseModel):
     total_staff: int
     active_today: int

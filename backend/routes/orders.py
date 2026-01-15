@@ -101,3 +101,13 @@ async def update_item_status(
     await db.commit()
     
     return {"message": "ステータスを更新しました"}
+
+@router.delete("/{order_id}")
+async def delete_order_route(
+    order_id: int,
+    current_user: Annotated[Staff, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db)
+):
+    """Delete an order"""
+    from controllers.orders import delete_order
+    return await delete_order(db, order_id)

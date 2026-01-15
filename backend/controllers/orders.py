@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from typing import List, Optional
 from fastapi import HTTPException
-from sqlalchemy import select, func
+from sqlalchemy import select, func, case
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -56,27 +56,27 @@ async def get_all_orders(
     ]
 
 async def get_order_statistics(db: AsyncSession, target_date: Optional[date]) -> OrderStats:
-    query = select(func.count(Order.order_id))
+    # OPTIMIZED: Single query with conditional aggregations using CASE
+    query = select(
+        func.count(Order.order_id).label('total'),
+        func.sum(case((Order.order_status == OrderStatus.PENDING, 1), else_=0)).label('pending'),
+        func.sum(case((Order.order_status == OrderStatus.ASSIGNED, 1), else_=0)).label('assigned'),
+        func.sum(case((Order.order_status == OrderStatus.COMPLETED, 1), else_=0)).label('completed'),
+        func.sum(case((Order.order_status == OrderStatus.FAILED, 1), else_=0)).label('failed')
+    )
+    
     if target_date:
         query = query.where(Order.target_purchase_date == target_date)
     
-    total_result = await db.execute(query)
-    total = total_result.scalar() or 0
-    
-    status_counts = {}
-    for status in [OrderStatus.PENDING, OrderStatus.ASSIGNED, OrderStatus.COMPLETED, OrderStatus.FAILED]:
-        query = select(func.count(Order.order_id)).where(Order.order_status == status)
-        if target_date:
-            query = query.where(Order.target_purchase_date == target_date)
-        result = await db.execute(query)
-        status_counts[status.value] = result.scalar() or 0
+    result = await db.execute(query)
+    row = result.one()
     
     return OrderStats(
-        total_orders=total,
-        pending_orders=status_counts.get("pending", 0),
-        assigned_orders=status_counts.get("assigned", 0),
-        completed_orders=status_counts.get("completed", 0),
-        failed_orders=status_counts.get("failed", 0),
+        total_orders=row.total or 0,
+        pending_orders=row.pending or 0,
+        assigned_orders=row.assigned or 0,
+        completed_orders=row.completed or 0,
+        failed_orders=row.failed or 0,
     )
 
 async def get_order_by_id(db: AsyncSession, order_id: int):
@@ -201,3 +201,15 @@ async def import_bulk_orders(db: AsyncSession, data: BulkOrderImport):
     
     await db.commit()
     return {"message": f"{created_count}件の注文をインポートしました", "count": created_count, "order_ids": order_ids}
+
+async def delete_order(db: AsyncSession, order_id: int):
+    result = await db.execute(
+        select(Order).where(Order.order_id == order_id)
+    )
+    order = result.scalar_one_or_none()
+    if not order:
+        raise HTTPException(status_code=404, detail="注文が見つかりません")
+    
+    await db.delete(order)
+    await db.commit()
+    return {"message": "注文を削除しました"}

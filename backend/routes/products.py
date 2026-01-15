@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 
 from db.db import get_db
-from db.schema import Staff, Product, Store, StaffRole, ProductStoreMapping, StockStatus
+from db.schema import Staff, Product, Store, StaffRole
 from middlewares.auth import get_current_user
 from middlewares.rbac import require_role
 
@@ -15,13 +15,6 @@ class ProductCreate(BaseModel):
     sku: str
     product_name: str
     category: Optional[str] = None
-    price: Optional[float] = None
-
-class ProductStoreMappingCreate(BaseModel):
-    product_id: int
-    store_id: int
-    stock_status: str = "in_stock"
-    priority: int = 1
 
 class ProductUpdate(BaseModel):
     is_set_product: Optional[bool] = None
@@ -29,73 +22,6 @@ class ProductUpdate(BaseModel):
     is_store_fixed: Optional[bool] = None
     fixed_store_id: Optional[int] = None
     exclude_from_routing: Optional[bool] = None
-
-@router.post("")
-async def create_product(
-    data: ProductCreate,
-    current_user: Annotated[Staff, Depends(get_current_user)],
-    db: AsyncSession = Depends(get_db)
-):
-    """Create a new product"""
-    # Check if SKU already exists
-    result = await db.execute(select(Product).where(Product.sku == data.sku))
-    existing = result.scalar_one_or_none()
-    if existing:
-        return {
-            "product_id": existing.product_id,
-            "sku": existing.sku,
-            "product_name": existing.product_name,
-            "category": existing.category
-        }
-    
-    product = Product(
-        sku=data.sku,
-        product_name=data.product_name,
-        category=data.category
-    )
-    db.add(product)
-    await db.flush()
-    await db.refresh(product)
-    
-    return {
-        "product_id": product.product_id,
-        "sku": product.sku,
-        "product_name": product.product_name,
-        "category": product.category
-    }
-
-@router.post("/store-mappings")
-async def create_product_store_mapping(
-    data: ProductStoreMappingCreate,
-    current_user: Annotated[Staff, Depends(get_current_user)],
-    db: AsyncSession = Depends(get_db)
-):
-    """Create product-store mapping"""
-    # Check if mapping already exists
-    result = await db.execute(
-        select(ProductStoreMapping).where(
-            ProductStoreMapping.product_id == data.product_id,
-            ProductStoreMapping.store_id == data.store_id
-        )
-    )
-    existing = result.scalar_one_or_none()
-    if existing:
-        return {"message": "Mapping already exists", "mapping_id": existing.mapping_id}
-    
-    mapping = ProductStoreMapping(
-        product_id=data.product_id,
-        store_id=data.store_id,
-        stock_status=StockStatus(data.stock_status),
-        priority=data.priority
-    )
-    db.add(mapping)
-    await db.flush()
-    await db.refresh(mapping)
-    
-    return {
-        "message": "Mapping created",
-        "mapping_id": mapping.mapping_id
-    }
 
 @router.get("")
 async def get_products(
@@ -124,6 +50,39 @@ async def get_products(
         }
         for p in products
     ]
+
+@router.post("")
+@require_role(StaffRole.ADMIN, StaffRole.SUPERVISOR)
+async def create_product(
+    data: ProductCreate,
+    current_user: Annotated[Staff, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db)
+):
+    """Create a new product"""
+    # Check if SKU already exists
+    result = await db.execute(select(Product).where(Product.sku == data.sku))
+    if result.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="このSKUは既に存在します")
+    
+    product = Product(
+        sku=data.sku,
+        product_name=data.product_name,
+        category=data.category,
+        is_set_product=False,
+        is_store_fixed=False,
+        exclude_from_routing=False
+    )
+    
+    db.add(product)
+    await db.commit()
+    await db.refresh(product)
+    
+    return {
+        "product_id": product.product_id,
+        "sku": product.sku,
+        "product_name": product.product_name,
+        "category": product.category
+    }
 
 @router.patch("/{product_id}")
 async def update_product(
@@ -195,21 +154,3 @@ async def update_routing_exclusion(
     product.exclude_from_routing = exclude
     await db.commit()
     return {"message": "更新しました"}
-
-@router.delete("/{product_id}")
-@require_role(StaffRole.ADMIN, StaffRole.SUPERVISOR)
-async def delete_product(
-    product_id: int,
-    current_user: Annotated[Staff, Depends(get_current_user)],
-    db: AsyncSession = Depends(get_db)
-):
-    """Delete a product"""
-    result = await db.execute(select(Product).where(Product.product_id == product_id))
-    product = result.scalar_one_or_none()
-    
-    if not product:
-        raise HTTPException(status_code=404, detail="商品が見つかりません")
-    
-    await db.delete(product)
-    await db.commit()
-    return {"message": "削除しました"}

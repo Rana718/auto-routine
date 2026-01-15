@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_
+from sqlalchemy import select, func, and_, case
+from sqlalchemy.orm import selectinload
 from datetime import datetime, timedelta
 from typing import Annotated
 
@@ -22,7 +23,7 @@ async def get_notifications(
     now_utc = datetime.utcnow()
     jst_offset = timedelta(hours=9)
     now_jst = now_utc + jst_offset
-    today_date = now_jst.date()  # Use date object instead of string
+    today_date = now_jst.date()
     
     # 1. Check for cutoff time (default 13:10 JST)
     cutoff_hour = 13
@@ -44,16 +45,15 @@ async def get_notifications(
             "read": False
         })
     
-    # 2. Check pending orders count
-    pending_result = await db.execute(
-        select(func.count(Order.order_id)).where(
-            and_(
-                Order.order_status == "pending",
-                Order.target_purchase_date == today_date
-            )
-        )
+    # 2. Check pending orders count - OPTIMIZED with CASE aggregation
+    orders_stats_result = await db.execute(
+        select(
+            func.count(Order.order_id).label('pending_count'),
+            func.sum(case((Order.order_status == "completed", 1), else_=0)).label('completed_count')
+        ).where(Order.target_purchase_date == today_date)
     )
-    pending_count = pending_result.scalar() or 0
+    orders_stats = orders_stats_result.one()
+    pending_count = orders_stats.pending_count or 0
     
     if pending_count > 0:
         notifications.append({
@@ -65,9 +65,11 @@ async def get_notifications(
             "read": False
         })
     
-    # 3. Check for completed routes today
+    # 3. Check for completed routes today - OPTIMIZED with selectinload
     completed_routes_result = await db.execute(
-        select(Route).where(
+        select(Route)
+        .options(selectinload(Route.staff))
+        .where(
             and_(
                 Route.route_status == "completed",
                 Route.route_date == today_date
@@ -77,11 +79,7 @@ async def get_notifications(
     completed_routes = completed_routes_result.scalars().all()
     
     for route in completed_routes:
-        # Get staff name
-        staff_result = await db.execute(
-            select(Staff.name).where(Staff.staff_id == route.staff_id)
-        )
-        staff_name = staff_result.scalar() or "スタッフ"
+        staff_name = route.staff.staff_name if route.staff else "スタッフ"
         
         # Calculate time ago
         if route.updated_at:
