@@ -154,3 +154,123 @@ async def update_routing_exclusion(
     product.exclude_from_routing = exclude
     await db.commit()
     return {"message": "更新しました"}
+
+@router.delete("/{product_id}")
+@require_role(StaffRole.ADMIN, StaffRole.SUPERVISOR)
+async def delete_product(
+    product_id: int,
+    current_user: Annotated[Staff, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db)
+):
+    """Delete a product"""
+    result = await db.execute(select(Product).where(Product.product_id == product_id))
+    product = result.scalar_one_or_none()
+    
+    if not product:
+        raise HTTPException(status_code=404, detail="商品が見つかりません")
+    
+    await db.delete(product)
+    await db.commit()
+    return {"message": "削除しました"}
+
+
+@router.post("/import")
+@require_role(StaffRole.ADMIN, StaffRole.SUPERVISOR)
+async def import_products_csv(
+    current_user: Annotated[Staff, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db),
+    csv_data: str = None
+):
+    """Import products from CSV data"""
+    import csv
+    from io import StringIO
+    
+    if not csv_data:
+        raise HTTPException(status_code=400, detail="CSVデータがありません")
+    
+    reader = csv.DictReader(StringIO(csv_data))
+    created = 0
+    updated = 0
+    errors = []
+    
+    for row in reader:
+        try:
+            sku = row.get('sku', '').strip()
+            product_name = row.get('product_name', '').strip()
+            
+            if not sku or not product_name:
+                errors.append(f"SKUまたは商品名が空です: {row}")
+                continue
+            
+            # Check if product exists
+            result = await db.execute(select(Product).where(Product.sku == sku))
+            product = result.scalar_one_or_none()
+            
+            if product:
+                # Update existing
+                product.product_name = product_name
+                product.category = row.get('category', '')
+                updated += 1
+            else:
+                # Create new
+                product = Product(
+                    sku=sku,
+                    product_name=product_name,
+                    category=row.get('category', ''),
+                    is_set_product=row.get('is_set_product', '').lower() in ['true', '1', 'yes'],
+                    is_store_fixed=row.get('is_store_fixed', '').lower() in ['true', '1', 'yes'],
+                    exclude_from_routing=row.get('exclude_from_routing', '').lower() in ['true', '1', 'yes']
+                )
+                db.add(product)
+                created += 1
+        except Exception as e:
+            errors.append(f"エラー (SKU: {row.get('sku', 'unknown')}): {str(e)}")
+    
+    await db.commit()
+    
+    return {
+        "message": f"{created}件の商品を作成、{updated}件を更新しました",
+        "created": created,
+        "updated": updated,
+        "errors": errors
+    }
+
+
+@router.get("/export")
+async def export_products_csv(
+    current_user: Annotated[Staff, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db)
+):
+    """Export all products as CSV"""
+    from fastapi.responses import Response
+    import csv
+    from io import StringIO
+    
+    result = await db.execute(select(Product).order_by(Product.product_id))
+    products = result.scalars().all()
+    
+    output = StringIO()
+    writer = csv.writer(output)
+    
+    # Header
+    writer.writerow([
+        'product_id', 'sku', 'product_name', 'category',
+        'is_set_product', 'is_store_fixed', 'fixed_store_id',
+        'exclude_from_routing', 'created_at', 'updated_at'
+    ])
+    
+    # Data rows
+    for p in products:
+        writer.writerow([
+            p.product_id, p.sku, p.product_name, p.category or '',
+            p.is_set_product, p.is_store_fixed, p.fixed_store_id or '',
+            p.exclude_from_routing, p.created_at, p.updated_at
+        ])
+    
+    csv_data = output.getvalue()
+    
+    return Response(
+        content=csv_data,
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=products_export.csv"}
+    )

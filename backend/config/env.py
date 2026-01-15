@@ -10,7 +10,7 @@ class Settings(BaseSettings):
         extra="ignore"
     )
 
-    db_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/auto_routine"
+    db_url: str = "postgresql+asyncpg://jack:secret123@localhost:5432/newdb"
     jwt_secret_key: str = "your-secret-key-change-in-production"
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 30

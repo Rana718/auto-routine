@@ -1,6 +1,6 @@
 """Services package"""
 
-from services.store_selection import select_store_for_item, get_stores_for_items
+from services.store_selection import select_store_for_item, get_stores_for_items_batch
 from services.staff_assignment import auto_assign_daily_orders, assign_to_specific_staff
 from services.route_optimization import (
     generate_route_for_staff,
@@ -10,7 +10,7 @@ from services.route_optimization import (
 
 __all__ = [
     "select_store_for_item",
-    "get_stores_for_items",
+    "get_stores_for_items_batch",
     "auto_assign_daily_orders",
     "assign_to_specific_staff",
     "generate_route_for_staff",

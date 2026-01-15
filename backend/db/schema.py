@@ -532,7 +532,7 @@ class OrderBase(BaseModel):
 
 
 class OrderCreate(OrderBase):
-    pass
+    items: Optional[List[dict]] = None  # List of items with sku, product_name, quantity
 
 
 class OrderResponse(OrderBase):

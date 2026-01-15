@@ -128,8 +128,8 @@ async def delete_user(
     if user.staff_id == current_user.staff_id:
         raise HTTPException(status_code=400, detail="自分自身を削除できません")
     
-    # Soft delete
-    user.is_active = False
+    # Hard delete - actually remove from database
+    await db.delete(user)
     await db.commit()
     
     return {"message": "ユーザーを削除しました"}
