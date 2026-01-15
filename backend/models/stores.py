@@ -14,6 +14,11 @@ class StoreWithOrders(BaseModel):
     address: Optional[str]
     district: Optional[str]
     category: Optional[str]
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    opening_hours: Optional[dict] = None
+    priority_level: int = 1
+    is_active: bool = True
     orders_today: int = 0
 
 class StoreUpdate(BaseModel):

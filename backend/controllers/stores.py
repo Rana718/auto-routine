@@ -2,8 +2,9 @@ from typing import List, Optional
 from fastapi import HTTPException
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
+from datetime import date
 
-from db.schema import Store, StoreCreate, StoreResponse
+from db.schema import Store, StoreCreate, StoreResponse, Order
 from models.stores import StoreStats, StoreWithOrders, StoreUpdate
 
 async def get_all_stores(
@@ -33,6 +34,21 @@ async def get_all_stores(
     result = await db.execute(query)
     stores = result.scalars().all()
     
+    # Batch query for order counts to avoid N+1
+    store_ids = [s.store_id for s in stores]
+    today = date.today()
+    
+    orders_query = select(
+        Order.assigned_store_id,
+        func.count(Order.order_id).label('count')
+    ).where(
+        Order.assigned_store_id.in_(store_ids),
+        Order.target_purchase_date == today
+    ).group_by(Order.assigned_store_id)
+    
+    orders_result = await db.execute(orders_query)
+    order_counts = {row[0]: row[1] for row in orders_result.all()}
+    
     return [
         StoreWithOrders(
             store_id=s.store_id,
@@ -41,7 +57,12 @@ async def get_all_stores(
             address=s.address,
             district=s.district,
             category=s.category,
-            orders_today=0,
+            latitude=s.latitude,
+            longitude=s.longitude,
+            opening_hours=s.opening_hours,
+            priority_level=s.priority_level,
+            is_active=s.is_active,
+            orders_today=order_counts.get(s.store_id, 0),
         )
         for s in stores
     ]
@@ -53,11 +74,27 @@ async def get_store_statistics(db: AsyncSession) -> StoreStats:
     result = await db.execute(select(func.count(Store.store_id)).where(Store.is_active == True))
     active = result.scalar() or 0
     
+    # Get stores with orders today
+    today = date.today()
+    stores_with_orders_query = select(func.count(func.distinct(Order.assigned_store_id))).where(
+        Order.assigned_store_id.isnot(None),
+        Order.target_purchase_date == today
+    )
+    result = await db.execute(stores_with_orders_query)
+    stores_with_orders = result.scalar() or 0
+    
+    # Get total orders today
+    orders_query = select(func.count(Order.order_id)).where(
+        Order.target_purchase_date == today
+    )
+    result = await db.execute(orders_query)
+    total_orders = result.scalar() or 0
+    
     return StoreStats(
         total_stores=total,
         active_stores=active,
-        stores_with_orders=0,
-        total_orders_today=0,
+        stores_with_orders=stores_with_orders,
+        total_orders_today=total_orders,
     )
 
 async def get_store_categories(db: AsyncSession):

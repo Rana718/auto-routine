@@ -2,12 +2,15 @@ from typing import List
 from fastapi import HTTPException
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+from datetime import date
 
-from db.schema import Staff, StaffRole, StaffStatus, StaffCreate, StaffResponse
+from db.schema import Staff, StaffRole, StaffStatus, StaffCreate, StaffResponse, Order, OrderStatus
 from models.staff import StaffStats, StaffWithStats, StaffStatusUpdate
 from middlewares.auth import hash_password
 
 async def get_all_staff(db: AsyncSession, active_only: bool, skip: int, limit: int) -> List[StaffWithStats]:
+    # Base query for staff
     query = select(Staff)
     if active_only:
         query = query.where(Staff.is_active == True)
@@ -15,6 +18,47 @@ async def get_all_staff(db: AsyncSession, active_only: bool, skip: int, limit: i
     query = query.order_by(Staff.staff_name).offset(skip).limit(limit)
     result = await db.execute(query)
     staff_list = result.scalars().all()
+    
+    # Batch query for order stats to avoid N+1
+    staff_ids = [s.staff_id for s in staff_list]
+    today = date.today()
+    
+    # Get assigned orders count per staff
+    assigned_query = select(
+        Order.assigned_staff_id,
+        func.count(Order.order_id).label('count')
+    ).where(
+        Order.assigned_staff_id.in_(staff_ids),
+        Order.target_purchase_date == today
+    ).group_by(Order.assigned_staff_id)
+    
+    assigned_result = await db.execute(assigned_query)
+    assigned_counts = {row[0]: row[1] for row in assigned_result.all()}
+    
+    # Get completed orders count per staff
+    completed_query = select(
+        Order.assigned_staff_id,
+        func.count(Order.order_id).label('count')
+    ).where(
+        Order.assigned_staff_id.in_(staff_ids),
+        Order.target_purchase_date == today,
+        Order.order_status == OrderStatus.COMPLETED
+    ).group_by(Order.assigned_staff_id)
+    
+    completed_result = await db.execute(completed_query)
+    completed_counts = {row[0]: row[1] for row in completed_result.all()}
+    
+    # Get unique store count per staff
+    store_query = select(
+        Order.assigned_staff_id,
+        func.count(func.distinct(Order.assigned_store_id)).label('count')
+    ).where(
+        Order.assigned_staff_id.in_(staff_ids),
+        Order.target_purchase_date == today
+    ).group_by(Order.assigned_staff_id)
+    
+    store_result = await db.execute(store_query)
+    store_counts = {row[0]: row[1] for row in store_result.all()}
     
     return [
         StaffWithStats(
@@ -25,9 +69,9 @@ async def get_all_staff(db: AsyncSession, active_only: bool, skip: int, limit: i
             role=s.role.value,
             status=s.status.value,
             is_active=s.is_active,
-            assigned_orders=0,
-            assigned_stores=0,
-            completed_today=0,
+            assigned_orders=assigned_counts.get(s.staff_id, 0),
+            assigned_stores=store_counts.get(s.staff_id, 0),
+            completed_today=completed_counts.get(s.staff_id, 0),
             current_location_name=s.current_location_name,
         )
         for s in staff_list

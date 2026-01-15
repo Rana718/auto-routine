@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from config.env import settings
-from routes import orders, staff, stores, routes as routes_router, settings as settings_router, auth, automation, admin, purchase, products, holidays, notifications
+from routes import orders, staff, stores, routes as routes_router, settings as settings_router, auth, automation, admin, purchase, products, holidays, notifications, dashboard
 from middlewares.logging import log_requests
 
 app = FastAPI(
@@ -32,6 +32,7 @@ async def health_check():
     }
 
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
+app.include_router(dashboard.router, prefix="/api/dashboard", tags=["Dashboard"])
 app.include_router(orders.router, prefix="/api/orders", tags=["Orders"])
 app.include_router(staff.router, prefix="/api/staff", tags=["Staff"])
 app.include_router(stores.router, prefix="/api/stores", tags=["Stores"])
