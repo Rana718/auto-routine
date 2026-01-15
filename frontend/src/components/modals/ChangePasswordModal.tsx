@@ -77,12 +77,12 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-            <div className="bg-card rounded-xl shadow-xl w-full max-w-md border border-border my-auto">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-2 sm:p-4">
+            <div className="bg-card rounded-xl shadow-xl w-full max-w-md max-h-[90vh] border border-border my-auto flex flex-col overflow-hidden">
                 {/* Header */}
-                <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-                    <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                        <Lock className="h-5 w-5 text-primary" />
+                <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-border flex-shrink-0">
+                    <h2 className="text-base sm:text-lg font-semibold text-foreground flex items-center gap-2">
+                        <Lock className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
                         パスワード変更
                     </h2>
                     <button
@@ -90,22 +90,22 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
                         className="p-1 rounded-lg hover:bg-muted transition-colors"
                         disabled={isLoading}
                     >
-                        <X className="h-5 w-5 text-muted-foreground" />
+                        <X className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
                     </button>
                 </div>
 
                 {/* Form */}
-                <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                <form onSubmit={handleSubmit} className="p-3 sm:p-4 space-y-2 overflow-y-auto flex-1">
                     {/* Current Password */}
                     <div>
-                        <label className="block text-sm font-medium text-foreground mb-2">
+                        <label className="block text-xs sm:text-sm font-medium text-foreground mb-1">
                             現在のパスワード
                         </label>
                         <input
                             type="password"
                             value={currentPassword}
                             onChange={(e) => setCurrentPassword(e.target.value)}
-                            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                            className="w-full px-2.5 py-1.5 text-sm bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                             placeholder="現在のパスワードを入力"
                             disabled={isLoading}
                             required
@@ -114,14 +114,14 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
 
                     {/* New Password */}
                     <div>
-                        <label className="block text-sm font-medium text-foreground mb-2">
+                        <label className="block text-xs sm:text-sm font-medium text-foreground mb-1">
                             新しいパスワード
                         </label>
                         <input
                             type="password"
                             value={newPassword}
                             onChange={(e) => setNewPassword(e.target.value)}
-                            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                            className="w-full px-2.5 py-1.5 text-sm bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                             placeholder="新しいパスワード（6文字以上）"
                             disabled={isLoading}
                             required
@@ -131,14 +131,14 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
 
                     {/* Confirm Password */}
                     <div>
-                        <label className="block text-sm font-medium text-foreground mb-2">
+                        <label className="block text-xs sm:text-sm font-medium text-foreground mb-1">
                             新しいパスワード（確認）
                         </label>
                         <input
                             type="password"
                             value={confirmPassword}
                             onChange={(e) => setConfirmPassword(e.target.value)}
-                            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                            className="w-full px-2.5 py-1.5 text-sm bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                             placeholder="新しいパスワードを再入力"
                             disabled={isLoading}
                             required
@@ -146,19 +146,19 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
                     </div>
 
                     {/* Buttons */}
-                    <div className="flex gap-3 pt-2">
+                    <div className="flex gap-2 pt-1">
                         <Button
                             type="button"
                             variant="outline"
                             onClick={handleClose}
-                            className="flex-1"
+                            className="flex-1 h-9 text-sm"
                             disabled={isLoading}
                         >
                             キャンセル
                         </Button>
                         <Button
                             type="submit"
-                            className="flex-1"
+                            className="flex-1 h-9 text-sm"
                             disabled={isLoading}
                         >
                             {isLoading ? (
@@ -167,7 +167,7 @@ export function ChangePasswordModal({ isOpen, onClose }: ChangePasswordModalProp
                                     更新中...
                                 </>
                             ) : (
-                                "パスワードを更新"
+                                "更新"
                             )}
                         </Button>
                     </div>

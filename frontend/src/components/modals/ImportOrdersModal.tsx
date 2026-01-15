@@ -19,6 +19,11 @@ interface ParsedOrder {
     customer_name?: string;
     order_date: string;
     target_purchase_date?: string;
+    items?: Array<{
+        sku: string;
+        product_name: string;
+        quantity: number;
+    }>;
 }
 
 export function ImportOrdersModal({ isOpen, onClose, onSuccess }: ImportOrdersModalProps) {
@@ -41,7 +46,12 @@ export function ImportOrdersModal({ isOpen, onClose, onSuccess }: ImportOrdersMo
 
             const order: ParsedOrder = {
                 order_date: new Date().toISOString(),
+                items: [],
             };
+
+            let sku = "";
+            let product_name = "";
+            let quantity = 1;
 
             headers.forEach((header, idx) => {
                 const value = values[idx];
@@ -51,10 +61,28 @@ export function ImportOrdersModal({ isOpen, onClose, onSuccess }: ImportOrdersMo
                     order.mall_name = value;
                 } else if (header.includes("customer") || header.includes("顧客") || header.includes("お客様")) {
                     order.customer_name = value;
-                } else if (header.includes("date") || header.includes("日付")) {
+                } else if (header.includes("order_date") || header.includes("注文日")) {
                     order.order_date = new Date(value).toISOString();
+                } else if (header.includes("target") || header.includes("purchase") || header.includes("買付予定日")) {
+                    order.target_purchase_date = value;
+                } else if (header.includes("sku") || header.includes("商品コード")) {
+                    sku = value;
+                } else if (header.includes("product_name") || header.includes("商品名")) {
+                    product_name = value;
+                } else if (header.includes("quantity") || header.includes("数量")) {
+                    quantity = parseInt(value) || 1;
                 }
             });
+
+            // Add item if we have product data
+            if (sku || product_name) {
+                order.items = [{ sku, product_name, quantity }];
+            }
+
+            // If target_purchase_date not provided, use order_date
+            if (!order.target_purchase_date) {
+                order.target_purchase_date = order.order_date.split("T")[0];
+            }
 
             if (order.robot_in_order_id || order.customer_name) {
                 orders.push(order);
@@ -102,6 +130,7 @@ export function ImportOrdersModal({ isOpen, onClose, onSuccess }: ImportOrdersMo
                 customer_name: order.customer_name,
                 order_date: order.order_date,
                 target_purchase_date: order.target_purchase_date,
+                items: order.items || [],
             }));
 
             await ordersApi.import(orders);
@@ -140,8 +169,21 @@ export function ImportOrdersModal({ isOpen, onClose, onSuccess }: ImportOrdersMo
                 <div className="space-y-4">
                     <p className="text-sm text-muted-foreground">
                         CSVファイルをアップロードするか、データを直接貼り付けてください。
-                        ヘッダー行には「robot_in_order_id」「mall_name」「customer_name」「order_date」を含めてください。
                     </p>
+                    
+                    <div className="p-3 rounded-lg bg-muted/30 text-xs space-y-1">
+                        <p className="font-medium">必須列:</p>
+                        <p>• <code>customer_name</code> - 顧客名</p>
+                        <p>• <code>order_date</code> - 注文日 (例: 2026-01-15)</p>
+                        <p>• <code>sku</code> - 商品コード</p>
+                        <p>• <code>product_name</code> - 商品名</p>
+                        <p className="font-medium mt-2">任意列:</p>
+                        <p>• <code>robot_in_order_id</code> - 注文番号</p>
+                        <p>• <code>mall_name</code> - モール名</p>
+                        <p>• <code>target_purchase_date</code> - 買付予定日 (例: 2026-01-16)</p>
+                        <p>• <code>quantity</code> - 数量 (デフォルト: 1)</p>
+                        <p className="text-muted-foreground mt-2">※ target_purchase_dateを省略した場合、order_dateと同じ日になります</p>
+                    </div>
 
                     {/* File Upload */}
                     <div className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary/50 transition-colors">

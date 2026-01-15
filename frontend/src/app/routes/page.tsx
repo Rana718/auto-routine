@@ -15,6 +15,8 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { routesApi, automationApi } from "@/lib/api";
 import type { Route, RouteStatus, StopStatus } from "@/lib/types";
+import { AlertModal } from "@/components/modals/AlertModal";
+import toast from "react-hot-toast";
 
 const routeStatusConfig: Record<RouteStatus, { label: string; className: string }> = {
     not_started: { label: "未開始", className: "bg-muted text-muted-foreground" },
@@ -37,18 +39,19 @@ export default function RoutesPage() {
     const [selectedRoute, setSelectedRoute] = useState<number | null>(null);
     const [regenerating, setRegenerating] = useState(false);
     const [startingAll, setStartingAll] = useState(false);
-
-    const today = new Date().toISOString().split("T")[0];
+    const [autoAssigning, setAutoAssigning] = useState(false);
+    const [alertModal, setAlertModal] = useState<{ message: string; type: "success" | "error" | "info" | "warning" } | null>(null);
+    const [targetDate, setTargetDate] = useState<string>(new Date().toISOString().split("T")[0]);
 
     useEffect(() => {
         fetchRoutes();
-    }, []);
+    }, [targetDate]);
 
     async function fetchRoutes() {
         try {
             setLoading(true);
             setError(null);
-            const data = await routesApi.getAll({ route_date: today });
+            const data = await routesApi.getAll({ route_date: targetDate });
             setRoutes(data);
             if (data.length > 0 && !selectedRoute) {
                 setSelectedRoute(data[0].route_id);
@@ -60,13 +63,26 @@ export default function RoutesPage() {
         }
     }
 
+    async function handleAutoAssign() {
+        try {
+            setAutoAssigning(true);
+            const result = await automationApi.autoAssignDaily(targetDate);
+            setAlertModal({ message: result.message || "注文を割り当てました", type: "success" });
+        } catch (err) {
+            setAlertModal({ message: err instanceof Error ? err.message : "自動割り当てに失敗しました", type: "error" });
+        } finally {
+            setAutoAssigning(false);
+        }
+    }
+
     async function handleRegenerateAll() {
         try {
             setRegenerating(true);
-            await automationApi.generateAllRoutes(today);
+            const result = await automationApi.generateAllRoutes(targetDate);
             await fetchRoutes();
+            setAlertModal({ message: result.message || "ルートを再生成しました", type: "success" });
         } catch (err) {
-            setError(err instanceof Error ? err.message : "ルート再生成に失敗しました");
+            setAlertModal({ message: err instanceof Error ? err.message : "ルート再生成に失敗しました", type: "error" });
         } finally {
             setRegenerating(false);
         }
@@ -75,12 +91,13 @@ export default function RoutesPage() {
     async function handleStartAll() {
         try {
             setStartingAll(true);
-            await routesApi.startAll(today);
+            const result = await routesApi.startAll(targetDate);
             // Small delay to let backend commit changes
             await new Promise(resolve => setTimeout(resolve, 300));
             await fetchRoutes(); // Refresh to show updated status
+            setAlertModal({ message: result.message || `${result.count}件のルートを開始しました`, type: "success" });
         } catch (err) {
-            setError(err instanceof Error ? err.message : "ルート開始に失敗しました");
+            setAlertModal({ message: err instanceof Error ? err.message : "ルート開始に失敗しました", type: "error" });
         } finally {
             setStartingAll(false);
         }
@@ -90,8 +107,55 @@ export default function RoutesPage() {
 
     return (
         <MainLayout title="ルート計画" subtitle="スタッフルートの最適化と追跡">
+            {/* Date Selector */}
+            <div className="mb-6 flex items-center gap-4">
+                <label className="text-sm font-medium text-foreground">対象日:</label>
+                <input
+                    type="date"
+                    value={targetDate}
+                    onChange={(e) => setTargetDate(e.target.value)}
+                    className="px-3 py-2 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+                <div className="flex gap-2">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setTargetDate(new Date(new Date(targetDate).setDate(new Date(targetDate).getDate() - 1)).toISOString().split('T')[0])}
+                    >
+                        前日
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setTargetDate(new Date().toISOString().split('T')[0])}
+                    >
+                        今日
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setTargetDate(new Date(new Date(targetDate).setDate(new Date(targetDate).getDate() + 1)).toISOString().split('T')[0])}
+                    >
+                        翌日
+                    </Button>
+                </div>
+            </div>
+
             {/* Actions */}
             <div className="flex gap-3 mb-6">
+                <Button variant="outline" className="gap-2" onClick={handleAutoAssign} disabled={autoAssigning}>
+                    {autoAssigning ? (
+                        <span className="flex items-center gap-2">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            割り当て中...
+                        </span>
+                    ) : (
+                        <span className="flex items-center gap-2">
+                            <Clock className="h-4 w-4" />
+                            自動割り当て
+                        </span>
+                    )}
+                </Button>
                 <Button className="gap-2" onClick={handleRegenerateAll} disabled={regenerating}>
                     {regenerating ? (
                         <span className="flex items-center gap-2">
@@ -134,8 +198,22 @@ export default function RoutesPage() {
                     </div>
                 </div>
             ) : routes.length === 0 ? (
-                <div className="flex items-center justify-center h-64 text-muted-foreground">
-                    本日のルートはありません
+                <div className="flex flex-col items-center justify-center h-64 gap-4">
+                    <p className="text-muted-foreground text-lg">本日のルートはありません</p>
+                    <p className="text-sm text-muted-foreground">ルートを生成するには、まず注文を割り当ててください</p>
+                    <Button onClick={handleRegenerateAll} disabled={regenerating} className="gap-2">
+                        {regenerating ? (
+                            <>
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                生成中...
+                            </>
+                        ) : (
+                            <>
+                                <RefreshCw className="h-4 w-4" />
+                                ルートを生成
+                            </>
+                        )}
+                    </Button>
                 </div>
             ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -240,8 +318,9 @@ export default function RoutesPage() {
                                                             const newStatus = stop.stop_status === "completed" ? "pending" : "completed";
                                                             await routesApi.updateStop(activeRoute.route_id, stop.stop_id, newStatus);
                                                             await fetchRoutes();
+                                                            toast.success(newStatus === "completed" ? "訪問を完了にしました" : "訪問を未完了に戻しました");
                                                         } catch (err) {
-                                                            console.error("Failed to update stop:", err);
+                                                            toast.error(err instanceof Error ? err.message : "更新に失敗しました");
                                                         }
                                                     }}
                                                     className="h-6 w-6 rounded border-2 border-primary cursor-pointer"
@@ -294,6 +373,14 @@ export default function RoutesPage() {
                     </div>
                 </div>
             )}
+
+            {/* Alert Modal */}
+            <AlertModal
+                isOpen={alertModal !== null}
+                onClose={() => setAlertModal(null)}
+                message={alertModal?.message || ""}
+                type={alertModal?.type || "info"}
+            />
         </MainLayout>
     );
 }

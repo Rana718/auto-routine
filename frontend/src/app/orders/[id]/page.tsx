@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Package, Store, Clock, Loader2 } from "lucide-react";
+import { ArrowLeft, Package, Store, Clock, Loader2, CheckCircle } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +10,17 @@ import { cn } from "@/lib/utils";
 import { ordersApi } from "@/lib/api";
 import { AlertModal } from "@/components/modals/AlertModal";
 import type { OrderWithItems } from "@/lib/types";
+
+const orderStatusConfig: Record<string, { label: string; className: string }> = {
+    pending: { label: "待機中", className: "bg-muted text-muted-foreground" },
+    processing: { label: "処理中", className: "bg-blue-500/20 text-blue-400" },
+    assigned: { label: "割当済", className: "bg-primary/20 text-primary" },
+    in_progress: { label: "進行中", className: "bg-primary/20 text-primary" },
+    completed: { label: "完了", className: "bg-success/20 text-success" },
+    partially_completed: { label: "一部完了", className: "bg-warning/20 text-warning" },
+    failed: { label: "失敗", className: "bg-destructive/20 text-destructive" },
+    cancelled: { label: "キャンセル", className: "bg-muted text-muted-foreground" },
+};
 
 const itemStatusConfig: Record<string, { label: string; className: string }> = {
     pending: { label: "待機中", className: "bg-muted text-muted-foreground" },
@@ -28,7 +39,8 @@ export default function OrderDetailPage() {
     const [order, setOrder] = useState<OrderWithItems | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [alertModal, setAlertModal] = useState<{ message: string; type: "error" } | null>(null);
+    const [alertModal, setAlertModal] = useState<{ message: string; type: "success" | "error" } | null>(null);
+    const [updatingOrder, setUpdatingOrder] = useState(false);
 
     useEffect(() => {
         if (orderId) {
@@ -61,6 +73,19 @@ export default function OrderDetailPage() {
             await fetchOrder();
         } catch (err) {
             setAlertModal({ message: err instanceof Error ? err.message : "エラーが発生しました", type: "error" });
+        }
+    }
+
+    async function completeOrder() {
+        try {
+            setUpdatingOrder(true);
+            await ordersApi.updateStatus(orderId, "completed");
+            setAlertModal({ message: "注文を完了しました", type: "success" });
+            await fetchOrder();
+        } catch (err) {
+            setAlertModal({ message: err instanceof Error ? err.message : "完了処理に失敗しました", type: "error" });
+        } finally {
+            setUpdatingOrder(false);
         }
     }
 
@@ -114,6 +139,40 @@ export default function OrderDetailPage() {
                     <p className="text-sm text-muted-foreground mb-1">商品数</p>
                     <p className="text-lg font-semibold text-foreground">{order.items?.length || 0}</p>
                 </div>
+            </div>
+
+            {/* Order Status and Complete Button */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 p-4 rounded-xl border border-border bg-card card-shadow">
+                <div className="flex items-center gap-3">
+                    <p className="text-sm font-medium text-muted-foreground">注文ステータス:</p>
+                    <Badge
+                        className={cn(
+                            "border-none font-medium",
+                            orderStatusConfig[order.order_status]?.className || orderStatusConfig.pending.className
+                        )}
+                    >
+                        {orderStatusConfig[order.order_status]?.label || order.order_status}
+                    </Badge>
+                </div>
+                {order.order_status !== "completed" && order.order_status !== "cancelled" && (
+                    <Button
+                        onClick={completeOrder}
+                        disabled={updatingOrder}
+                        className="gap-2 w-full sm:w-auto"
+                    >
+                        {updatingOrder ? (
+                            <>
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                処理中...
+                            </>
+                        ) : (
+                            <>
+                                <CheckCircle className="h-4 w-4" />
+                                注文完了
+                            </>
+                        )}
+                    </Button>
+                )}
             </div>
 
             {/* Items Table */}
@@ -188,7 +247,7 @@ export default function OrderDetailPage() {
                 isOpen={alertModal !== null}
                 onClose={() => setAlertModal(null)}
                 message={alertModal?.message || ""}
-                type="error"
+                type={alertModal?.type || "error"}
             />
         </MainLayout>
     );

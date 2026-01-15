@@ -525,7 +525,29 @@ export interface NotificationItem {
 
 export const notificationsApi = {
     async getAll(): Promise<NotificationItem[]> {
-        return fetchApi<NotificationItem[]>("/api/notifications");
+        const notifications = await fetchApi<NotificationItem[]>("/api/notifications");
+        
+        // Check localStorage for read notifications
+        if (typeof window !== 'undefined') {
+            const readNotifs = localStorage.getItem('readNotifications');
+            const readIds = readNotifs ? JSON.parse(readNotifs) : [];
+            
+            return notifications.map(notif => ({
+                ...notif,
+                read: readIds.includes(notif.id) || notif.read
+            }));
+        }
+        
+        return notifications;
+    },
+
+    async markAllRead(): Promise<void> {
+        // Store all notification IDs in localStorage as read
+        if (typeof window !== 'undefined') {
+            const notifications = await fetchApi<NotificationItem[]>("/api/notifications");
+            const allIds = notifications.map(n => n.id);
+            localStorage.setItem('readNotifications', JSON.stringify(allIds));
+        }
     },
 };
 

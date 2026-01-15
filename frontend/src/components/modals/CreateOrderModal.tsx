@@ -16,6 +16,8 @@ export function CreateOrderModal({ isOpen, onClose, onSuccess }: CreateOrderModa
     const [error, setError] = useState<string | null>(null);
     const [orderNumber, setOrderNumber] = useState("");
     const [customerName, setCustomerName] = useState("");
+    const [orderDate, setOrderDate] = useState(new Date().toISOString().split("T")[0]);
+    const [targetPurchaseDate, setTargetPurchaseDate] = useState(new Date().toISOString().split("T")[0]);
     const [items, setItems] = useState([
         { sku: "", product_name: "", quantity: 1, unit_price: 0 }
     ]);
@@ -42,18 +44,30 @@ export function CreateOrderModal({ isOpen, onClose, onSuccess }: CreateOrderModa
         setLoading(true);
 
         try {
-            const today = new Date().toISOString();
+            const validItems = items.filter(item => 
+                item.sku.trim() !== "" || item.product_name.trim() !== ""
+            );
+
+            if (validItems.length === 0) {
+                setError("少なくとも1つの商品を追加してください");
+                setLoading(false);
+                return;
+            }
+
             await ordersApi.create({
                 robot_in_order_id: orderNumber,
                 customer_name: customerName,
-                order_date: today,
-                target_purchase_date: today.split("T")[0],
+                order_date: new Date(orderDate).toISOString(),
+                target_purchase_date: targetPurchaseDate,
+                items: validItems,
             });
             onSuccess();
             onClose();
             // Reset form
             setOrderNumber("");
             setCustomerName("");
+            setOrderDate(new Date().toISOString().split("T")[0]);
+            setTargetPurchaseDate(new Date().toISOString().split("T")[0]);
             setItems([{ sku: "", product_name: "", quantity: 1, unit_price: 0 }]);
         } catch (err) {
             setError(err instanceof Error ? err.message : "注文の作成に失敗しました");
@@ -104,6 +118,29 @@ export function CreateOrderModal({ isOpen, onClose, onSuccess }: CreateOrderModa
                                 className="w-full h-10 rounded-lg border border-border bg-secondary px-3 text-sm"
                                 required
                             />
+                        <div>
+                            <label className="block text-sm font-medium mb-2">注文日</label>
+                            <input
+                                type="date"
+                                value={orderDate}
+                                onChange={(e) => setOrderDate(e.target.value)}
+                                className="w-full h-10 rounded-lg border border-border bg-secondary px-3 text-sm"
+                                required
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium mb-2">
+                                買付予定日
+                                <span className="text-xs text-muted-foreground ml-1">(カットオフ後は翌日)</span>
+                            </label>
+                            <input
+                                type="date"
+                                value={targetPurchaseDate}
+                                onChange={(e) => setTargetPurchaseDate(e.target.value)}
+                                className="w-full h-10 rounded-lg border border-border bg-secondary px-3 text-sm"
+                                required
+                            />
+                        </div>
                         </div>
                     </div>
 

@@ -128,6 +128,71 @@ export default function ProductsPage() {
 
     return (
         <MainLayout title="商品設定" subtitle="商品の店舗固定とルーティング設定">
+            {/* Import/Export Buttons */}
+            <div className="mb-6 flex gap-3">
+                <Button
+                    onClick={async () => {
+                        if (!session?.accessToken) return;
+                        try {
+                            const response = await fetch(`${API_BASE_URL}/api/products/export`, {
+                                headers: { Authorization: `Bearer ${session.accessToken}` }
+                            });
+                            const blob = await response.blob();
+                            const url = window.URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `products_${new Date().toISOString().split('T')[0]}.csv`;
+                            document.body.appendChild(a);
+                            a.click();
+                            window.URL.revokeObjectURL(url);
+                            document.body.removeChild(a);
+                            setAlertModal({ message: "CSVをエクスポートしました", type: "success" });
+                        } catch (err) {
+                            setAlertModal({ message: err instanceof Error ? err.message : "エラーが発生しました", type: "error" });
+                        }
+                    }}
+                    variant="outline"
+                    className="gap-2"
+                >
+                    <Package className="h-4 w-4" />
+                    CSVエクスポート
+                </Button>
+                <Button
+                    onClick={() => {
+                        const input = document.createElement('input');
+                        input.type = 'file';
+                        input.accept = '.csv';
+                        input.onchange = async (e) => {
+                            const file = (e.target as HTMLInputElement).files?.[0];
+                            if (!file || !session?.accessToken) return;
+                            try {
+                                const text = await file.text();
+                                const response = await fetch(`${API_BASE_URL}/api/products/import`, {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        Authorization: `Bearer ${session.accessToken}`
+                                    },
+                                    body: JSON.stringify({ csv_data: text })
+                                });
+                                const result = await response.json();
+                                if (!response.ok) throw new Error(result.detail || "インポートに失敗しました");
+                                setAlertModal({ message: result.message, type: "success" });
+                                await fetchData();
+                            } catch (err) {
+                                setAlertModal({ message: err instanceof Error ? err.message : "エラーが発生しました", type: "error" });
+                            }
+                        };
+                        input.click();
+                    }}
+                    variant="outline"
+                    className="gap-2"
+                >
+                    <Package className="h-4 w-4" />
+                    CSVインポート
+                </Button>
+            </div>
+
             <div className="rounded-xl border border-border bg-card card-shadow overflow-hidden">
                 {/* Mobile card layout */}
                 <div className="md:hidden divide-y divide-border">

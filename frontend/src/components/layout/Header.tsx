@@ -69,8 +69,13 @@ export function Header({ title, subtitle, onMenuClick }: HeaderProps) {
         }
     };
 
-    const markAllRead = () => {
-        setNotifications(notifications.map(n => ({ ...n, read: true })));
+    const markAllRead = async () => {
+        try {
+            await notificationsApi.markAllRead();
+            setNotifications(notifications.map(n => ({ ...n, read: true })));
+        } catch (error) {
+            console.error("Failed to mark all as read:", error);
+        }
     };
 
     const handleLogout = () => {

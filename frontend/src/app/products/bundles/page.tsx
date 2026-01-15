@@ -35,6 +35,7 @@ export default function BundlesPage() {
     const [editingProductId, setEditingProductId] = useState<number | null>(null);
     const [alertModal, setAlertModal] = useState<{ message: string; type: "success" | "error" } | null>(null);
     const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
+    const [showAll, setShowAll] = useState(false);
 
     // Form state
     const [bundleSku, setBundleSku] = useState("");
@@ -530,35 +531,37 @@ export default function BundlesPage() {
                 </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {products.map((product) => (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                {(showAll ? products : products.slice(0, 4)).map((product) => (
                     <div
                         key={product.product_id}
-                        className="rounded-xl border border-border bg-card p-4 card-shadow"
+                        className="rounded-lg border border-border bg-card p-3 card-shadow hover:shadow-lg transition-shadow flex flex-col"
                     >
-                        <div className="flex items-start justify-between mb-3">
-                            <div>
-                                <h3 className="font-semibold text-foreground">{product.product_name}</h3>
-                                <p className="text-sm text-muted-foreground font-mono">{product.sku}</p>
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                            <div className="min-w-0 flex-1">
+                                <h3 className="font-semibold text-sm text-foreground truncate">{product.product_name}</h3>
+                                <p className="text-xs text-muted-foreground font-mono truncate">{product.sku}</p>
                             </div>
-                            <Badge className="bg-purple-500/20 text-purple-400">セット</Badge>
+                            <Badge className="bg-purple-500/20 text-purple-400 text-xs shrink-0">セット</Badge>
                         </div>
 
-                        <div className="space-y-2">
-                            <p className="text-sm font-medium text-foreground">含まれる商品:</p>
-                            {product.set_split_rule?.items?.map((item: any, idx: number) => (
-                                <div key={`split-${idx}-${item.sku || idx}`} className="flex items-center gap-2 text-sm text-muted-foreground">
-                                    <Package className="h-3 w-3" />
-                                    <span>{item.name} × {item.quantity}</span>
-                                </div>
-                            )) || <p className="text-sm text-muted-foreground">未設定</p>}
+                        <div className="flex-1 space-y-1.5 mb-3">
+                            <p className="text-xs font-medium text-foreground">含まれる商品:</p>
+                            <div className="space-y-1">
+                                {product.set_split_rule?.items?.map((item: any, idx: number) => (
+                                    <div key={`split-${idx}-${item.sku || idx}`} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                        <Package className="h-3 w-3 shrink-0" />
+                                        <span className="truncate">{item.name} × {item.quantity}</span>
+                                    </div>
+                                )) || <p className="text-xs text-muted-foreground">未設定</p>}
+                            </div>
                         </div>
 
-                        <div className="flex gap-2 mt-4">
+                        <div className="flex gap-2 mt-auto pt-2 border-t border-border">
                             <Button
                                 variant="outline"
                                 size="sm"
-                                className="flex-1"
+                                className="flex-1 h-8 text-xs"
                                 onClick={() => openEditModal(product)}
                             >
                                 編集
@@ -566,13 +569,14 @@ export default function BundlesPage() {
                             <Button
                                 variant="ghost"
                                 size="sm"
+                                className="h-8 w-8 p-0"
                                 onClick={() => deleteBundle(product.product_id)}
                                 disabled={deleting === product.product_id}
                             >
                                 {deleting === product.product_id ? (
-                                    <Loader2 className="h-4 w-4 animate-spin text-destructive" />
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin text-destructive" />
                                 ) : (
-                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
                                 )}
                             </Button>
                         </div>
@@ -580,11 +584,24 @@ export default function BundlesPage() {
                 ))}
 
                 {products.length === 0 && (
-                    <div className="col-span-full text-center py-12 text-muted-foreground">
+                    <div className="col-span-full text-center py-12 text-muted-foreground text-sm">
                         セット商品が登録されていません
                     </div>
                 )}
             </div>
+
+            {/* Show More Button */}
+            {products.length > 4 && (
+                <div className="flex justify-center mt-4">
+                    <Button
+                        variant="outline"
+                        onClick={() => setShowAll(!showAll)}
+                        className="gap-2"
+                    >
+                        {showAll ? "閉じる" : `さらに${products.length - 4}件表示`}
+                    </Button>
+                </div>
+            )}
 
             {/* Confirm Delete Modal */}
             <ConfirmModal

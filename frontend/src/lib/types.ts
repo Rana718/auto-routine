@@ -137,6 +137,12 @@ export interface OrderCreate {
     customer_name?: string;
     order_date: string;
     target_purchase_date?: string;
+    items?: Array<{
+        sku: string;
+        product_name: string;
+        quantity: number;
+        unit_price?: number;
+    }>;
 }
 
 // ============================================================================
