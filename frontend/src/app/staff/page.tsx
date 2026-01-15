@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { UserPlus, MapPin, Package, Route as RouteIcon, MoreVertical, Loader2, Edit2, Trash2, UserCheck, UserX } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,8 @@ export default function StaffPage() {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [openMenuId, setOpenMenuId] = useState<number | null>(null);
     const [updatingStatusIds, setUpdatingStatusIds] = useState<Set<number>>(new Set());
+    const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
+    const menuButtonRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
 
     useEffect(() => {
         fetchStaff();
@@ -54,9 +56,8 @@ export default function StaffPage() {
             setAutoAssigning(true);
             const today = new Date().toISOString().split("T")[0];
             await automationApi.autoAssignDaily(today);
-            // Add delay before refresh to prevent DOM manipulation conflicts
             await new Promise(resolve => setTimeout(resolve, 300));
-            await fetchStaff(); // Refresh data
+            await fetchStaff();
         } catch (err) {
             setError(err instanceof Error ? err.message : "自動割当に失敗しました");
         } finally {
@@ -66,17 +67,16 @@ export default function StaffPage() {
 
     async function handleToggleStatus(staffId: number, currentStatus: StaffStatus) {
         try {
-            // Add to loading set
             setUpdatingStatusIds(prev => new Set(prev).add(staffId));
 
             const newStatus: StaffStatus = currentStatus === "off_duty" ? "idle" : "off_duty";
             await staffApi.updateStatus(staffId, { status: newStatus });
             await fetchStaff();
             setOpenMenuId(null);
+            setMenuPosition(null);
         } catch (err) {
             setError(err instanceof Error ? err.message : "ステータス変更に失敗しました");
         } finally {
-            // Remove from loading set
             setUpdatingStatusIds(prev => {
                 const newSet = new Set(prev);
                 newSet.delete(staffId);
@@ -92,6 +92,7 @@ export default function StaffPage() {
             await adminApi.deleteUser(staffId);
             await fetchStaff();
             setOpenMenuId(null);
+            setMenuPosition(null);
         } catch (err) {
             setError(err instanceof Error ? err.message : "スタッフの削除に失敗しました");
         }
@@ -106,7 +107,20 @@ export default function StaffPage() {
     }
 
     function toggleMenu(staffId: number) {
-        setOpenMenuId(openMenuId === staffId ? null : staffId);
+        if (openMenuId === staffId) {
+            setOpenMenuId(null);
+            setMenuPosition(null);
+        } else {
+            const button = menuButtonRefs.current.get(staffId);
+            if (button) {
+                const rect = button.getBoundingClientRect();
+                setMenuPosition({
+                    top: rect.bottom + 4,
+                    left: rect.right - 192,
+                });
+            }
+            setOpenMenuId(staffId);
+        }
     }
 
     const activeCount = staff.filter((s) => s.status !== "off_duty").length;
@@ -180,9 +194,8 @@ export default function StaffPage() {
                     スタッフが登録されていません
                 </div>
             ) : (
-                /* Staff Grid */
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {staff.map((member, index) => (
+                    {staff.map((member) => (
                         <div
                             key={member.staff_id}
                             className="rounded-xl border border-border bg-card p-5 card-shadow hover:elevated-shadow transition-all duration-200"
@@ -208,55 +221,17 @@ export default function StaffPage() {
                                         </Badge>
                                     </div>
                                 </div>
-                                <div className="relative">
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-8 w-8"
-                                        onClick={() => toggleMenu(member.staff_id)}
-                                    >
-                                        <MoreVertical className="h-4 w-4" />
-                                    </Button>
-                                    {openMenuId === member.staff_id && (
-                                        <>
-                                            <div
-                                                className="fixed inset-0 z-10"
-                                                onClick={() => setOpenMenuId(null)}
-                                            />
-                                            <div className="absolute right-0 top-10 z-20 w-48 rounded-lg border border-border bg-card shadow-lg overflow-hidden">
-                                                <button
-                                                    onClick={() => handleToggleStatus(member.staff_id, member.status)}
-                                                    disabled={updatingStatusIds.has(member.staff_id)}
-                                                    className="w-full px-4 py-2 text-sm text-left hover:bg-muted/50 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                                                >
-                                                    {updatingStatusIds.has(member.staff_id) ? (
-                                                        <>
-                                                            <Loader2 className="h-4 w-4 animate-spin" />
-                                                            更新中...
-                                                        </>
-                                                    ) : member.status === "off_duty" ? (
-                                                        <>
-                                                            <UserCheck className="h-4 w-4" />
-                                                            稼働開始
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <UserX className="h-4 w-4" />
-                                                            休みにする
-                                                        </>
-                                                    )}
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDeleteStaff(member.staff_id, member.staff_name)}
-                                                    className="w-full px-4 py-2 text-sm text-left hover:bg-muted/50 flex items-center gap-2 text-destructive"
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                    削除
-                                                </button>
-                                            </div>
-                                        </>
-                                    )}
-                                </div>
+                                <Button
+                                    ref={(el) => {
+                                        if (el) menuButtonRefs.current.set(member.staff_id, el);
+                                    }}
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={() => toggleMenu(member.staff_id)}
+                                >
+                                    <MoreVertical className="h-4 w-4" />
+                                </Button>
                             </div>
 
                             {/* Status */}
@@ -320,6 +295,63 @@ export default function StaffPage() {
                         </div>
                     ))}
                 </div>
+            )}
+
+            {/* Dropdown Menu Portal */}
+            {openMenuId !== null && menuPosition && (
+                <>
+                    <div
+                        className="fixed inset-0 z-40"
+                        onClick={() => {
+                            setOpenMenuId(null);
+                            setMenuPosition(null);
+                        }}
+                    />
+                    <div
+                        className="fixed z-50 w-48 rounded-lg border border-border bg-popover shadow-xl overflow-hidden animate-in fade-in-0 zoom-in-95"
+                        style={{
+                            top: `${menuPosition.top}px`,
+                            left: `${menuPosition.left}px`,
+                        }}
+                    >
+                        <button
+                            onClick={() => {
+                                const member = staff.find(s => s.staff_id === openMenuId);
+                                if (member) handleToggleStatus(member.staff_id, member.status);
+                            }}
+                            disabled={updatingStatusIds.has(openMenuId)}
+                            className="w-full px-4 py-2.5 text-sm text-left hover:bg-accent hover:text-accent-foreground flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                            {updatingStatusIds.has(openMenuId) ? (
+                                <>
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                    更新中...
+                                </>
+                            ) : staff.find(s => s.staff_id === openMenuId)?.status === "off_duty" ? (
+                                <>
+                                    <UserCheck className="h-4 w-4" />
+                                    稼働開始
+                                </>
+                            ) : (
+                                <>
+                                    <UserX className="h-4 w-4" />
+                                    休みにする
+                                </>
+                            )}
+                        </button>
+                        <div className="h-px bg-border" />
+                        <button
+                            onClick={() => {
+                                const member = staff.find(s => s.staff_id === openMenuId);
+                                if (member) handleDeleteStaff(member.staff_id, member.staff_name);
+                            }}
+                            className="w-full px-4 py-2.5 text-sm text-left hover:bg-destructive/10 hover:text-destructive flex items-center gap-2 transition-colors"
+                        >
+                            <Trash2 className="h-4 w-4" />
+                            削除
+                        </button>
+                    </div>
+                </>
             )}
 
             {/* Create Staff Modal */}

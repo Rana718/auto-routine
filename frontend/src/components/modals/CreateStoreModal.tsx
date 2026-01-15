@@ -26,7 +26,8 @@ export function CreateStoreModal({ isOpen, onClose, onSuccess, editStore }: Crea
     const [longitude, setLongitude] = useState("");
     const [category, setCategory] = useState("");
     const [priorityLevel, setPriorityLevel] = useState(2);
-    const [openingHours, setOpeningHours] = useState("");
+    const [weekdayHours, setWeekdayHours] = useState("");
+    const [weekendHours, setWeekendHours] = useState("");
 
     useEffect(() => {
         if (editStore) {
@@ -38,8 +39,9 @@ export function CreateStoreModal({ isOpen, onClose, onSuccess, editStore }: Crea
             setLongitude(editStore.longitude?.toString() || "");
             setCategory(editStore.category || "");
             setPriorityLevel(editStore.priority_level);
-            // Opening hours are stored as JSON, convert to string for display
-            setOpeningHours(editStore.opening_hours ? JSON.stringify(editStore.opening_hours) : "");
+            // Extract weekday and weekend hours
+            setWeekdayHours(editStore.opening_hours?.weekday || "");
+            setWeekendHours(editStore.opening_hours?.weekend || "");
         } else {
             resetForm();
         }
@@ -58,14 +60,10 @@ export function CreateStoreModal({ isOpen, onClose, onSuccess, editStore }: Crea
             setLoading(true);
 
             let parsedOpeningHours: Record<string, string> | undefined;
-            if (openingHours.trim()) {
-                try {
-                    parsedOpeningHours = JSON.parse(openingHours);
-                } catch {
-                    setError("営業時間のJSON形式が不正です");
-                    setLoading(false);
-                    return;
-                }
+            if (weekdayHours || weekendHours) {
+                parsedOpeningHours = {};
+                if (weekdayHours) parsedOpeningHours.weekday = weekdayHours;
+                if (weekendHours) parsedOpeningHours.weekend = weekendHours;
             }
 
             const data: StoreCreate = {
@@ -105,7 +103,8 @@ export function CreateStoreModal({ isOpen, onClose, onSuccess, editStore }: Crea
         setLongitude("");
         setCategory("");
         setPriorityLevel(2);
-        setOpeningHours("");
+        setWeekdayHours("");
+        setWeekendHours("");
         setError(null);
     }
 
@@ -114,9 +113,9 @@ export function CreateStoreModal({ isOpen, onClose, onSuccess, editStore }: Crea
             isOpen={isOpen}
             onClose={onClose}
             title={editStore ? "店舗を編集" : "新規店舗登録"}
-            className="max-w-lg"
+            className="max-w-lg max-h-[90vh]"
         >
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4 max-h-[calc(90vh-120px)] overflow-y-auto px-1 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
                 {error && (
                     <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
                         {error}
@@ -204,13 +203,22 @@ export function CreateStoreModal({ isOpen, onClose, onSuccess, editStore }: Crea
                     </Select>
                 </FormField>
 
-                <FormField label="営業時間 (JSON)">
-                    <Input
-                        value={openingHours}
-                        onChange={(e) => setOpeningHours(e.target.value)}
-                        placeholder='{"mon": "10:00-21:00", "tue": "10:00-21:00"}'
-                    />
-                </FormField>
+                <div className="space-y-3">
+                    <FormField label="平日営業時間">
+                        <Input
+                            value={weekdayHours}
+                            onChange={(e) => setWeekdayHours(e.target.value)}
+                            placeholder="10:00-21:00"
+                        />
+                    </FormField>
+                    <FormField label="週末営業時間">
+                        <Input
+                            value={weekendHours}
+                            onChange={(e) => setWeekendHours(e.target.value)}
+                            placeholder="10:00-20:00"
+                        />
+                    </FormField>
+                </div>
 
                 <div className="flex gap-3 pt-4">
                     <Button type="button" variant="outline" className="flex-1" onClick={onClose}>

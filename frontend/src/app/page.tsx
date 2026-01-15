@@ -8,7 +8,7 @@ import { OrdersTable } from "@/components/dashboard/OrdersTable";
 import { StaffOverview } from "@/components/dashboard/StaffOverview";
 import { CutoffTimer } from "@/components/dashboard/CutoffTimer";
 import { QuickActions } from "@/components/dashboard/QuickActions";
-import { ordersApi, staffApi, storesApi } from "@/lib/api";
+import { dashboardApi } from "@/lib/api";
 import type { OrderWithItems, OrderStats, StaffWithStats, StoreStats } from "@/lib/types";
 
 export default function Dashboard() {
@@ -31,17 +31,13 @@ export default function Dashboard() {
         setLoading(true);
         setError(null);
 
-        const [ordersStatsRes, staffRes, storesStatsRes, ordersRes] = await Promise.all([
-          ordersApi.getStats(todayISO).catch(() => null),
-          staffApi.getAll({ active_only: true }).catch(() => []),
-          storesApi.getStats().catch(() => null),
-          ordersApi.getAll({ limit: 10, target_date: todayISO }).catch(() => []),
-        ]);
-
-        setOrderStats(ordersStatsRes);
-        setStaffList(staffRes);
-        setStoreStats(storesStatsRes);
-        setRecentOrders(ordersRes);
+        // Single API call instead of 4 separate calls
+        const data = await dashboardApi.getAll(todayISO);
+        
+        setOrderStats(data.order_stats);
+        setStaffList(data.staff_list);
+        setStoreStats(data.store_stats);
+        setRecentOrders(data.recent_orders);
       } catch (err) {
         setError(err instanceof Error ? err.message : "データの取得に失敗しました");
       } finally {

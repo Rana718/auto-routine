@@ -32,7 +32,7 @@ export function Header({ title, subtitle, onMenuClick }: HeaderProps) {
 
     const unreadCount = notifications.filter(n => !n.read).length;
 
-    // Fetch notifications on mount and every 60 seconds
+    // Fetch notifications only once on mount (no polling)
     useEffect(() => {
         async function fetchNotifications() {
             try {
@@ -47,9 +47,7 @@ export function Header({ title, subtitle, onMenuClick }: HeaderProps) {
         }
 
         fetchNotifications();
-        const interval = setInterval(fetchNotifications, 60000); // Refresh every 60 seconds
-        return () => clearInterval(interval);
-    }, []);
+    }, []); // Only run once on mount
 
     // Close dropdowns when clicking outside
     useEffect(() => {
@@ -102,7 +100,7 @@ export function Header({ title, subtitle, onMenuClick }: HeaderProps) {
                     </Button>
                 )}
                 <div className="min-w-0">
-                    <h1 className="text-base md:text-xl font-semibold text-foreground truncate">{title}</h1>
+                    <p className="text-base md:text-xl font-semibold text-foreground truncate">{title}</p>
                     {subtitle && (
                         <p className="text-xs md:text-sm text-muted-foreground truncate hidden sm:block">{subtitle}</p>
                     )}
@@ -143,9 +141,9 @@ export function Header({ title, subtitle, onMenuClick }: HeaderProps) {
                     </Button>
 
                     {showNotifications && (
-                        <div className="absolute right-0 top-full mt-2 w-[calc(100vw-2rem)] sm:w-80 max-w-md rounded-xl border border-border bg-card shadow-lg overflow-hidden z-50">
+                        <div className="absolute right-0 top-full mt-2 w-[calc(100vw-1rem)] sm:w-96 max-w-md rounded-xl border border-border bg-card shadow-lg overflow-hidden z-50">
                             <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
-                                <h3 className="font-semibold text-sm">通知</h3>
+                                <p className="font-semibold text-sm">通知</p>
                                 {unreadCount > 0 && (
                                     <button
                                         onClick={markAllRead}
@@ -200,12 +198,12 @@ export function Header({ title, subtitle, onMenuClick }: HeaderProps) {
                     </Button>
 
                     {showProfile && (
-                        <div className="absolute right-0 top-full mt-2 w-64 sm:w-56 rounded-xl border border-border bg-card shadow-lg overflow-hidden z-50">
+                        <div className="absolute right-0 top-full mt-2 w-[calc(100vw-1rem)] sm:w-72 md:w-64 max-w-sm rounded-xl border border-border bg-card shadow-lg overflow-hidden z-50">
                             {/* User Info */}
                             <div className="px-4 py-3 border-b border-border bg-muted/30">
-                                <p className="font-medium text-sm text-foreground">{session?.user?.name || "ユーザー"}</p>
-                                <p className="text-xs text-muted-foreground">{session?.user?.email}</p>
-                                <p className="text-xs text-primary mt-1">
+                                <p className="font-medium text-sm text-foreground truncate">{session?.user?.name || "ユーザー"}</p>
+                                <p className="text-xs text-muted-foreground truncate">{session?.user?.email}</p>
+                                <p className="text-xs text-primary mt-1 truncate">
                                     {session?.user?.role === "admin" ? "管理者" :
                                         session?.user?.role === "supervisor" ? "スーパーバイザー" : "バイヤー"}
                                 </p>

@@ -60,6 +60,9 @@ export function Sidebar({ mobileOpen, onMobileClose, onCollapsedChange }: Sideba
 
     const userRole = session?.user?.role || "buyer";
     const isAdmin = userRole === "admin" || userRole === "supervisor";
+    
+    // Debug logging to help troubleshoot role issues
+    console.log("Sidebar - User Role:", userRole, "Is Admin:", isAdmin, "Session:", session?.user);
 
     // Choose nav items based on role
     const navItems = isAdmin ? adminNavItems : buyerNavItems;

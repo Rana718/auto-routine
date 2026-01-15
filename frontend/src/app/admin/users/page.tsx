@@ -33,6 +33,8 @@ export default function AdminUsersPage() {
     const [error, setError] = useState<string | null>(null);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [newUser, setNewUser] = useState({ name: "", email: "", password: "", role: "buyer" });
+    const [updatingUserId, setUpdatingUserId] = useState<number | null>(null);
+    const [creatingUser, setCreatingUser] = useState(false);
 
     useEffect(() => {
         if (session?.accessToken) {
@@ -59,16 +61,23 @@ export default function AdminUsersPage() {
     }
 
     async function createUser() {
-        if (!session?.accessToken) return;
+        if (!session?.accessToken || creatingUser) return;
 
         try {
+            setCreatingUser(true);
             const response = await fetch(`${API_BASE_URL}/api/admin/users`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${session.accessToken}`
                 },
-                body: JSON.stringify(newUser)
+                body: JSON.stringify({
+                    staff_name: newUser.name,
+                    staff_code: newUser.email.split('@')[0], // Generate code from email
+                    email: newUser.email,
+                    password: newUser.password,
+                    role: newUser.role
+                })
             });
             if (!response.ok) throw new Error("ユーザー作成に失敗しました");
             setShowCreateModal(false);
@@ -76,13 +85,16 @@ export default function AdminUsersPage() {
             await fetchUsers();
         } catch (err) {
             alert(err instanceof Error ? err.message : "エラーが発生しました");
+        } finally {
+            setCreatingUser(false);
         }
     }
 
     async function toggleActive(userId: number, active: boolean) {
-        if (!session?.accessToken) return;
+        if (!session?.accessToken || updatingUserId) return;
 
         try {
+            setUpdatingUserId(userId);
             const response = await fetch(
                 `${API_BASE_URL}/api/admin/users/${userId}/activate?active=${active}`,
                 {
@@ -94,13 +106,16 @@ export default function AdminUsersPage() {
             await fetchUsers();
         } catch (err) {
             alert(err instanceof Error ? err.message : "エラーが発生しました");
+        } finally {
+            setUpdatingUserId(null);
         }
     }
 
     async function updateRole(userId: number, role: string) {
-        if (!session?.accessToken) return;
+        if (!session?.accessToken || updatingUserId) return;
 
         try {
+            setUpdatingUserId(userId);
             const response = await fetch(`${API_BASE_URL}/api/admin/users/${userId}/role`, {
                 method: "PATCH",
                 headers: {
@@ -113,14 +128,17 @@ export default function AdminUsersPage() {
             await fetchUsers();
         } catch (err) {
             alert(err instanceof Error ? err.message : "エラーが発生しました");
+        } finally {
+            setUpdatingUserId(null);
         }
     }
 
     async function deleteUser(userId: number) {
-        if (!session?.accessToken) return;
+        if (!session?.accessToken || updatingUserId) return;
         if (!confirm("本当にこのユーザーを削除しますか？")) return;
 
         try {
+            setUpdatingUserId(userId);
             const response = await fetch(`${API_BASE_URL}/api/admin/users/${userId}`, {
                 method: "DELETE",
                 headers: { Authorization: `Bearer ${session.accessToken}` }
@@ -129,6 +147,8 @@ export default function AdminUsersPage() {
             await fetchUsers();
         } catch (err) {
             alert(err instanceof Error ? err.message : "エラーが発生しました");
+        } finally {
+            setUpdatingUserId(null);
         }
     }
 
@@ -183,7 +203,8 @@ export default function AdminUsersPage() {
                                 <select
                                     value={user.role}
                                     onChange={(e) => updateRole(user.staff_id, e.target.value)}
-                                    className="w-full rounded border border-border bg-secondary px-3 py-2 text-sm"
+                                    disabled={updatingUserId === user.staff_id}
+                                    className="w-full rounded border border-border bg-secondary px-3 py-2 text-sm disabled:opacity-50"
                                 >
                                     <option value="buyer">バイヤー</option>
                                     <option value="supervisor">スーパーバイザー</option>
@@ -197,8 +218,14 @@ export default function AdminUsersPage() {
                                     size="sm"
                                     className="flex-1 gap-2"
                                     onClick={() => toggleActive(user.staff_id, !user.is_active)}
+                                    disabled={updatingUserId === user.staff_id}
                                 >
-                                    {user.is_active ? (
+                                    {updatingUserId === user.staff_id ? (
+                                        <>
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                            処理中...
+                                        </>
+                                    ) : user.is_active ? (
                                         <>
                                             <XCircle className="h-4 w-4" />
                                             無効化
@@ -214,8 +241,13 @@ export default function AdminUsersPage() {
                                     variant="ghost"
                                     size="sm"
                                     onClick={() => deleteUser(user.staff_id)}
+                                    disabled={updatingUserId === user.staff_id}
                                 >
-                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                    {updatingUserId === user.staff_id ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                    )}
                                 </Button>
                             </div>
                         </div>
@@ -257,7 +289,8 @@ export default function AdminUsersPage() {
                                         <select
                                             value={user.role}
                                             onChange={(e) => updateRole(user.staff_id, e.target.value)}
-                                            className="rounded border border-border bg-secondary px-2 py-1 text-sm"
+                                            disabled={updatingUserId === user.staff_id}
+                                            className="rounded border border-border bg-secondary px-2 py-1 text-sm disabled:opacity-50"
                                         >
                                             <option value="buyer">バイヤー</option>
                                             <option value="supervisor">スーパーバイザー</option>
@@ -281,8 +314,11 @@ export default function AdminUsersPage() {
                                                 variant="ghost"
                                                 size="sm"
                                                 onClick={() => toggleActive(user.staff_id, !user.is_active)}
+                                                disabled={updatingUserId === user.staff_id}
                                             >
-                                                {user.is_active ? (
+                                                {updatingUserId === user.staff_id ? (
+                                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                                ) : user.is_active ? (
                                                     <XCircle className="h-4 w-4" />
                                                 ) : (
                                                     <CheckCircle className="h-4 w-4" />
@@ -292,8 +328,13 @@ export default function AdminUsersPage() {
                                                 variant="ghost"
                                                 size="sm"
                                                 onClick={() => deleteUser(user.staff_id)}
+                                                disabled={updatingUserId === user.staff_id}
                                             >
-                                                <Trash2 className="h-4 w-4 text-destructive" />
+                                                {updatingUserId === user.staff_id ? (
+                                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                                ) : (
+                                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                                )}
                                             </Button>
                                         </div>
                                     </td>
@@ -350,11 +391,27 @@ export default function AdminUsersPage() {
                                 </select>
                             </div>
                             <div className="flex gap-3">
-                                <Button variant="outline" onClick={() => setShowCreateModal(false)} className="flex-1">
+                                <Button 
+                                    variant="outline" 
+                                    onClick={() => setShowCreateModal(false)} 
+                                    className="flex-1"
+                                    disabled={creatingUser}
+                                >
                                     キャンセル
                                 </Button>
-                                <Button onClick={createUser} className="flex-1">
-                                    作成
+                                <Button 
+                                    onClick={createUser} 
+                                    className="flex-1 gap-2"
+                                    disabled={creatingUser}
+                                >
+                                    {creatingUser ? (
+                                        <>
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                            作成中...
+                                        </>
+                                    ) : (
+                                        "作成"
+                                    )}
                                 </Button>
                             </div>
                         </div>

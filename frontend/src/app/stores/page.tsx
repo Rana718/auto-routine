@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Search, MapPin, Clock, Star, Plus, Filter, Loader2 } from "lucide-react";
+import { Search, MapPin, Clock, Star, Plus, Filter, Loader2, Edit } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -203,7 +203,7 @@ export default function StoresPage() {
                             </div>
 
                             {/* Orders Badge */}
-                            {store.orders_today > 0 && (
+                            {store.orders_today > 0 ? (
                                 <div className="flex items-center justify-between p-2 rounded-lg bg-primary/10 border border-primary/20">
                                     <span className="text-sm text-primary font-medium">
                                         本日 {store.orders_today}件の注文
@@ -212,6 +212,19 @@ export default function StoresPage() {
                                         表示
                                     </Button>
                                 </div>
+                            ) : (
+                                <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    className="w-full gap-2"
+                                    onClick={() => {
+                                        setEditStore(store);
+                                        setShowCreateModal(true);
+                                    }}
+                                >
+                                    <Edit className="h-3.5 w-3.5" />
+                                    編集
+                                </Button>
                             )}
                         </div>
                     ))}

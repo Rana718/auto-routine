@@ -408,6 +408,24 @@ export const automationApi = {
 };
 
 // ============================================================================
+// DASHBOARD API
+// ============================================================================
+
+export interface DashboardData {
+    order_stats: OrderStats;
+    staff_list: StaffWithStats[];
+    store_stats: StoreStats;
+    recent_orders: OrderWithItems[];
+}
+
+export const dashboardApi = {
+    async getAll(target_date?: string): Promise<DashboardData> {
+        const query = target_date ? `?target_date=${target_date}` : "";
+        return fetchApi<DashboardData>(`/api/dashboard${query}`);
+    },
+};
+
+// ============================================================================
 // ADMIN API
 // ============================================================================
 
