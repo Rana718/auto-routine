@@ -7,6 +7,8 @@ import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { AlertModal } from "@/components/modals/AlertModal";
+import { ConfirmModal } from "@/components/modals/ConfirmModal";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -35,6 +37,8 @@ export default function AdminUsersPage() {
     const [newUser, setNewUser] = useState({ name: "", email: "", password: "", role: "buyer" });
     const [updatingUserId, setUpdatingUserId] = useState<number | null>(null);
     const [creatingUser, setCreatingUser] = useState(false);
+    const [alertModal, setAlertModal] = useState<{ message: string; type: "success" | "error" } | null>(null);
+    const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
 
     useEffect(() => {
         if (session?.accessToken) {
@@ -83,8 +87,9 @@ export default function AdminUsersPage() {
             setShowCreateModal(false);
             setNewUser({ name: "", email: "", password: "", role: "buyer" });
             await fetchUsers();
+            setAlertModal({ message: "ユーザーを作成しました", type: "success" });
         } catch (err) {
-            alert(err instanceof Error ? err.message : "エラーが発生しました");
+            setAlertModal({ message: err instanceof Error ? err.message : "エラーが発生しました", type: "error" });
         } finally {
             setCreatingUser(false);
         }
@@ -105,7 +110,7 @@ export default function AdminUsersPage() {
             if (!response.ok) throw new Error("更新に失敗しました");
             await fetchUsers();
         } catch (err) {
-            alert(err instanceof Error ? err.message : "エラーが発生しました");
+            setAlertModal({ message: err instanceof Error ? err.message : "エラーが発生しました", type: "error" });
         } finally {
             setUpdatingUserId(null);
         }
@@ -127,28 +132,33 @@ export default function AdminUsersPage() {
             if (!response.ok) throw new Error("ロール更新に失敗しました");
             await fetchUsers();
         } catch (err) {
-            alert(err instanceof Error ? err.message : "エラーが発生しました");
+            setAlertModal({ message: err instanceof Error ? err.message : "エラーが発生しました", type: "error" });
         } finally {
             setUpdatingUserId(null);
         }
     }
 
     async function deleteUser(userId: number) {
-        if (!session?.accessToken || updatingUserId) return;
-        if (!confirm("本当にこのユーザーを削除しますか？")) return;
+        setConfirmDelete(userId);
+    }
+
+    async function confirmDeleteUser() {
+        if (!session?.accessToken || updatingUserId || confirmDelete === null) return;
 
         try {
-            setUpdatingUserId(userId);
-            const response = await fetch(`${API_BASE_URL}/api/admin/users/${userId}`, {
+            setUpdatingUserId(confirmDelete);
+            const response = await fetch(`${API_BASE_URL}/api/admin/users/${confirmDelete}`, {
                 method: "DELETE",
                 headers: { Authorization: `Bearer ${session.accessToken}` }
             });
             if (!response.ok) throw new Error("削除に失敗しました");
             await fetchUsers();
+            setAlertModal({ message: "ユーザーを削除しました", type: "success" });
         } catch (err) {
-            alert(err instanceof Error ? err.message : "エラーが発生しました");
+            setAlertModal({ message: err instanceof Error ? err.message : "エラーが発生しました", type: "error" });
         } finally {
             setUpdatingUserId(null);
+            setConfirmDelete(null);
         }
     }
 
@@ -418,6 +428,27 @@ export default function AdminUsersPage() {
                     </div>
                 </div>
             )}
+
+            {/* Confirm Delete Modal */}
+            <ConfirmModal
+                isOpen={confirmDelete !== null}
+                onClose={() => !updatingUserId && setConfirmDelete(null)}
+                onConfirm={confirmDeleteUser}
+                title="ユーザー削除"
+                message="本当にこのユーザーを削除しますか？"
+                confirmText="削除"
+                cancelText="キャンセル"
+                variant="destructive"
+                loading={updatingUserId !== null}
+            />
+
+            {/* Alert Modal */}
+            <AlertModal
+                isOpen={alertModal !== null}
+                onClose={() => setAlertModal(null)}
+                message={alertModal?.message || ""}
+                type={alertModal?.type || "info"}
+            />
         </MainLayout>
     );
 }

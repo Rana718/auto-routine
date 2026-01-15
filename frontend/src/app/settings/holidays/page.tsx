@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { holidaysApi, type Holiday, type HolidayCreate } from "@/lib/api";
 import Link from "next/link";
+import { AlertModal } from "@/components/modals/AlertModal";
+import { ConfirmModal } from "@/components/modals/ConfirmModal";
 
 export default function HolidaysPage() {
     const [holidays, setHolidays] = useState<Holiday[]>([]);
@@ -16,6 +18,9 @@ export default function HolidaysPage() {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [importing, setImporting] = useState(false);
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+    const [alertModal, setAlertModal] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
+    const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
+    const [deleting, setDeleting] = useState(false);
 
     const [newHoliday, setNewHoliday] = useState<HolidayCreate>({
         holiday_date: "",
@@ -46,19 +51,29 @@ export default function HolidaysPage() {
             setShowCreateModal(false);
             setNewHoliday({ holiday_date: "", holiday_name: "", is_working: false });
             await fetchHolidays();
+            setAlertModal({ message: "祝日を作成しました", type: "success" });
         } catch (err) {
-            alert(err instanceof Error ? err.message : "祝日の作成に失敗しました");
+            setAlertModal({ message: err instanceof Error ? err.message : "祝日の作成に失敗しました", type: "error" });
         }
     }
 
     async function handleDelete(holidayId: number) {
-        if (!confirm("この祝日を削除してもよろしいですか？")) return;
+        setConfirmDelete(holidayId);
+    }
+
+    async function confirmDeleteHoliday() {
+        if (confirmDelete === null) return;
 
         try {
-            await holidaysApi.delete(holidayId);
+            setDeleting(true);
+            await holidaysApi.delete(confirmDelete);
             await fetchHolidays();
+            setAlertModal({ message: "祝日を削除しました", type: "success" });
         } catch (err) {
-            alert(err instanceof Error ? err.message : "祝日の削除に失敗しました");
+            setAlertModal({ message: err instanceof Error ? err.message : "祝日の削除に失敗しました", type: "error" });
+        } finally {
+            setDeleting(false);
+            setConfirmDelete(null);
         }
     }
 
@@ -66,10 +81,10 @@ export default function HolidaysPage() {
         try {
             setImporting(true);
             const result = await holidaysApi.importJapanHolidays(selectedYear);
-            alert(result.message);
+            setAlertModal({ message: result.message, type: "success" });
             await fetchHolidays();
         } catch (err) {
-            alert(err instanceof Error ? err.message : "インポートに失敗しました");
+            setAlertModal({ message: err instanceof Error ? err.message : "インポートに失敗しました", type: "error" });
         } finally {
             setImporting(false);
         }
@@ -84,7 +99,7 @@ export default function HolidaysPage() {
             });
             await fetchHolidays();
         } catch (err) {
-            alert(err instanceof Error ? err.message : "更新に失敗しました");
+            setAlertModal({ message: err instanceof Error ? err.message : "更新に失敗しました", type: "error" });
         }
     }
 
@@ -292,6 +307,27 @@ export default function HolidaysPage() {
                     </div>
                 </div>
             )}
+
+            {/* Confirm Delete Modal */}
+            <ConfirmModal
+                isOpen={confirmDelete !== null}
+                onClose={() => !deleting && setConfirmDelete(null)}
+                onConfirm={confirmDeleteHoliday}
+                title="祝日削除"
+                message="この祝日を削除してもよろしいですか？"
+                confirmText="削除"
+                cancelText="キャンセル"
+                variant="destructive"
+                loading={deleting}
+            />
+
+            {/* Alert Modal */}
+            <AlertModal
+                isOpen={alertModal !== null}
+                onClose={() => setAlertModal(null)}
+                message={alertModal?.message || ""}
+                type={alertModal?.type || "info"}
+            />
         </MainLayout>
     );
 }

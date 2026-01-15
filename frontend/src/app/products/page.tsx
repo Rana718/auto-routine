@@ -7,6 +7,7 @@ import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { AlertModal } from "@/components/modals/AlertModal";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -31,6 +32,7 @@ export default function ProductsPage() {
     const [products, setProducts] = useState<Product[]>([]);
     const [stores, setStores] = useState<Store[]>([]);
     const [loading, setLoading] = useState(true);
+    const [alertModal, setAlertModal] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
     useEffect(() => {
         if (session?.accessToken) {
@@ -72,7 +74,7 @@ export default function ProductsPage() {
         // If enabling store-fixed but no store selected, auto-select first store
         if (isFixed && !storeId) {
             if (stores.length === 0) {
-                alert("店舗が登録されていません");
+                setAlertModal({ message: "店舗が登録されていません", type: "error" });
                 await fetchData();
                 return;
             }
@@ -92,7 +94,7 @@ export default function ProductsPage() {
             if (!response.ok) throw new Error("更新に失敗しました");
             await fetchData();
         } catch (err) {
-            alert(err instanceof Error ? err.message : "エラーが発生しました");
+           setAlertModal({ message: err instanceof Error ? err.message : "エラーが発生しました", type: "error" }); 
         }
     }
 
@@ -110,7 +112,7 @@ export default function ProductsPage() {
             if (!response.ok) throw new Error("更新に失敗しました");
             await fetchData();
         } catch (err) {
-            alert(err instanceof Error ? err.message : "エラーが発生しました");
+            setAlertModal({ message: err instanceof Error ? err.message : "エラーが発生しました", type: "error" });
         }
     }
 
@@ -282,6 +284,14 @@ export default function ProductsPage() {
                     </table>
                 </div>
             </div>
+
+            {/* Alert Modal */}
+            <AlertModal
+                isOpen={alertModal !== null}
+                onClose={() => setAlertModal(null)}
+                message={alertModal?.message || ""}
+                type={alertModal?.type || "error"}
+            />
         </MainLayout>
     );
 }

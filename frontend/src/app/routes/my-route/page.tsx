@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import dynamic from "next/dynamic";
+import { AlertModal } from "@/components/modals/AlertModal";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -54,6 +55,7 @@ export default function MyRoutePage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [updatingStop, setUpdatingStop] = useState<number | null>(null);
+    const [alertModal, setAlertModal] = useState<{ message: string; type: "error" } | null>(null);
 
     const today = new Date().toISOString().split("T")[0];
 
@@ -109,7 +111,7 @@ export default function MyRoutePage() {
             );
             await fetchMyRoute();
         } catch (err) {
-            alert(err instanceof Error ? err.message : "更新に失敗しました");
+            setAlertModal({ message: err instanceof Error ? err.message : "更新に失敗しました", type: "error" });
         } finally {
             setUpdatingStop(null);
         }
@@ -269,6 +271,14 @@ export default function MyRoutePage() {
                     </div>
                 </div>
             </div>
+
+            {/* Alert Modal */}
+            <AlertModal
+                isOpen={alertModal !== null}
+                onClose={() => setAlertModal(null)}
+                message={alertModal?.message || ""}
+                type="error"
+            />
         </MainLayout>
     );
 }

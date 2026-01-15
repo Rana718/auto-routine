@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { ordersApi } from "@/lib/api";
+import { AlertModal } from "@/components/modals/AlertModal";
 import type { OrderWithItems } from "@/lib/types";
 
 const itemStatusConfig: Record<string, { label: string; className: string }> = {
@@ -27,6 +28,7 @@ export default function OrderDetailPage() {
     const [order, setOrder] = useState<OrderWithItems | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [alertModal, setAlertModal] = useState<{ message: string; type: "error" } | null>(null);
 
     useEffect(() => {
         if (orderId) {
@@ -58,7 +60,7 @@ export default function OrderDetailPage() {
             if (!response.ok) throw new Error("更新に失敗しました");
             await fetchOrder();
         } catch (err) {
-            alert(err instanceof Error ? err.message : "エラーが発生しました");
+            setAlertModal({ message: err instanceof Error ? err.message : "エラーが発生しました", type: "error" });
         }
     }
 
@@ -180,6 +182,14 @@ export default function OrderDetailPage() {
                     </tbody>
                 </table>
             </div>
+
+            {/* Alert Modal */}
+            <AlertModal
+                isOpen={alertModal !== null}
+                onClose={() => setAlertModal(null)}
+                message={alertModal?.message || ""}
+                type="error"
+            />
         </MainLayout>
     );
 }

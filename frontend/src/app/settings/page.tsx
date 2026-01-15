@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { settingsApi, extendedSettingsApi } from "@/lib/api";
 import type { AllSettings } from "@/lib/types";
 import Link from "next/link";
+import { AlertModal } from "@/components/modals/AlertModal";
 
 export default function SettingsPage() {
     const [settings, setSettings] = useState<AllSettings | null>(null);
@@ -28,6 +29,7 @@ export default function SettingsPage() {
     const [cutoffWarning, setCutoffWarning] = useState(true);
     const [orderFailureAlert, setOrderFailureAlert] = useState(true);
     const [routeCompletionNotification, setRouteCompletionNotification] = useState(false);
+    const [alertModal, setAlertModal] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
 
     useEffect(() => {
         fetchSettings();
@@ -107,27 +109,27 @@ export default function SettingsPage() {
     async function handleImportStores() {
         try {
             await settingsApi.importStores();
-            alert("店舗データのインポートが完了しました");
+            setAlertModal({ message: "店舗データのインポートが完了しました", type: "success" });
         } catch (err) {
-            alert(err instanceof Error ? err.message : "インポートに失敗しました");
+            setAlertModal({ message: err instanceof Error ? err.message : "インポートに失敗しました", type: "error" });
         }
     }
 
     async function handleExportOrders() {
         try {
             await settingsApi.exportOrders();
-            alert("注文データのエクスポートが完了しました");
+            setAlertModal({ message: "注文データのエクスポートが完了しました", type: "success" });
         } catch (err) {
-            alert(err instanceof Error ? err.message : "エクスポートに失敗しました");
+            setAlertModal({ message: err instanceof Error ? err.message : "エクスポートに失敗しました", type: "error" });
         }
     }
 
     async function handleBackup() {
         try {
             await settingsApi.backup();
-            alert("バックアップが完了しました");
+            setAlertModal({ message: "バックアップが完了しました", type: "success" });
         } catch (err) {
-            alert(err instanceof Error ? err.message : "バックアップに失敗しました");
+            setAlertModal({ message: err instanceof Error ? err.message : "バックアップに失敗しました", type: "error" });
         }
     }
 
@@ -433,9 +435,9 @@ export default function SettingsPage() {
                         <Button variant="outline" onClick={async () => {
                             try {
                                 const result = await extendedSettingsApi.calculateDistances();
-                                alert(result.message);
+                                setAlertModal({ message: result.message, type: "success" });
                             } catch (err) {
-                                alert(err instanceof Error ? err.message : "距離計算に失敗しました");
+                                setAlertModal({ message: err instanceof Error ? err.message : "距離計算に失敗しました", type: "error" });
                             }
                         }}>距離マトリックス計算</Button>
                     </div>
@@ -470,6 +472,14 @@ export default function SettingsPage() {
                     </Button>
                 </div>
             </div>
+
+            {/* Alert Modal */}
+            <AlertModal
+                isOpen={alertModal !== null}
+                onClose={() => setAlertModal(null)}
+                message={alertModal?.message || ""}
+                type={alertModal?.type || "info"}
+            />
         </MainLayout>
     );
 }

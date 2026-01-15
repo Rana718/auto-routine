@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Upload, Filter, Search, ChevronDown, Loader2, Plus, Download } from "lucide-react";
+import { Upload, Filter, Search, ChevronDown, Loader2, Plus, Download, Eye, Trash2 } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +11,8 @@ import { ImportOrdersModal } from "@/components/modals/ImportOrdersModal";
 import { CreateOrderModal } from "@/components/modals/CreateOrderModal";
 import type { OrderWithItems, OrderStatus } from "@/lib/types";
 import { useSession } from "next-auth/react";
+import { AlertModal } from "@/components/modals/AlertModal";
+import { ConfirmModal } from "@/components/modals/ConfirmModal";
 
 const statusConfig: Record<OrderStatus | string, { label: string; className: string }> = {
     pending: { label: "待機中", className: "bg-muted text-muted-foreground" },
@@ -37,6 +39,9 @@ export default function OrdersPage() {
     const [total, setTotal] = useState(0);
     const [showImportModal, setShowImportModal] = useState(false);
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const [alertModal, setAlertModal] = useState<{ message: string; type: "success" | "error" } | null>(null);
+    const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
+    const [deleting, setDeleting] = useState(false);
     const limit = 20;
 
     useEffect(() => {
@@ -66,6 +71,22 @@ export default function OrdersPage() {
         e.preventDefault();
         setPage(0);
         fetchOrders();
+    }
+
+    async function confirmDeleteOrder() {
+        if (confirmDelete === null) return;
+
+        try {
+            setDeleting(true);
+            await ordersApi.delete(confirmDelete);
+            setAlertModal({ message: "注文を削除しました", type: "success" });
+            await fetchOrders();
+        } catch (err) {
+            setAlertModal({ message: err instanceof Error ? err.message : "削除に失敗しました", type: "error" });
+        } finally {
+            setDeleting(false);
+            setConfirmDelete(null);
+        }
     }
 
     const filteredOrders = orders.filter((order) => {
@@ -115,7 +136,7 @@ export default function OrdersPage() {
                         <Button variant="outline" className="gap-2 flex-1 sm:flex-none" type="button" onClick={() => {
                             const token = (session as any)?.accessToken;
                             if (!token) {
-                                alert("認証トークンが見つかりません。再度ログインしてください。");
+                                setAlertModal({ message: "認証トークンが見つかりません。再度ログインしてください。", type: "error" });
                                 return;
                             }
                             window.open(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/settings/data/export-orders?token=${token}`, "_blank");
@@ -263,15 +284,28 @@ export default function OrdersPage() {
                                                 </Badge>
                                             </td>
                                             <td className="px-4 lg:px-6 py-4 whitespace-nowrap">
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    className="gap-1"
-                                                    onClick={() => window.location.href = `/orders/${order.order_id}`}
-                                                >
-                                                    詳細
-                                                    <ChevronDown className="h-3 w-3" />
-                                                </Button>
+                                                <div className="flex items-center gap-2">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="h-8 w-8 p-0"
+                                                        onClick={() => window.location.href = `/orders/${order.order_id}`}
+                                                        title="詳細を見る"
+                                                    >
+                                                        <Eye className="h-4 w-4" />
+                                                    </Button>
+                                                    {canManageOrders && (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                                            onClick={() => setConfirmDelete(order.order_id)}
+                                                            title="削除"
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    )}
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}
@@ -319,6 +353,27 @@ export default function OrdersPage() {
                 isOpen={showImportModal}
                 onClose={() => setShowImportModal(false)}
                 onSuccess={fetchOrders}
+            />
+
+            {/* Confirm Delete Modal */}
+            <ConfirmModal
+                isOpen={confirmDelete !== null}
+                onClose={() => !deleting && setConfirmDelete(null)}
+                onConfirm={confirmDeleteOrder}
+                title="注文削除"
+                message="この注文を削除してもよろしいですか？"
+                confirmText="削除"
+                cancelText="キャンセル"
+                variant="destructive"
+                loading={deleting}
+            />
+
+            {/* Alert Modal */}
+            <AlertModal
+                isOpen={alertModal !== null}
+                onClose={() => setAlertModal(null)}
+                message={alertModal?.message || ""}
+                type={alertModal?.type || "error"}
             />
         </MainLayout>
     );

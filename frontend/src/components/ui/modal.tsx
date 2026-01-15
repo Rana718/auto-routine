@@ -33,7 +33,7 @@ export function Modal({ isOpen, onClose, title, children, className }: ModalProp
                 )}
             >
                 {/* Header */}
-                <div className="flex items-center justify-between p-3 sm:p-4 border-b border-border">
+                <div className="flex items-center justify-between px-2 sm:px-3 py-1 sm:py-2 border-b border-border">
                     <h2 className="text-base sm:text-lg font-semibold text-foreground">{title}</h2>
                     <Button
                         variant="ghost"
@@ -46,7 +46,7 @@ export function Modal({ isOpen, onClose, title, children, className }: ModalProp
                 </div>
 
                 {/* Body */}
-                <div className="p-3 sm:p-4">
+                <div className="p-2 sm:p-3">
                     {children}
                 </div>
             </div>

@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { staffApi, automationApi, ordersApi, routesApi, adminApi } from "@/lib/api";
 import { CreateStaffModal } from "@/components/modals/CreateStaffModal";
+import { ConfirmModal } from "@/components/modals/ConfirmModal";
+import { AlertModal } from "@/components/modals/AlertModal";
 import type { StaffWithStats, StaffStatus, StaffRole } from "@/lib/types";
 
 const statusConfig: Record<StaffStatus, { label: string; color: string; textColor: string }> = {
@@ -33,6 +35,9 @@ export default function StaffPage() {
     const [updatingStatusIds, setUpdatingStatusIds] = useState<Set<number>>(new Set());
     const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
     const menuButtonRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
+    const [confirmDelete, setConfirmDelete] = useState<{ staffId: number; staffName: string } | null>(null);
+    const [alertModal, setAlertModal] = useState<{ message: string; type: "success" | "error" } | null>(null);
+    const [deleting, setDeleting] = useState(false);
 
     useEffect(() => {
         fetchStaff();
@@ -85,16 +90,25 @@ export default function StaffPage() {
         }
     }
 
-    async function handleDeleteStaff(staffId: number, staffName: string) {
-        if (!confirm(`${staffName}を削除してもよろしいですか？`)) return;
+    function handleDeleteStaff(staffId: number, staffName: string) {
+        setConfirmDelete({ staffId, staffName });
+    }
+
+    async function confirmDeleteStaff() {
+        if (!confirmDelete) return;
 
         try {
-            await adminApi.deleteUser(staffId);
+            setDeleting(true);
+            await adminApi.deleteUser(confirmDelete.staffId);
             await fetchStaff();
             setOpenMenuId(null);
             setMenuPosition(null);
+            setAlertModal({ message: "スタッフを削除しました", type: "success" });
         } catch (err) {
-            setError(err instanceof Error ? err.message : "スタッフの削除に失敗しました");
+            setAlertModal({ message: err instanceof Error ? err.message : "スタッフの削除に失敗しました", type: "error" });
+        } finally {
+            setDeleting(false);
+            setConfirmDelete(null);
         }
     }
 
@@ -359,6 +373,27 @@ export default function StaffPage() {
                 isOpen={showCreateModal}
                 onClose={() => setShowCreateModal(false)}
                 onSuccess={fetchStaff}
+            />
+
+            {/* Confirm Delete Modal */}
+            <ConfirmModal
+                isOpen={confirmDelete !== null}
+                onClose={() => !deleting && setConfirmDelete(null)}
+                onConfirm={confirmDeleteStaff}
+                title="スタッフ削除"
+                message={`${confirmDelete?.staffName || "このスタッフ"}を削除してもよろしいですか？`}
+                confirmText="削除"
+                cancelText="キャンセル"
+                variant="destructive"
+                loading={deleting}
+            />
+
+            {/* Alert Modal */}
+            <AlertModal
+                isOpen={alertModal !== null}
+                onClose={() => setAlertModal(null)}
+                message={alertModal?.message || ""}
+                type={alertModal?.type || "info"}
             />
         </MainLayout>
     );

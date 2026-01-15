@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { X, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AlertModal } from "@/components/modals/AlertModal";
 
 interface RecordFailureModalProps {
     isOpen: boolean;
@@ -27,6 +28,7 @@ export function RecordFailureModal({
     const [restockDate, setRestockDate] = useState("");
     const [notes, setNotes] = useState("");
     const [loading, setLoading] = useState(false);
+    const [alertModal, setAlertModal] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
     if (!isOpen) return null;
 
@@ -56,7 +58,7 @@ export function RecordFailureModal({
             onSuccess();
             onClose();
         } catch (err) {
-            alert(err instanceof Error ? err.message : "エラーが発生しました");
+            setAlertModal({ message: err instanceof Error ? err.message : "エラーが発生しました", type: "error" });
         } finally {
             setLoading(false);
         }
@@ -131,6 +133,14 @@ export function RecordFailureModal({
                         </Button>
                     </div>
                 </form>
+
+                {/* Alert Modal */}
+                <AlertModal
+                    isOpen={alertModal !== null}
+                    onClose={() => setAlertModal(null)}
+                    message={alertModal?.message || ""}
+                    type={alertModal?.type || "error"}
+                />
             </div>
         </div>
     );

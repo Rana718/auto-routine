@@ -6,6 +6,7 @@ import { Upload, UserPlus, MapPin, RefreshCw, Loader2, Navigation } from "lucide
 import { Button } from "@/components/ui/button";
 import { automationApi } from "@/lib/api";
 import { ImportOrdersModal } from "@/components/modals/ImportOrdersModal";
+import { AlertModal } from "@/components/modals/AlertModal";
 import Link from "next/link";
 
 interface ActionItem {
@@ -21,6 +22,7 @@ export function QuickActions() {
     const { data: session } = useSession();
     const [loading, setLoading] = useState<string | null>(null);
     const [showImportModal, setShowImportModal] = useState(false);
+    const [alertModal, setAlertModal] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
 
     const userRole = session?.user?.role || "buyer";
     const isAdmin = userRole === "admin" || userRole === "supervisor";
@@ -45,15 +47,15 @@ export function QuickActions() {
                     console.log("Starting staff assignment for:", today);
                     const assignResult = await automationApi.autoAssignDaily(today);
                     console.log("Assignment result:", assignResult);
-                    alert("スタッフ割当が完了しました");
-                    window.location.reload();
+                    setAlertModal({ message: "スタッフ割当が完了しました", type: "success" });
+                    setTimeout(() => window.location.reload(), 1500);
                     break;
                 case "routes":
                     console.log("Starting route generation for:", today);
                     const routeResult = await automationApi.generateAllRoutes(today);
                     console.log("Route result:", routeResult);
-                    alert("ルート生成が完了しました");
-                    window.location.reload();
+                    setAlertModal({ message: "ルート生成が完了しました", type: "success" });
+                    setTimeout(() => window.location.reload(), 1500);
                     break;
                 case "sync":
                     console.log("Refreshing page...");
@@ -61,12 +63,12 @@ export function QuickActions() {
                     break;
                 default:
                     console.warn("Unknown action type:", actionType);
-                    alert("不明なアクションです");
+                    setAlertModal({ message: "不明なアクションです", type: "error" });
             }
         } catch (err) {
             console.error("Action failed:", err);
             const errorMessage = err instanceof Error ? err.message : "操作に失敗しました";
-            alert(errorMessage);
+            setAlertModal({ message: errorMessage, type: "error" });
         } finally {
             setLoading(null);
         }
@@ -187,6 +189,14 @@ export function QuickActions() {
                 isOpen={showImportModal}
                 onClose={() => setShowImportModal(false)}
                 onSuccess={() => window.location.reload()}
+            />
+
+            {/* Alert Modal */}
+            <AlertModal
+                isOpen={alertModal !== null}
+                onClose={() => setAlertModal(null)}
+                message={alertModal?.message || ""}
+                type={alertModal?.type || "info"}
             />
         </>
     );

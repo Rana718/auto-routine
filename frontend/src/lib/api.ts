@@ -153,6 +153,13 @@ export const ordersApi = {
             { method: "POST", body: JSON.stringify({ orders }) }
         );
     },
+
+    async delete(orderId: number): Promise<{ message: string }> {
+        return fetchApi<{ message: string }>(
+            `/api/orders/${orderId}`,
+            { method: "DELETE" }
+        );
+    },
 };
 
 // ============================================================================

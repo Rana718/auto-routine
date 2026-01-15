@@ -5,8 +5,8 @@ import { useSession } from "next-auth/react";
 import { Package, Plus, Trash2, Loader2 } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-
+import { Badge } from "@/components/ui/badge";import { AlertModal } from "@/components/modals/AlertModal";
+import { ConfirmModal } from "@/components/modals/ConfirmModal";
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 interface Product {
@@ -33,6 +33,8 @@ export default function BundlesPage() {
     const [updating, setUpdating] = useState(false);
     const [deleting, setDeleting] = useState<number | null>(null);
     const [editingProductId, setEditingProductId] = useState<number | null>(null);
+    const [alertModal, setAlertModal] = useState<{ message: string; type: "success" | "error" } | null>(null);
+    const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
 
     // Form state
     const [bundleSku, setBundleSku] = useState("");
@@ -81,7 +83,7 @@ export default function BundlesPage() {
 
     async function handleCreateBundle() {
         if (!bundleSku || !bundleName || bundleItems.some(item => !item.sku || !item.name)) {
-            alert("全ての項目を入力してください");
+            setAlertModal({ message: "全ての項目を入力してください", type: "error" });
             return;
         }
 
@@ -127,12 +129,12 @@ export default function BundlesPage() {
 
             if (!updateResponse.ok) throw new Error("バンドル設定に失敗しました");
 
-            alert("セット商品を作成しました");
+            setAlertModal({ message: "セット商品を作成しました", type: "success" });
             setShowCreateModal(false);
             resetForm();
             await fetchProducts();
         } catch (err) {
-            alert(err instanceof Error ? err.message : "エラーが発生しました");
+            setAlertModal({ message: err instanceof Error ? err.message : "エラーが発生しました", type: "error" });
         } finally {
             setCreating(false);
         }
@@ -163,7 +165,7 @@ export default function BundlesPage() {
 
     async function handleUpdateBundle() {
         if (!editingProductId || !bundleSku || !bundleName || bundleItems.some(item => !item.sku || !item.name)) {
-            alert("全ての項目を入力してください");
+            setAlertModal({ message: "全ての項目を入力してください", type: "error" });
             return;
         }
 
@@ -192,23 +194,27 @@ export default function BundlesPage() {
 
             if (!updateResponse.ok) throw new Error("バンドル更新に失敗しました");
 
-            alert("セット商品を更新しました");
+            setAlertModal({ message: "セット商品を更新しました", type: "success" });
             setShowEditModal(false);
             resetForm();
             await fetchProducts();
         } catch (err) {
-            alert(err instanceof Error ? err.message : "エラーが発生しました");
+            setAlertModal({ message: err instanceof Error ? err.message : "エラーが発生しました", type: "error" });
         } finally {
             setUpdating(false);
         }
     }
 
-    async function deleteBundle(productId: number) {
-        if (!confirm("このセット商品を削除しますか？")) return;
+    function deleteBundle(productId: number) {
+        setConfirmDelete(productId);
+    }
+
+    async function confirmDeleteBundle() {
+        if (confirmDelete === null) return;
 
         try {
-            setDeleting(productId);
-            const response = await fetch(`${API_BASE_URL}/api/products/${productId}`, {
+            setDeleting(confirmDelete);
+            const response = await fetch(`${API_BASE_URL}/api/products/${confirmDelete}`, {
                 method: "DELETE",
                 headers: {
                     Authorization: `Bearer ${session?.accessToken}`
@@ -217,12 +223,13 @@ export default function BundlesPage() {
 
             if (!response.ok) throw new Error("削除に失敗しました");
 
-            alert("セット商品を削除しました");
+            setAlertModal({ message: "セット商品を削除しました", type: "success" });
             await fetchProducts();
         } catch (err) {
-            alert(err instanceof Error ? err.message : "エラーが発生しました");
+            setAlertModal({ message: err instanceof Error ? err.message : "エラーが発生しました", type: "error" });
         } finally {
             setDeleting(null);
+            setConfirmDelete(null);
         }
     }
 
@@ -578,6 +585,27 @@ export default function BundlesPage() {
                     </div>
                 )}
             </div>
+
+            {/* Confirm Delete Modal */}
+            <ConfirmModal
+                isOpen={confirmDelete !== null}
+                onClose={() => !deleting && setConfirmDelete(null)}
+                onConfirm={confirmDeleteBundle}
+                title="セット商品削除"
+                message="このセット商品を削除しますか？"
+                confirmText="削除"
+                cancelText="キャンセル"
+                variant="destructive"
+                loading={deleting !== null}
+            />
+
+            {/* Alert Modal */}
+            <AlertModal
+                isOpen={alertModal !== null}
+                onClose={() => setAlertModal(null)}
+                message={alertModal?.message || ""}
+                type={alertModal?.type || "error"}
+            />
         </MainLayout>
     );
 }
