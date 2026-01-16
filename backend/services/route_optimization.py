@@ -11,7 +11,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.schema import (
     Staff, Store, Route, RouteStop, RouteStatus, StopStatus,
-    PurchaseList, PurchaseListItem, ListStatus, StoreDistanceMatrix
+    PurchaseList, PurchaseListItem, ListStatus, StoreDistanceMatrix,
+    Order, OrderItem, OrderStatus
 )
 from services.store_selection import calculate_distance
 
@@ -150,6 +151,19 @@ async def generate_route_for_staff(
     
     # Update purchase list status
     purchase_list.list_status = ListStatus.ASSIGNED
+    
+    # Update all related orders to IN_PROGRESS status
+    result = await db.execute(
+        select(Order)
+        .join(OrderItem)
+        .join(PurchaseListItem, PurchaseListItem.item_id == OrderItem.item_id)
+        .where(PurchaseListItem.list_id == purchase_list.list_id)
+        .distinct()
+    )
+    orders = result.scalars().all()
+    for order in orders:
+        if order.order_status == OrderStatus.ASSIGNED:
+            order.order_status = OrderStatus.IN_PROGRESS
     
     await db.flush()
     return route.route_id

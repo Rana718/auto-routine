@@ -5,8 +5,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from db.schema import Route, RouteStop, RouteStatus, StopStatus, Staff, PurchaseList
-from models.routes import RouteWithDetails, RouteGenerate, StopUpdate
+from db.schema import (
+    Route, RouteStop, RouteStatus, StopStatus, Staff, PurchaseList, StaffRole,
+    PurchaseListItem, OrderItem, ItemStatus, Order, OrderStatus
+)
+from models.routes import RouteWithDetails, RouteGenerate, StopUpdate, RouteReorder
 
 async def get_all_routes(
     db: AsyncSession,
@@ -178,8 +181,79 @@ async def update_stop_controller(db: AsyncSession, route_id: int, stop_id: int, 
                 raise HTTPException(status_code=403, detail="このルートを更新する権限がありません")
     
     # Convert string to StopStatus enum
-    from db.schema import StopStatus
+    old_status = stop.stop_status
     stop.stop_status = StopStatus(update.stop_status)
+    
+    # If stop is marked as completed, update related items and orders
+    if stop.stop_status == StopStatus.COMPLETED and old_status != StopStatus.COMPLETED:
+        # Get the purchase list for this route
+        result = await db.execute(
+            select(PurchaseList)
+            .where(PurchaseList.list_id == route.list_id)
+        )
+        purchase_list = result.scalar_one_or_none()
+        
+        if purchase_list:
+            # Get all purchase list items for this store
+            result = await db.execute(
+                select(PurchaseListItem)
+                .where(PurchaseListItem.list_id == purchase_list.list_id)
+                .where(PurchaseListItem.store_id == stop.store_id)
+            )
+            purchase_items = result.scalars().all()
+            
+            # Update all related order items to PURCHASED
+            for purchase_item in purchase_items:
+                if purchase_item.item_id:
+                    result = await db.execute(
+                        select(OrderItem)
+                        .where(OrderItem.item_id == purchase_item.item_id)
+                    )
+                    order_item = result.scalar_one_or_none()
+                    if order_item and order_item.item_status != ItemStatus.PURCHASED:
+                        order_item.item_status = ItemStatus.PURCHASED
+            
+            # Check and update order completion status
+            result = await db.execute(
+                select(Order)
+                .join(OrderItem)
+                .join(PurchaseListItem, PurchaseListItem.item_id == OrderItem.item_id)
+                .where(PurchaseListItem.store_id == stop.store_id)
+                .where(PurchaseListItem.list_id == purchase_list.list_id)
+                .distinct()
+            )
+            orders = result.scalars().all()
+            
+            for order in orders:
+                # Get all items for this order
+                result = await db.execute(
+                    select(OrderItem)
+                    .where(OrderItem.order_id == order.order_id)
+                )
+                all_items = result.scalars().all()
+                
+                if all_items:
+                    purchased_count = sum(1 for item in all_items if item.item_status == ItemStatus.PURCHASED)
+                    total_count = len(all_items)
+                    
+                    if purchased_count == total_count:
+                        order.order_status = OrderStatus.COMPLETED
+                    elif purchased_count > 0:
+                        order.order_status = OrderStatus.PARTIALLY_COMPLETED
+    
+    # Check if all stops in the route are completed
+    if stop.stop_status == StopStatus.COMPLETED:
+        result = await db.execute(
+            select(RouteStop)
+            .where(RouteStop.route_id == route_id)
+        )
+        all_stops = result.scalars().all()
+        
+        if all_stops:
+            completed_stops = sum(1 for s in all_stops if s.stop_status == StopStatus.COMPLETED)
+            if completed_stops == len(all_stops):
+                route.route_status = RouteStatus.COMPLETED
+    
     await db.commit()
     return {"message": "ストップを更新しました", "new_status": update.stop_status}
 
@@ -197,3 +271,55 @@ async def start_all_routes_controller(db: AsyncSession, route_date: date = None)
     
     await db.commit()
     return {"message": f"{len(routes)}件のルートを開始しました", "count": len(routes)}
+
+async def reorder_route_stops_controller(db: AsyncSession, route_id: int, reorder: RouteReorder, current_user: Staff):
+    """Reorder route stops with RBAC:
+    - ADMIN: Full access
+    - SUPERVISOR: Can edit all routes
+    - BUYER: Can edit their own routes only
+    """
+    # Get route with stops
+    result = await db.execute(
+        select(Route)
+        .options(selectinload(Route.stops))
+        .where(Route.route_id == route_id)
+    )
+    route = result.scalar_one_or_none()
+    if not route:
+        raise HTTPException(status_code=404, detail="ルートが見つかりません")
+    
+    # Check permissions
+    is_admin = current_user.role == StaffRole.ADMIN
+    is_supervisor = current_user.role == StaffRole.SUPERVISOR
+    is_assigned_buyer = current_user.role == StaffRole.BUYER and route.staff_id == current_user.staff_id
+    
+    if not (is_admin or is_supervisor or is_assigned_buyer):
+        raise HTTPException(
+            status_code=403, 
+            detail="このルートを編集する権限がありません"
+        )
+    
+    # Validate stop_ids
+    existing_stop_ids = {stop.stop_id for stop in route.stops}
+    provided_stop_ids = set(reorder.stop_ids)
+    
+    if existing_stop_ids != provided_stop_ids:
+        raise HTTPException(
+            status_code=400,
+            detail="提供されたstop_idsがルートの既存のストップと一致しません"
+        )
+    
+    # Update stop sequences
+    for new_sequence, stop_id in enumerate(reorder.stop_ids, start=1):
+        result = await db.execute(
+            select(RouteStop)
+            .where(RouteStop.route_id == route_id)
+            .where(RouteStop.stop_id == stop_id)
+        )
+        stop = result.scalar_one_or_none()
+        if stop:
+            stop.stop_sequence = new_sequence
+    
+    await db.commit()
+    return {"message": "ルートを並び替えました"}
+

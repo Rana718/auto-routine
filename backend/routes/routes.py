@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.db import get_db
 from db.schema import RouteStatus, Staff
-from models.routes import RouteWithDetails, RouteGenerate, StopUpdate
+from models.routes import RouteWithDetails, RouteGenerate, StopUpdate, RouteReorder
 from controllers.routes import *
 from middlewares.auth import get_current_user
 
@@ -74,3 +74,13 @@ async def start_all_routes(
     db: AsyncSession = Depends(get_db)
 ):
     return await start_all_routes_controller(db, route_date)
+
+@router.patch("/{route_id}/reorder")
+async def reorder_route_stops(
+    route_id: int,
+    reorder: RouteReorder,
+    current_user: Annotated[Staff, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db)
+):
+    return await reorder_route_stops_controller(db, route_id, reorder, current_user)
+

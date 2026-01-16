@@ -8,6 +8,7 @@ class OrderWithItemsResponse(BaseModel):
     robot_in_order_id: Optional[str]
     mall_name: Optional[str]
     customer_name: Optional[str]
+    order_date: date
     order_status: OrderStatus
     target_purchase_date: Optional[date]
     items: List[dict] = []

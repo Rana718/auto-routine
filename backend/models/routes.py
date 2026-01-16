@@ -24,3 +24,6 @@ class StopUpdate(BaseModel):
     stop_status: str = Field(..., pattern="^(pending|current|completed|skipped)$")
     actual_arrival: Optional[str] = None
     actual_departure: Optional[str] = None
+
+class RouteReorder(BaseModel):
+    stop_ids: List[int] = Field(..., min_length=1)

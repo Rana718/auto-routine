@@ -82,8 +82,8 @@ async def get_notifications(
         staff_name = route.staff.staff_name if route.staff else "スタッフ"
         
         # Calculate time ago
-        if route.updated_at:
-            time_diff = now_utc - route.updated_at
+        if route.completed_at:
+            time_diff = now_utc - route.completed_at
             minutes = int(time_diff.total_seconds() / 60)
             if minutes < 60:
                 time_str = f"{minutes}分前"

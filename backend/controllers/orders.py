@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from db.schema import Order, OrderItem, OrderStatus, ItemStatus, OrderCreate, OrderResponse, OrderItemCreate, OrderItemResponse
-from db.schema import Product, ProductStoreMapping, Store, StockStatus
+from db.schema import Product, ProductStoreMapping, Store, StockStatus, PurchaseListItem
 from models.orders import OrderWithItemsResponse, OrderStats, BulkOrderImport
 
 
@@ -104,6 +104,7 @@ async def get_all_orders(
             robot_in_order_id=order.robot_in_order_id,
             mall_name=order.mall_name,
             customer_name=order.customer_name,
+            order_date=order.order_date.date() if isinstance(order.order_date, datetime) else order.order_date,
             order_status=order.order_status,
             target_purchase_date=order.target_purchase_date,
             items=[
@@ -303,16 +304,16 @@ async def delete_order(db: AsyncSession, order_id: int):
         raise HTTPException(status_code=404, detail="注文が見つかりません")
     
     # Delete related purchase list items first to avoid foreign key constraint violation
-    # from db.schema import PurchaseListItem
-    # result = await db.execute(
-    #     select(PurchaseListItem)
-    #     .join(OrderItem)
-    #     .where(OrderItem.order_id == order_id)
-    # )
-    # purchase_list_items = result.scalars().all()
-    # for pli in purchase_list_items:
-    #     await db.delete(pli)
+    result = await db.execute(
+        select(PurchaseListItem)
+        .join(OrderItem, PurchaseListItem.item_id == OrderItem.item_id)
+        .where(OrderItem.order_id == order_id)
+    )
+    purchase_list_items = result.scalars().all()
+    for pli in purchase_list_items:
+        await db.delete(pli)
     
+    # Now delete the order (OrderItems will be cascade deleted)
     await db.delete(order)
     await db.commit()
     return {"message": "注文を削除しました"}
