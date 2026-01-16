@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -53,6 +53,7 @@ interface RouteMapProps {
 
 export function RouteMap({ stops, startLocation, className = "" }: RouteMapProps) {
     const [mapReady, setMapReady] = useState(false);
+    const mapRef = useRef<L.Map | null>(null);
 
     useEffect(() => {
         // Only run on client
@@ -61,6 +62,16 @@ export function RouteMap({ stops, startLocation, className = "" }: RouteMapProps
 
     useEffect(() => {
         if (!mapReady) return;
+
+        if (mapRef.current) {
+            mapRef.current.remove();
+            mapRef.current = null;
+        }
+
+        const container = document.getElementById("route-map");
+        if (!container) return;
+        
+        (container as any)._leaflet_id = null;
 
         // Default center: Tokyo
         const defaultCenter: [number, number] = [35.6762, 139.6503];
@@ -79,6 +90,7 @@ export function RouteMap({ stops, startLocation, className = "" }: RouteMapProps
 
         // Initialize map
         const map = L.map("route-map").setView(center, 13);
+        mapRef.current = map;
 
         // Add OpenStreetMap tiles
         L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -153,6 +165,7 @@ export function RouteMap({ stops, startLocation, className = "" }: RouteMapProps
                                 fetch(`https://router.project-osrm.org/route/v1/driving/${segmentWaypoints}?overview=full&geometries=geojson`)
                                     .then(res => res.json())
                                     .then(segData => {
+                                        if (!mapRef.current) return; // Check if map still exists
                                         if (segData.code === "Ok" && segData.routes && segData.routes.length > 0) {
                                             const segRoute = segData.routes[0];
                                             const segCoordinates = segRoute.geometry.coordinates.map(
@@ -163,7 +176,7 @@ export function RouteMap({ stops, startLocation, className = "" }: RouteMapProps
                                                 color: isCompleted ? "#10b981" : "#2563eb",
                                                 weight: 5,
                                                 opacity: isCompleted ? 0.9 : 0.7,
-                                            }).addTo(map);
+                                            }).addTo(mapRef.current);
                                         }
                                     })
                                     .catch(err => console.error("Segment routing error:", err));
@@ -172,6 +185,7 @@ export function RouteMap({ stops, startLocation, className = "" }: RouteMapProps
                     } else {
                         // Fallback to straight lines if routing fails
                         console.warn("Road routing failed, using straight lines");
+                        if (!mapRef.current) return; // Check if map still exists
                         for (let i = 0; i < routePoints.length - 1; i++) {
                             const currentStop = validStops[i - (startLocation ? 1 : 0)];
                             const isCompleted = currentStop?.stop_status === "completed";
@@ -181,13 +195,14 @@ export function RouteMap({ stops, startLocation, className = "" }: RouteMapProps
                                 weight: 4,
                                 opacity: isCompleted ? 0.8 : 0.6,
                                 dashArray: "10, 5",
-                            }).addTo(map);
+                            }).addTo(mapRef.current);
                         }
                     }
                 })
                 .catch(err => {
                     console.error("Routing error:", err);
                     // Fallback to straight lines with color coding
+                    if (!mapRef.current) return; // Check if map still exists
                     for (let i = 0; i < routePoints.length - 1; i++) {
                         const currentStop = validStops[i - (startLocation ? 1 : 0)];
                         const isCompleted = currentStop?.stop_status === "completed";
@@ -197,7 +212,7 @@ export function RouteMap({ stops, startLocation, className = "" }: RouteMapProps
                             weight: 4,
                             opacity: isCompleted ? 0.8 : 0.6,
                             dashArray: "10, 5",
-                        }).addTo(map);
+                        }).addTo(mapRef.current);
                     }
                 });
         }
@@ -210,7 +225,10 @@ export function RouteMap({ stops, startLocation, className = "" }: RouteMapProps
 
         // Cleanup
         return () => {
-            map.remove();
+            if (mapRef.current) {
+                mapRef.current.remove();
+                mapRef.current = null;
+            }
         };
     }, [mapReady, stops, startLocation]);
 

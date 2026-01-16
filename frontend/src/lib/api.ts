@@ -333,6 +333,16 @@ export const routesApi = {
             }
         );
     },
+
+    async reorderStops(routeId: number, stopIds: number[]): Promise<{ message: string }> {
+        return fetchApi<{ message: string }>(
+            `/api/routes/${routeId}/reorder`,
+            {
+                method: "PATCH",
+                body: JSON.stringify({ stop_ids: stopIds })
+            }
+        );
+    },
 };
 
 // ============================================================================
