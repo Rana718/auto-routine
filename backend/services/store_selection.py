@@ -3,6 +3,7 @@ Store Selection Service - OPTIMIZED with Quantity Splitting
 Selects optimal stores for each item and splits quantities across multiple stores
 """
 
+import math
 from typing import List, Dict, Optional, Tuple
 from decimal import Decimal
 from dataclasses import dataclass
@@ -72,6 +73,18 @@ async def allocate_quantities_to_stores(
     if not product_ids:
         return {}
 
+    # Batch fetch all fixed stores to avoid N+1 queries
+    fixed_store_ids = [
+        p.fixed_store_id for p in products_by_sku.values()
+        if p.is_store_fixed and p.fixed_store_id
+    ]
+    fixed_stores_by_id: Dict[int, Store] = {}
+    if fixed_store_ids:
+        fixed_stores_result = await db.execute(
+            select(Store).where(Store.store_id.in_(fixed_store_ids))
+        )
+        fixed_stores_by_id = {s.store_id: s for s in fixed_stores_result.scalars().all()}
+
     mappings_result = await db.execute(
         select(ProductStoreMapping, Store)
         .join(Store, Store.store_id == ProductStoreMapping.store_id)
@@ -103,11 +116,8 @@ async def allocate_quantities_to_stores(
 
         # Check if store-fixed (must buy from single store)
         if product.is_store_fixed and product.fixed_store_id:
-            # Get store name
-            store_result = await db.execute(
-                select(Store).where(Store.store_id == product.fixed_store_id)
-            )
-            fixed_store = store_result.scalar_one_or_none()
+            # Get store name from batch-fetched stores
+            fixed_store = fixed_stores_by_id.get(product.fixed_store_id)
             store_name = fixed_store.store_name if fixed_store else "Unknown"
 
             allocations[item.item_id] = ItemAllocation(
@@ -246,8 +256,6 @@ def get_available_quantity(mapping: ProductStoreMapping) -> Optional[int]:
 
 def calculate_distance(lat1: Decimal, lng1: Decimal, lat2: Decimal, lng2: Decimal) -> float:
     """Calculate approximate distance in km using Haversine formula"""
-    import math
-
     lat1_f = float(lat1)
     lng1_f = float(lng1)
     lat2_f = float(lat2)

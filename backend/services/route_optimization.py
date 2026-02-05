@@ -97,7 +97,7 @@ async def generate_route_for_staff(
         await db.flush()
         await db.refresh(route)
 
-    # Build distance matrix for stores
+    # Build store coordinates lookup
     store_coords = {
         s.store_id: (s.latitude, s.longitude)
         for s in stores if s.latitude and s.longitude
@@ -107,12 +107,16 @@ async def generate_route_for_staff(
     start_lat = staff.start_location_lat or Decimal("34.6937")  # Osaka
     start_lng = staff.start_location_lng or Decimal("135.5023")
 
+    # Fetch pre-calculated distances from matrix for all store pairs
+    store_ids = [s.store_id for s in stores]
+    distance_cache = await _fetch_distance_cache(db, store_ids)
+
     # Generate optimized order using Nearest Neighbor algorithm
     # Pass both items_count and total_quantity
     optimized_order = nearest_neighbor_route(
         start_point=(start_lat, start_lng),
         stores=[(s.store_id, s.latitude, s.longitude, s.items_count, s.total_quantity or s.items_count) for s in stores],
-        use_distance=(optimization_priority in ["distance", "balanced"])
+        distance_cache=distance_cache
     )
 
     # Calculate total distance and time
@@ -125,16 +129,18 @@ async def generate_route_for_staff(
     TRAVEL_TIME_PER_KM = 5  # minutes
 
     prev_lat, prev_lng = start_lat, start_lng
+    prev_store_id: Optional[int] = None
     current_time = datetime.combine(target_date, datetime.strptime("10:00", "%H:%M").time())
 
     for seq, (store_id, lat, lng, items_count, total_qty) in enumerate(optimized_order):
         travel_time = 0
         if lat and lng:
-            dist = calculate_distance(prev_lat, prev_lng, lat, lng)
+            dist = _get_distance(prev_lat, prev_lng, lat, lng, prev_store_id, store_id, distance_cache)
             total_distance += dist
             travel_time = int(dist * TRAVEL_TIME_PER_KM)
             current_time += timedelta(minutes=travel_time)
             prev_lat, prev_lng = lat, lng
+            prev_store_id = store_id
 
         # Get items to purchase at this store
         items_result = await db.execute(
@@ -185,14 +191,61 @@ async def generate_route_for_staff(
     return route.route_id
 
 
+async def _fetch_distance_cache(
+    db: AsyncSession,
+    store_ids: List[int]
+) -> Dict[Tuple[int, int], float]:
+    """
+    Fetch pre-calculated distances from StoreDistanceMatrix for given stores.
+    Returns dict mapping (from_store_id, to_store_id) -> distance_km
+    """
+    if not store_ids:
+        return {}
+
+    result = await db.execute(
+        select(StoreDistanceMatrix)
+        .where(StoreDistanceMatrix.from_store_id.in_(store_ids))
+        .where(StoreDistanceMatrix.to_store_id.in_(store_ids))
+    )
+    distances = result.scalars().all()
+
+    return {
+        (d.from_store_id, d.to_store_id): float(d.distance_km)
+        for d in distances
+    }
+
+
+def _get_distance(
+    lat1: Decimal, lng1: Decimal,
+    lat2: Decimal, lng2: Decimal,
+    store1_id: Optional[int],
+    store2_id: Optional[int],
+    distance_cache: Dict[Tuple[int, int], float]
+) -> float:
+    """
+    Get distance between two points, using cache if available.
+    Falls back to Haversine calculation if not in cache.
+    """
+    # Try cache first (for store-to-store distances)
+    if store1_id and store2_id:
+        cached = distance_cache.get((store1_id, store2_id))
+        if cached is not None:
+            return cached
+
+    # Fall back to calculation
+    return calculate_distance(lat1, lng1, lat2, lng2)
+
+
 def nearest_neighbor_route(
     start_point: Tuple[Decimal, Decimal],
     stores: List[Tuple[int, Decimal, Decimal, int, int]],  # (store_id, lat, lng, items_count, total_qty)
-    use_distance: bool = True
+    distance_cache: Optional[Dict[Tuple[int, int], float]] = None
 ) -> List[Tuple[int, Decimal, Decimal, int, int]]:
     """
     Nearest Neighbor algorithm for TSP-like route optimization.
     Greedy algorithm that always visits the nearest unvisited store.
+
+    Uses pre-calculated distance cache when available for better performance.
 
     Returns stores in optimized order.
     """
@@ -201,6 +254,8 @@ def nearest_neighbor_route(
 
     if len(stores) == 1:
         return stores
+
+    distance_cache = distance_cache or {}
 
     # Separate stores with and without coordinates
     stores_with_coords = [(s[0], s[1], s[2], s[3], s[4]) for s in stores if s[1] and s[2]]
@@ -212,6 +267,7 @@ def nearest_neighbor_route(
     result = []
     remaining = list(stores_with_coords)
     current_lat, current_lng = start_point
+    current_store_id: Optional[int] = None  # Start point is not a store
 
     while remaining:
         # Find nearest unvisited store
@@ -219,7 +275,10 @@ def nearest_neighbor_route(
         nearest_dist = float('inf')
 
         for i, (store_id, lat, lng, items, qty) in enumerate(remaining):
-            dist = calculate_distance(current_lat, current_lng, lat, lng)
+            dist = _get_distance(
+                current_lat, current_lng, lat, lng,
+                current_store_id, store_id, distance_cache
+            )
             if dist < nearest_dist:
                 nearest_dist = dist
                 nearest_idx = i
@@ -228,6 +287,7 @@ def nearest_neighbor_route(
         store = remaining.pop(nearest_idx)
         result.append(store)
         current_lat, current_lng = store[1], store[2]
+        current_store_id = store[0]
 
     # Add stores without coordinates at the end
     result.extend(stores_without_coords)

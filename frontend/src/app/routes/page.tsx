@@ -29,6 +29,7 @@ export default function RoutesPage() {
     const { data: session } = useSession();
     const [routes, setRoutes] = useState<Route[]>([]);
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [selectedRoute, setSelectedRoute] = useState<number | null>(null);
     const [generating, setGenerating] = useState(false);
@@ -47,12 +48,16 @@ export default function RoutesPage() {
     };
 
     useEffect(() => {
-        fetchRoutes();
+        fetchRoutes(true);
     }, [targetDate]);
 
-    async function fetchRoutes() {
+    async function fetchRoutes(isInitial = false) {
         try {
-            setLoading(true);
+            if (isInitial) {
+                setLoading(true);
+            } else {
+                setRefreshing(true);
+            }
             setError(null);
             const data = await routesApi.getAll({ route_date: targetDate });
             setRoutes(data);
@@ -68,6 +73,7 @@ export default function RoutesPage() {
             setError(err instanceof Error ? err.message : "ルートの取得に失敗しました");
         } finally {
             setLoading(false);
+            setRefreshing(false);
         }
     }
 
@@ -124,17 +130,20 @@ export default function RoutesPage() {
                     {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
                     <span>生成</span>
                 </Button>
+                {(loading || refreshing) && routes.length > 0 && (
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                )}
             </div>
 
-            {loading ? (
+            {loading && routes.length === 0 ? (
                 <div className="flex items-center justify-center h-64">
                     <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                 </div>
-            ) : error ? (
+            ) : error && routes.length === 0 ? (
                 <div className="flex items-center justify-center h-64">
                     <div className="text-center">
                         <p className="text-sm text-destructive mb-2">{error}</p>
-                        <button onClick={fetchRoutes} className="text-sm text-primary hover:underline">再試行</button>
+                        <button onClick={() => fetchRoutes(true)} className="text-sm text-primary hover:underline">再試行</button>
                     </div>
                 </div>
             ) : routes.length === 0 ? (

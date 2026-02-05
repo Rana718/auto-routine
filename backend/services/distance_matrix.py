@@ -17,6 +17,8 @@ async def calculate_store_distance_matrix(db: AsyncSession) -> int:
     """
     Pre-calculate distances between all active stores.
     Returns the number of distance pairs calculated.
+
+    Optimized: Batch fetches existing records to avoid O(n²) queries.
     """
     # Get all active stores with coordinates
     result = await db.execute(
@@ -27,41 +29,44 @@ async def calculate_store_distance_matrix(db: AsyncSession) -> int:
         )
     )
     stores = result.scalars().all()
-    
+
     if len(stores) < 2:
         return 0
-    
+
+    # Batch fetch ALL existing distance records at once
+    existing_result = await db.execute(select(StoreDistanceMatrix))
+    existing_records = {
+        (r.from_store_id, r.to_store_id): r
+        for r in existing_result.scalars().all()
+    }
+
     calculated_count = 0
-    
+    now = datetime.utcnow()
+
     # Calculate distances for all pairs
     for store1 in stores:
         for store2 in stores:
             if store1.store_id == store2.store_id:
                 continue
-            
-            # Check if distance already exists
-            result = await db.execute(
-                select(StoreDistanceMatrix).where(
-                    StoreDistanceMatrix.from_store_id == store1.store_id,
-                    StoreDistanceMatrix.to_store_id == store2.store_id
-                )
-            )
-            existing = result.scalar_one_or_none()
-            
+
+            pair_key = (store1.store_id, store2.store_id)
+
             # Calculate distance
             distance = calculate_distance(
                 store1.latitude, store1.longitude,
                 store2.latitude, store2.longitude
             )
-            
+
             # Estimate travel time (assume 25 km/h average in urban area)
             travel_time = int(distance / 25 * 60)
-            
+
+            existing = existing_records.get(pair_key)
+
             if existing:
                 # Update existing record
                 existing.distance_km = Decimal(str(round(distance, 2)))
                 existing.travel_time_minutes = travel_time
-                existing.last_calculated = datetime.utcnow()
+                existing.last_calculated = now
             else:
                 # Create new record
                 matrix_entry = StoreDistanceMatrix(
@@ -69,12 +74,12 @@ async def calculate_store_distance_matrix(db: AsyncSession) -> int:
                     to_store_id=store2.store_id,
                     distance_km=Decimal(str(round(distance, 2))),
                     travel_time_minutes=travel_time,
-                    last_calculated=datetime.utcnow()
+                    last_calculated=now
                 )
                 db.add(matrix_entry)
-            
+
             calculated_count += 1
-    
+
     await db.commit()
     return calculated_count
 
