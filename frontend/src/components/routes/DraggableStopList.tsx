@@ -110,7 +110,7 @@ export function DraggableStopList({
     }
 
     return (
-        <div className="space-y-3">
+        <div className="space-y-2">
             {orderedStops.map((stop, index) => (
                 <div
                     key={stop.stop_id}
@@ -120,7 +120,7 @@ export function DraggableStopList({
                     onDrop={(e) => handleDrop(e, index)}
                     onDragEnd={handleDragEnd}
                     className={cn(
-                        "flex items-center gap-2 sm:gap-4 p-3 sm:p-4 rounded-lg border-l-4 transition-all",
+                        "flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 rounded-lg border-l-4 transition-all",
                         stopStatusConfig[stop.stop_status as StopStatus] || stopStatusConfig.pending,
                         canEdit && "cursor-move",
                         draggedIndex === index && "opacity-50",
@@ -148,13 +148,13 @@ export function DraggableStopList({
                                 toast.error(err instanceof Error ? err.message : "更新に失敗しました");
                             }
                         }}
-                        className="h-6 w-6 rounded border-2 border-primary cursor-pointer"
+                        className="h-4 w-4 rounded border border-primary cursor-pointer shrink-0"
                     />
 
                     {/* Step Number */}
                     <div
                         className={cn(
-                            "flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold shrink-0",
+                            "flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold shrink-0",
                             stop.stop_status === "completed"
                                 ? "bg-success text-success-foreground"
                                 : stop.stop_status === "current"
@@ -167,22 +167,22 @@ export function DraggableStopList({
 
                     {/* Store Info */}
                     <div className="flex-1 min-w-0">
-                        <p className="font-medium text-foreground truncate sm:whitespace-normal">
+                        <p className="text-sm font-medium text-foreground truncate">
                             {stop.store_name || `店舗 #${stop.store_id}`}
                         </p>
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 text-xs sm:text-sm text-muted-foreground mt-0.5">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-2 text-xs text-foreground/70 mt-0.5">
                             {stop.store_address && (
                                 <span className="flex items-center gap-1 truncate">
-                                    <MapPin className="h-3 w-3 shrink-0" />
+                                    <MapPin className="h-3 w-3 shrink-0 text-primary" />
                                     <span className="truncate">{stop.store_address}</span>
                                 </span>
                             )}
                             {stop.estimated_arrival && (
-                                <span className="flex items-center gap-1">
-                                    <Clock className="h-3 w-3" />
-                                    {new Date(stop.estimated_arrival).toLocaleTimeString("ja-JP", { 
-                                        hour: "2-digit", 
-                                        minute: "2-digit" 
+                                <span className="flex items-center gap-1 shrink-0">
+                                    <Clock className="h-3 w-3 text-yellow-400" />
+                                    {new Date(stop.estimated_arrival).toLocaleTimeString("ja-JP", {
+                                        hour: "2-digit",
+                                        minute: "2-digit"
                                     })}
                                 </span>
                             )}
@@ -190,8 +190,8 @@ export function DraggableStopList({
                     </div>
 
                     {/* Quantity Count */}
-                    <div className="text-right shrink-0">
-                        <p className="text-lg font-bold text-foreground">{stop.total_quantity || stop.items_count}</p>
+                    <div className="text-right shrink-0 ml-2">
+                        <p className="text-base font-bold text-foreground">{stop.total_quantity || stop.items_count}</p>
                         <p className="text-xs text-muted-foreground">個</p>
                     </div>
                 </div>

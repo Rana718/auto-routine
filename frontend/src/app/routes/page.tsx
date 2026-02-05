@@ -1,36 +1,28 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ChevronRight, RefreshCw, Loader2 } from "lucide-react";
+import { ChevronRight, RefreshCw, Loader2, MapPin, Clock, CheckCircle, Calendar } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useSession } from "next-auth/react";
 
-// Dynamically import RouteMap to avoid SSR issues with Leaflet
 const RouteMap = dynamic(
     () => import("@/components/map/RouteMap").then((mod) => mod.RouteMap),
-    { ssr: false, loading: () => <div className="h-[300px] flex items-center justify-center bg-muted/30"><p className="text-muted-foreground">マップを読み込み中...</p></div> }
+    { ssr: false, loading: () => <div className="h-75 flex items-center justify-center bg-muted/20 rounded-lg"><p className="text-sm text-muted-foreground">マップ読込中...</p></div> }
 );
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { routesApi, automationApi } from "@/lib/api";
-import type { Route, RouteStatus, StopStatus } from "@/lib/types";
+import type { Route, RouteStatus } from "@/lib/types";
 import { AlertModal } from "@/components/modals/AlertModal";
 import { DraggableStopList } from "@/components/routes/DraggableStopList";
 
-const routeStatusConfig: Record<RouteStatus, { label: string; className: string }> = {
-    not_started: { label: "未開始", className: "bg-muted text-muted-foreground" },
-    in_progress: { label: "進行中", className: "bg-primary/20 text-primary" },
-    completed: { label: "完了", className: "bg-success/20 text-success" },
-    cancelled: { label: "キャンセル", className: "bg-destructive/20 text-destructive" },
-};
-
-const stopStatusConfig: Record<StopStatus, string> = {
-    pending: "border-border bg-muted/30",
-    current: "border-primary bg-primary/10",
-    completed: "border-success/30 bg-success/10",
-    skipped: "border-warning/30 bg-warning/10",
+const statusConfig: Record<RouteStatus, { label: string; className: string }> = {
+    not_started: { label: "未開始", className: "bg-muted/50 text-muted-foreground" },
+    in_progress: { label: "進行中", className: "bg-blue-500/10 text-blue-500" },
+    completed: { label: "完了", className: "bg-green-500/10 text-green-500" },
+    cancelled: { label: "中止", className: "bg-red-500/10 text-red-500" },
 };
 
 export default function RoutesPage() {
@@ -44,19 +36,13 @@ export default function RoutesPage() {
     const [targetDate, setTargetDate] = useState<string>(new Date().toISOString().split("T")[0]);
 
     const activeRoute = routes.find((r) => r.route_id === selectedRoute);
-    
-    // Check if user can edit the current route
+
     const canEditRoute = () => {
         if (!session?.user || !activeRoute) return false;
         const userRole = session.user.role;
         const userId = Number(session.user.id);
-        
-        // ADMIN and SUPERVISOR can edit all routes
         if (userRole === "admin" || userRole === "supervisor") return true;
-        
-        // BUYER can only edit their own routes
         if (userRole === "buyer" && activeRoute.staff_id === userId) return true;
-        
         return false;
     };
 
@@ -70,17 +56,12 @@ export default function RoutesPage() {
             setError(null);
             const data = await routesApi.getAll({ route_date: targetDate });
             setRoutes(data);
-            
-            // If there are routes, select the first one if:
-            // 1. No route is currently selected, OR
-            // 2. The currently selected route is not in the new data
             if (data.length > 0) {
                 const currentRouteExists = data.some(r => r.route_id === selectedRoute);
                 if (!selectedRoute || !currentRouteExists) {
                     setSelectedRoute(data[0].route_id);
                 }
             } else {
-                // No routes available, clear selection
                 setSelectedRoute(null);
             }
         } catch (err) {
@@ -115,141 +96,108 @@ export default function RoutesPage() {
         await fetchRoutes();
     }
 
-    return (
-        <MainLayout title="ルート計画" subtitle="スタッフルートの最適化と追跡">
-            {/* Date Selector */}
-            <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
-                <label className="text-sm font-medium text-foreground">対象日:</label>
-                <input
-                    type="date"
-                    value={targetDate}
-                    onChange={(e) => setTargetDate(e.target.value)}
-                    className="w-full sm:w-auto px-3 py-2 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                />
-                <div className="flex gap-2 w-full sm:w-auto">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setTargetDate(new Date(new Date(targetDate).setDate(new Date(targetDate).getDate() - 1)).toISOString().split('T')[0])}
-                    >
-                        前日
-                    </Button>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setTargetDate(new Date().toISOString().split('T')[0])}
-                    >
-                        今日
-                    </Button>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setTargetDate(new Date(new Date(targetDate).setDate(new Date(targetDate).getDate() + 1)).toISOString().split('T')[0])}
-                    >
-                        翌日
-                    </Button>
-                </div>
-            </div>
+    const changeDate = (days: number) => {
+        const d = new Date(targetDate);
+        d.setDate(d.getDate() + days);
+        setTargetDate(d.toISOString().split('T')[0]);
+    };
 
-            {/* Actions */}
-            <div className="flex flex-wrap gap-2 sm:gap-3 mb-6">
-                <Button className="gap-2" onClick={handleGenerateRoutes} disabled={generating}>
-                    {generating ? (
-                        <span className="flex items-center gap-2">
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            生成中...
-                        </span>
-                    ) : (
-                        <span className="flex items-center gap-2">
-                            <RefreshCw className="h-4 w-4" />
-                            ルート生成
-                        </span>
-                    )}
+    return (
+        <MainLayout title="ルート" subtitle="買付ルート管理">
+            {/* Header */}
+            <div className="mb-5 flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-1 bg-muted/30 rounded-lg p-1">
+                    <button onClick={() => changeDate(-1)} className="px-3 py-1.5 text-sm hover:bg-muted rounded transition-colors">前日</button>
+                    <div className="relative flex items-center">
+                        <Calendar className="absolute left-2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                        <input
+                            type="date"
+                            value={targetDate}
+                            onChange={(e) => setTargetDate(e.target.value)}
+                            className="pl-8 pr-3 py-1.5 text-sm bg-transparent border-0 focus:outline-none cursor-pointer [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-inner-spin-button]:hidden"
+                        />
+                    </div>
+                    <button onClick={() => setTargetDate(new Date().toISOString().split('T')[0])} className="px-3 py-1.5 text-sm hover:bg-muted rounded transition-colors">今日</button>
+                    <button onClick={() => changeDate(1)} className="px-3 py-1.5 text-sm hover:bg-muted rounded transition-colors">翌日</button>
+                </div>
+                <Button onClick={handleGenerateRoutes} disabled={generating} className="gap-2">
+                    {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                    <span>生成</span>
                 </Button>
             </div>
 
             {loading ? (
                 <div className="flex items-center justify-center h-64">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                 </div>
             ) : error ? (
                 <div className="flex items-center justify-center h-64">
                     <div className="text-center">
-                        <p className="text-destructive mb-2">{error}</p>
-                        <button onClick={fetchRoutes} className="text-primary hover:underline">
-                            再試行
-                        </button>
+                        <p className="text-sm text-destructive mb-2">{error}</p>
+                        <button onClick={fetchRoutes} className="text-sm text-primary hover:underline">再試行</button>
                     </div>
                 </div>
             ) : routes.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-64 gap-4">
-                    <p className="text-muted-foreground text-lg">本日のルートはありません</p>
-                    <p className="text-sm text-muted-foreground">「ルート生成」ボタンで注文の割り当てとルート生成を行います</p>
+                    <p className="text-muted-foreground">ルートがありません</p>
                     <Button onClick={handleGenerateRoutes} disabled={generating} className="gap-2">
-                        {generating ? (
-                            <>
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                                生成中...
-                            </>
-                        ) : (
-                            <>
-                                <RefreshCw className="h-4 w-4" />
-                                ルート生成
-                            </>
-                        )}
+                        {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                        <span>ルート生成</span>
                     </Button>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:items-start">
                     {/* Route List */}
-                    <div className="space-y-4 max-h-[600px] lg:max-h-none overflow-y-auto lg:overflow-visible">
-                        <h3 className="text-lg font-semibold text-foreground sticky top-0 bg-background py-2 lg:static">本日のルート</h3>
-                        {routes.map((route, index) => (
+                    <div className="rounded-lg border border-border bg-card p-3 lg:sticky lg:top-4">
+                        <div className="space-y-2 max-h-96 lg:max-h-[calc(100vh-180px)] overflow-y-auto scrollbar-hide">
+                        {routes.map((route) => (
                             <button
                                 key={route.route_id}
                                 onClick={() => setSelectedRoute(route.route_id)}
                                 className={cn(
-                                    "w-full rounded-xl border p-4 text-left transition-all duration-200",
+                                    "w-full rounded-lg border p-3 text-left transition-all",
                                     selectedRoute === route.route_id
-                                        ? "border-primary bg-primary/10 shadow-lg"
-                                        : "border-border bg-card hover:border-primary/50 card-shadow"
+                                        ? "border-primary bg-primary/5"
+                                        : "border-border bg-card hover:border-primary/30"
                                 )}
                             >
-                                <div className="flex items-center gap-3 mb-3">
-                                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground font-semibold">
+                                <div className="flex items-center gap-2.5">
+                                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-sm font-medium shrink-0">
                                         {route.staff_avatar}
                                     </div>
-                                    <div className="flex-1">
-                                        <p className="font-medium text-foreground">{route.staff_name}</p>
-                                        <Badge className={cn("text-xs", routeStatusConfig[route.route_status]?.className || "")}>
-                                            {routeStatusConfig[route.route_status]?.label || route.route_status}
-                                        </Badge>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2">
+                                            <p className="text-sm font-medium truncate">{route.staff_name}</p>
+                                            <Badge className={cn("text-xs px-1.5 py-0", statusConfig[route.route_status]?.className)}>
+                                                {statusConfig[route.route_status]?.label}
+                                            </Badge>
+                                        </div>
+                                        <div className="flex items-center gap-3 text-xs text-foreground/70 mt-0.5">
+                                            <span className="flex items-center gap-1">
+                                                <MapPin className="h-3 w-3 text-primary" />
+                                                {route.total_stops}店舗
+                                            </span>
+                                            <span className="flex items-center gap-1">
+                                                <CheckCircle className="h-3 w-3 text-success" />
+                                                {route.completed_stops}完了
+                                            </span>
+                                            <span className="flex items-center gap-1">
+                                                <Clock className="h-3 w-3 text-yellow-400" />
+                                                {route.estimated_duration}
+                                            </span>
+                                        </div>
                                     </div>
-                                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                                </div>
-
-                                <div className="grid grid-cols-3 gap-2 text-center">
-                                    <div className="p-2 rounded bg-muted/30">
-                                        <p className="text-lg font-bold text-foreground">{route.total_stops}</p>
-                                        <p className="text-xs text-muted-foreground">店舗</p>
-                                    </div>
-                                    <div className="p-2 rounded bg-success/10">
-                                        <p className="text-lg font-bold text-success">{route.completed_stops}</p>
-                                        <p className="text-xs text-muted-foreground">完了</p>
-                                    </div>
-                                    <div className="p-2 rounded bg-muted/30">
-                                        <p className="text-lg font-bold text-foreground">{route.estimated_duration}</p>
-                                        <p className="text-xs text-muted-foreground">予定</p>
-                                    </div>
+                                    <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
                                 </div>
                             </button>
                         ))}
+                        </div>
                     </div>
 
-                    {/* Route Details and Map */}
-                    <div className="lg:col-span-2 space-y-4">
+                    {/* Route Details */}
+                    <div className="lg:col-span-2 space-y-3">
                         {/* Map */}
-                        <div className="rounded-xl border border-border bg-card card-shadow overflow-hidden">
+                        <div className="rounded-lg border border-border bg-card overflow-hidden">
                             {activeRoute && activeRoute.stops.length > 0 ? (
                                 <RouteMap
                                     stops={activeRoute.stops.map((stop) => ({
@@ -264,41 +212,40 @@ export default function RoutesPage() {
                                         latitude: stop.store_latitude,
                                         longitude: stop.store_longitude,
                                     }))}
-                                    startLocation={{ lat: 35.6762, lng: 139.6503, name: "オフィス（六本木）" }}
-                                    className="h-[300px]"
+                                    startLocation={{ lat: 35.6762, lng: 139.6503, name: "オフィス" }}
+                                    className="h-75"
                                 />
                             ) : (
-                                <div className="h-[300px] bg-gradient-to-br from-muted to-muted/50 flex items-center justify-center">
-                                    <p className="text-muted-foreground">ルートを選択してください</p>
+                                <div className="h-75 bg-muted/20 flex items-center justify-center">
+                                    <p className="text-muted-foreground">ルートを選択</p>
                                 </div>
                             )}
                         </div>
 
                         {/* Stop List */}
                         {activeRoute && (
-                            <div className="rounded-xl border border-border bg-card card-shadow p-5">
-                                <h3 className="text-lg font-semibold text-foreground mb-4">
-                                    {activeRoute.staff_name}のルート
+                            <div className="rounded-lg border border-border bg-card p-3">
+                                <div className="flex items-center justify-between mb-2">
+                                    <h3 className="text-sm font-medium">{activeRoute.staff_name}</h3>
                                     {canEditRoute() && (
-                                        <span className="ml-2 text-xs text-muted-foreground font-normal">
-                                            ドラッグして並び替え
-                                        </span>
+                                        <span className="text-xs text-muted-foreground">ドラッグで並替</span>
                                     )}
-                                </h3>
-                                <DraggableStopList
-                                    stops={activeRoute.stops}
-                                    routeId={activeRoute.route_id}
-                                    onStopUpdate={handleStopUpdate}
-                                    onReorder={handleReorder}
-                                    canEdit={canEditRoute()}
-                                />
+                                </div>
+                                <div className="max-h-150 overflow-y-auto scrollbar-hide">
+                                    <DraggableStopList
+                                        stops={activeRoute.stops}
+                                        routeId={activeRoute.route_id}
+                                        onStopUpdate={handleStopUpdate}
+                                        onReorder={handleReorder}
+                                        canEdit={canEditRoute()}
+                                    />
+                                </div>
                             </div>
                         )}
                     </div>
                 </div>
             )}
 
-            {/* Alert Modal */}
             <AlertModal
                 isOpen={alertModal !== null}
                 onClose={() => setAlertModal(null)}

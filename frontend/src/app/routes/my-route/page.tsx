@@ -15,7 +15,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 // Dynamic import for map to avoid SSR issues
 const RouteMap = dynamic(
     () => import("@/components/map/RouteMap").then(mod => mod.RouteMap),
-    { ssr: false, loading: () => <div className="h-[400px] bg-muted rounded-xl animate-pulse" /> }
+    { ssr: false, loading: () => <div className="h-100 bg-muted rounded-xl animate-pulse" /> }
 );
 
 interface RouteStop {
@@ -166,7 +166,7 @@ export default function MyRoutePage() {
                             {totalStops}店舗 • 約{route.total_distance_km || 0}km • 約{route.estimated_time_minutes || 0}分
                         </p>
                     </div>
-                    <div className="h-[400px]">
+                    <div className="h-100">
                         <RouteMap
                             startLocation={{
                                 lat: route.start_latitude,
@@ -207,7 +207,7 @@ export default function MyRoutePage() {
                         <div className="p-4 border-b border-border bg-muted/20">
                             <h3 className="font-semibold text-foreground">訪問リスト</h3>
                         </div>
-                        <div className="divide-y divide-border max-h-[500px] overflow-y-auto">
+                        <div className="divide-y divide-border max-h-125 overflow-y-auto">
                             {route.stops
                                 .sort((a, b) => a.stop_sequence - b.stop_sequence)
                                 .map((stop) => {

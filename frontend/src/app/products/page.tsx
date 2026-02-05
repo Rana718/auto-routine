@@ -267,19 +267,19 @@ export default function ProductsPage() {
                     <table className="w-full table-fixed">
                         <thead>
                             <tr className="border-b border-border bg-muted/30">
-                                <th className="px-3 lg:px-4 py-3 text-left text-xs font-medium uppercase text-muted-foreground w-[140px] lg:w-[180px]">
+                                <th className="px-3 lg:px-4 py-3 text-left text-xs font-medium uppercase text-muted-foreground w-35 lg:w-45">
                                     SKU
                                 </th>
                                 <th className="px-3 lg:px-4 py-3 text-left text-xs font-medium uppercase text-muted-foreground">
                                     商品名
                                 </th>
-                                <th className="px-3 lg:px-4 py-3 text-center text-xs font-medium uppercase text-muted-foreground w-[80px]">
+                                <th className="px-3 lg:px-4 py-3 text-center text-xs font-medium uppercase text-muted-foreground w-20">
                                     店舗固定
                                 </th>
-                                <th className="px-3 lg:px-4 py-3 text-left text-xs font-medium uppercase text-muted-foreground w-[150px] lg:w-[180px]">
+                                <th className="px-3 lg:px-4 py-3 text-left text-xs font-medium uppercase text-muted-foreground w-37.5 lg:w-45">
                                     固定店舗
                                 </th>
-                                <th className="px-3 lg:px-4 py-3 text-center text-xs font-medium uppercase text-muted-foreground w-[100px]">
+                                <th className="px-3 lg:px-4 py-3 text-center text-xs font-medium uppercase text-muted-foreground w-25">
                                     除外
                                 </th>
                             </tr>

@@ -254,7 +254,7 @@ export default function OrdersPage() {
                                                 </span>
                                             </td>
                                             <td className="px-4 lg:px-6 py-4">
-                                                <p className="text-sm font-medium text-foreground truncate max-w-[150px] lg:max-w-[200px]">
+                                                <p className="text-sm font-medium text-foreground truncate max-w-37.5 lg:max-w-50">
                                                     {order.customer_name || "—"}
                                                 </p>
                                             </td>
@@ -264,7 +264,7 @@ export default function OrdersPage() {
                                                 </span>
                                             </td>
                                             <td className="px-4 lg:px-6 py-4">
-                                                <span className="text-sm text-foreground truncate max-w-[120px] lg:max-w-[150px] block">
+                                                <span className="text-sm text-foreground truncate max-w-30 lg:max-w-37.5 block">
                                                     {order.mall_name || "—"}
                                                 </span>
                                             </td>
