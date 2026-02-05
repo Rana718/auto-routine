@@ -592,16 +592,88 @@ def extract_coordinates_from_address(address: str) -> tuple:
     Extract or estimate coordinates from address.
     Returns (latitude, longitude) or (None, None)
 
-    For now, this uses known Osaka area coordinates as defaults.
-    In production, you'd integrate with a geocoding API.
+    Uses an expanded lookup for Osaka districts and postal codes.
     """
     from decimal import Decimal
+    import re
 
     if not address:
         return None, None
 
-    # Known area coordinates (approximate centers)
+    # Extract postal code if present (formats: 〒XXX-XXXX, XXX-XXXX, or XXX XXXX at end)
+    postal_match = re.search(r'[〒]?(\d{3})[-\s]?(\d{4})', address)
+    postal_code = f"{postal_match.group(1)}-{postal_match.group(2)}" if postal_match else None
+
+    # Postal code to coordinates mapping (Osaka and surrounding areas)
+    # All postal codes from the purchase list CSV are included
+    postal_coords = {
+        # 大阪市北区
+        "530-0001": (Decimal("34.7003"), Decimal("135.4953")),  # 梅田
+        "530-0011": (Decimal("34.7058"), Decimal("135.4945")),  # 大深町 (グランフロント)
+        "530-0012": (Decimal("34.7059"), Decimal("135.4996")),  # 芝田
+        "530-0017": (Decimal("34.7037"), Decimal("135.5003")),  # 角田町 (阪急うめだ)
+        "530-0018": (Decimal("34.7055"), Decimal("135.5025")),  # 小松原町 (ホワイティうめだ)
+        "530-0057": (Decimal("34.7035"), Decimal("135.5028")),  # 曽根崎
+        "530-8224": (Decimal("34.7004"), Decimal("135.4988")),  # 阪神百貨店
+        "530-8350": (Decimal("34.7037"), Decimal("135.5003")),  # 阪急うめだ本店
+        # 大阪市中央区
+        "540-0003": (Decimal("34.6825"), Decimal("135.5180")),  # 森ノ宮中央
+        "540-0006": (Decimal("34.6710"), Decimal("135.5230")),  # 法円坂
+        "540-0013": (Decimal("34.6795"), Decimal("135.5100")),  # 内久宝寺町
+        "540-0026": (Decimal("34.6830"), Decimal("135.5175")),  # 内本町
+        "540-0029": (Decimal("34.6820"), Decimal("135.5130")),  # 本町橋
+        "541-0051": (Decimal("34.6843"), Decimal("135.5059")),  # 備後町
+        "541-0055": (Decimal("34.6810"), Decimal("135.5055")),  # 船場中央
+        "541-0056": (Decimal("34.6820"), Decimal("135.5065")),  # 久太郎町
+        "541-0058": (Decimal("34.6788"), Decimal("135.5068")),  # 南久宝寺町
+        "541-0059": (Decimal("34.6780"), Decimal("135.5045")),  # 博労町
+        "542-0061": (Decimal("34.6715"), Decimal("135.5055")),  # 安堂寺町
+        "542-0073": (Decimal("34.6690"), Decimal("135.5070")),  # 日本橋
+        "542-0076": (Decimal("34.6656"), Decimal("135.5013")),  # 難波
+        "542-0081": (Decimal("34.6720"), Decimal("135.5040")),  # 南船場
+        "542-0083": (Decimal("34.6705"), Decimal("135.5020")),  # 東心斎橋
+        "542-0085": (Decimal("34.6720"), Decimal("135.4995")),  # 心斎橋筋
+        "542-0086": (Decimal("34.6710"), Decimal("135.4980")),  # 西心斎橋
+        "542-8501": (Decimal("34.6740"), Decimal("135.5013")),  # 心斎橋 大丸
+        "542-8510": (Decimal("34.6650"), Decimal("135.5015")),  # 難波 高島屋
+        # 大阪市天王寺区
+        "543-0026": (Decimal("34.6538"), Decimal("135.5220")),  # 東上町
+        "543-0037": (Decimal("34.6580"), Decimal("135.5180")),  # 上之宮町
+        "543-0055": (Decimal("34.6468"), Decimal("135.5152")),  # 悲田院町 (天王寺ミオ)
+        "543-0063": (Decimal("34.6550"), Decimal("135.5155")),  # 茶臼山町
+        # 大阪市生野区
+        "544-0034": (Decimal("34.6580"), Decimal("135.5350")),  # 桃谷
+        # 大阪市阿倍野区
+        "545-0023": (Decimal("34.6380"), Decimal("135.5130")),  # 王子町
+        "545-0052": (Decimal("34.6350"), Decimal("135.5100")),  # 阿倍野筋
+        "545-6001": (Decimal("34.6460"), Decimal("135.5145")),  # あべのハルカス
+        "545-8545": (Decimal("34.6455"), Decimal("135.5145")),  # あべのキューズモール
+        # 大阪市浪速区
+        "556-0011": (Decimal("34.6595"), Decimal("135.5020")),  # 難波中
+        # 大阪市福島区
+        "553-0001": (Decimal("34.6910"), Decimal("135.4665")),  # 海老江
+        "553-0006": (Decimal("34.6870"), Decimal("135.4720")),  # 吉野
+        "553-0007": (Decimal("34.6875"), Decimal("135.4615")),  # 大開
+        # 大阪市港区
+        "552-0001": (Decimal("34.6580"), Decimal("135.4520")),  # 波除
+        "552-0007": (Decimal("34.6620"), Decimal("135.4590")),  # 弁天
+        # 大阪市西区
+        "550-0001": (Decimal("34.6850"), Decimal("135.4755")),  # 土佐堀
+        "550-0023": (Decimal("34.6780"), Decimal("135.4820")),  # 靭本町
+        # 堺市
+        "591-8008": (Decimal("34.5730"), Decimal("135.4720")),  # 堺市北区中百舌鳥町
+        # 尼崎市 (兵庫県)
+        "660-0862": (Decimal("34.7335"), Decimal("135.4095")),  # 尼崎市開明町
+        "660-0884": (Decimal("34.7350"), Decimal("135.4080")),  # 尼崎市神田中通
+    }
+
+    # Check postal code first (most accurate)
+    if postal_code and postal_code in postal_coords:
+        return postal_coords[postal_code]
+
+    # Extended area coordinates (approximate centers) for fallback
     area_coords = {
+        # 大阪市各区
         "北区": (Decimal("34.7055"), Decimal("135.4983")),
         "中央区": (Decimal("34.6784"), Decimal("135.5014")),
         "天王寺区": (Decimal("34.6533"), Decimal("135.5189")),
@@ -610,6 +682,22 @@ def extract_coordinates_from_address(address: str) -> tuple:
         "港区": (Decimal("34.6600"), Decimal("135.4560")),
         "阿倍野区": (Decimal("34.6350"), Decimal("135.5180")),
         "西区": (Decimal("34.6781"), Decimal("135.4803")),
+        "此花区": (Decimal("34.6820"), Decimal("135.4270")),
+        "城東区": (Decimal("34.7040"), Decimal("135.5420")),
+        "鶴見区": (Decimal("34.7100"), Decimal("135.5700")),
+        "東成区": (Decimal("34.6740"), Decimal("135.5380")),
+        "東淀川区": (Decimal("34.7470"), Decimal("135.5170")),
+        "住吉区": (Decimal("34.6110"), Decimal("135.4980")),
+        "住之江区": (Decimal("34.5960"), Decimal("135.4680")),
+        "東住吉区": (Decimal("34.6130"), Decimal("135.5240")),
+        "平野区": (Decimal("34.6200"), Decimal("135.5520")),
+        "生野区": (Decimal("34.6560"), Decimal("135.5350")),
+        "旭区": (Decimal("34.7220"), Decimal("135.5350")),
+        "都島区": (Decimal("34.7160"), Decimal("135.5190")),
+        "淀川区": (Decimal("34.7280"), Decimal("135.4850")),
+        "西成区": (Decimal("34.6340"), Decimal("135.4850")),
+        "大正区": (Decimal("34.6380"), Decimal("135.4580")),
+        "西淀川区": (Decimal("34.7010"), Decimal("135.4430")),
     }
 
     for area, coords in area_coords.items():
@@ -621,6 +709,96 @@ def extract_coordinates_from_address(address: str) -> tuple:
         return Decimal("34.6937"), Decimal("135.5023")
 
     return None, None
+
+
+async def geocode_address_nominatim(address: str) -> tuple:
+    """
+    Geocode an address using OpenStreetMap Nominatim API.
+    Returns (latitude, longitude) or (None, None)
+
+    Rate limited: max 1 request per second.
+    """
+    import httpx
+    from decimal import Decimal
+    import asyncio
+
+    if not address:
+        return None, None
+
+    # Clean and prepare address for geocoding
+    clean_address = address.replace("日本、", "").strip()
+
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                "https://nominatim.openstreetmap.org/search",
+                params={
+                    "q": clean_address,
+                    "format": "json",
+                    "limit": 1,
+                    "countrycodes": "jp"
+                },
+                headers={
+                    "User-Agent": "AutoRoutineApp/1.0"
+                },
+                timeout=10.0
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                if data and len(data) > 0:
+                    lat = Decimal(data[0]["lat"])
+                    lng = Decimal(data[0]["lon"])
+                    return lat, lng
+    except Exception as e:
+        print(f"Geocoding error for {address}: {e}")
+
+    return None, None
+
+
+async def update_stores_missing_coordinates(db: AsyncSession):
+    """
+    Update all stores that are missing latitude/longitude coordinates
+    using the Nominatim API.
+    """
+    from db.schema import Store
+    import asyncio
+
+    result = await db.execute(
+        select(Store).where(
+            (Store.latitude == None) | (Store.longitude == None)
+        ).where(Store.address != None)
+    )
+    stores = result.scalars().all()
+
+    updated_count = 0
+    errors = []
+
+    for store in stores:
+        # First try local lookup
+        lat, lng = extract_coordinates_from_address(store.address)
+
+        # If local lookup failed, try Nominatim
+        if not lat or not lng:
+            lat, lng = await geocode_address_nominatim(store.address)
+            # Rate limit: wait 1 second between Nominatim requests
+            await asyncio.sleep(1)
+
+        if lat and lng:
+            store.latitude = lat
+            store.longitude = lng
+            updated_count += 1
+        else:
+            errors.append(f"座標取得失敗: {store.store_name}")
+
+    await db.commit()
+
+    return {
+        "message": f"{updated_count}件の店舗の座標を更新しました",
+        "updated": updated_count,
+        "failed": len(errors),
+        "errors": errors[:10]  # Limit error display
+    }
 
 
 async def clear_all_data_controller(db: AsyncSession):

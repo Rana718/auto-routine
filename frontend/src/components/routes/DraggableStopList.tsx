@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { MapPin, Clock, GripVertical } from "lucide-react";
+import { MapPin, Clock, GripVertical, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { StopStatus } from "@/lib/types";
 import toast from "react-hot-toast";
@@ -44,6 +44,7 @@ export function DraggableStopList({
     const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
     const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
     const [isReordering, setIsReordering] = useState(false);
+    const [updatingStopId, setUpdatingStopId] = useState<number | null>(null);
 
     // Update local state when props change
     useEffect(() => {
@@ -135,21 +136,29 @@ export function DraggableStopList({
                         </div>
                     )}
 
-                    {/* Checkbox */}
-                    <input
-                        type="checkbox"
-                        checked={stop.stop_status === "completed"}
-                        onChange={async () => {
-                            try {
-                                const newStatus = stop.stop_status === "completed" ? "pending" : "completed";
-                                await onStopUpdate(stop.stop_id, newStatus);
-                                toast.success(newStatus === "completed" ? "訪問を完了にしました" : "訪問を未完了に戻しました");
-                            } catch (err) {
-                                toast.error(err instanceof Error ? err.message : "更新に失敗しました");
-                            }
-                        }}
-                        className="h-4 w-4 rounded border border-primary cursor-pointer shrink-0"
-                    />
+                    {/* Checkbox / Loading */}
+                    {updatingStopId === stop.stop_id ? (
+                        <Loader2 className="h-4 w-4 animate-spin text-primary shrink-0" />
+                    ) : (
+                        <input
+                            type="checkbox"
+                            checked={stop.stop_status === "completed"}
+                            disabled={updatingStopId !== null}
+                            onChange={async () => {
+                                try {
+                                    setUpdatingStopId(stop.stop_id);
+                                    const newStatus = stop.stop_status === "completed" ? "pending" : "completed";
+                                    await onStopUpdate(stop.stop_id, newStatus);
+                                    toast.success(newStatus === "completed" ? "訪問を完了にしました" : "訪問を未完了に戻しました");
+                                } catch (err) {
+                                    toast.error(err instanceof Error ? err.message : "更新に失敗しました");
+                                } finally {
+                                    setUpdatingStopId(null);
+                                }
+                            }}
+                            className="h-4 w-4 rounded border border-primary cursor-pointer shrink-0 disabled:opacity-50"
+                        />
+                    )}
 
                     {/* Step Number */}
                     <div

@@ -173,6 +173,19 @@ async def import_purchase_list(
     return await import_purchase_list_csv(db, data.csv_data)
 
 
+@router.post("/data/geocode-stores")
+@require_role(StaffRole.ADMIN, StaffRole.SUPERVISOR)
+async def geocode_stores(
+    current_user: Annotated[Staff, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Update all stores missing coordinates using geocoding.
+    Uses OpenStreetMap Nominatim API.
+    """
+    return await update_stores_missing_coordinates(db)
+
+
 @router.post("/data/clear-all")
 @require_role(StaffRole.ADMIN)
 async def clear_all_data(

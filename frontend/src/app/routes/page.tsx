@@ -115,12 +115,18 @@ export default function RoutesPage() {
                 <div className="flex items-center gap-1 bg-muted/30 rounded-lg p-1">
                     <button onClick={() => changeDate(-1)} className="px-3 py-1.5 text-sm hover:bg-muted rounded transition-colors">前日</button>
                     <div className="relative flex items-center">
-                        <Calendar className="absolute left-2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                        <Calendar
+                            className="absolute left-2 h-4 w-4 text-muted-foreground cursor-pointer z-10"
+                            onClick={() => {
+                                const input = document.querySelector('input[type="date"]') as HTMLInputElement;
+                                input?.showPicker?.();
+                            }}
+                        />
                         <input
                             type="date"
                             value={targetDate}
                             onChange={(e) => setTargetDate(e.target.value)}
-                            className="pl-8 pr-3 py-1.5 text-sm bg-transparent border-0 focus:outline-none cursor-pointer [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-inner-spin-button]:hidden"
+                            className="pl-8 pr-3 py-1.5 text-sm bg-transparent border-0 focus:outline-none cursor-pointer"
                         />
                     </div>
                     <button onClick={() => setTargetDate(new Date().toISOString().split('T')[0])} className="px-3 py-1.5 text-sm hover:bg-muted rounded transition-colors">今日</button>

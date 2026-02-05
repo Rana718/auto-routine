@@ -207,7 +207,7 @@ export default function AdminDataPage() {
                 </div>
 
                 {/* Danger Zone */}
-                <div className="rounded-xl border border-destructive/30 bg-card p-5">
+                {/* <div className="rounded-xl border border-destructive/30 bg-card p-5">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                             <Trash2 className="h-5 w-5 text-destructive" />
@@ -230,7 +230,7 @@ export default function AdminDataPage() {
                             <span>削除</span>
                         </Button>
                     </div>
-                </div>
+                </div> */}
             </div>
 
             <ConfirmModal
