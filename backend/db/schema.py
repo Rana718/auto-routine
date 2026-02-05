@@ -241,6 +241,9 @@ class ProductStoreMapping(Base):
     priority = Column(Integer, default=1)
     last_available_date = Column(Date, nullable=True)
     stock_status = Column(Enum(StockStatus), default=StockStatus.UNKNOWN)
+    # New: Store capacity for this product
+    max_daily_quantity = Column(Integer, nullable=True)  # Max items this store can provide per day
+    current_available = Column(Integer, nullable=True)   # Currently available quantity
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -343,6 +346,8 @@ class PurchaseListItem(Base):
     list_id = Column(Integer, ForeignKey("purchase_lists.list_id", ondelete="CASCADE"), nullable=False)
     item_id = Column(Integer, ForeignKey("order_items.item_id"), nullable=False)
     store_id = Column(Integer, ForeignKey("stores.store_id"), nullable=False)
+    # New: Quantity to purchase from this store (supports splitting across stores)
+    quantity_to_purchase = Column(Integer, nullable=False, default=1)
     sequence_order = Column(Integer, default=0)
     purchase_status = Column(Enum(PurchaseStatus), default=PurchaseStatus.PENDING)
     actual_price = Column(Numeric(12, 2), nullable=True)

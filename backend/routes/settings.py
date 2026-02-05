@@ -1,14 +1,21 @@
-from typing import Annotated
-from fastapi import APIRouter, Depends
+from typing import Annotated, Optional
+from fastapi import APIRouter, Depends, Body
+from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
+from pydantic import BaseModel
 
 from db.db import get_db
-from db.schema import Staff
+from db.schema import Staff, StaffRole
 from models.settings import AllSettings, CutoffSettings, StaffSettings, RouteSettings, NotificationSettings
 from controllers.settings import *
 from middlewares.auth import get_current_user
+from middlewares.rbac import require_role
 
 router = APIRouter()
+
+
+class CSVImportRequest(BaseModel):
+    csv_data: str
 
 @router.get("", response_model=AllSettings)
 async def get_settings(
@@ -50,11 +57,39 @@ async def update_notification_settings(
     return await update_notification_settings_controller(db, settings)
 
 @router.post("/data/import-stores")
+@require_role(StaffRole.ADMIN, StaffRole.SUPERVISOR)
 async def import_stores(
+    data: CSVImportRequest,
     current_user: Annotated[Staff, Depends(get_current_user)],
     db: AsyncSession = Depends(get_db)
 ):
-    return await import_stores_controller(db)
+    """Import stores from CSV data"""
+    return await import_stores_controller(db, data.csv_data)
+
+
+@router.get("/data/export-stores")
+async def export_stores(
+    current_user: Annotated[Staff, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db)
+):
+    """Export all stores as CSV"""
+    csv_data = await export_stores_controller(db)
+    return Response(
+        content=csv_data,
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=stores_export.csv"}
+    )
+
+
+@router.post("/data/import-mappings")
+@require_role(StaffRole.ADMIN, StaffRole.SUPERVISOR)
+async def import_mappings(
+    data: CSVImportRequest,
+    current_user: Annotated[Staff, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db)
+):
+    """Import product-store mappings from CSV data"""
+    return await import_mappings_controller(db, data.csv_data)
 
 @router.get("/data/export-orders")
 async def export_orders(
@@ -115,6 +150,37 @@ async def calculate_distances(
 ):
     """Pre-calculate store distance matrix for route optimization"""
     from services.distance_matrix import calculate_store_distance_matrix
-    
+
     count = await calculate_store_distance_matrix(db)
     return {"message": f"{count}件の距離を計算しました", "calculated_pairs": count}
+
+
+@router.post("/data/import-purchase-list")
+@require_role(StaffRole.ADMIN, StaffRole.SUPERVISOR)
+async def import_purchase_list(
+    data: CSVImportRequest,
+    current_user: Annotated[Staff, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Import the client's purchase list CSV format (購入リスト店舗入力.csv)
+
+    This creates/updates:
+    - Products (from product codes and names)
+    - Stores (from store names and addresses)
+    - ProductStoreMapping (with quantity allocations)
+    """
+    return await import_purchase_list_csv(db, data.csv_data)
+
+
+@router.post("/data/clear-all")
+@require_role(StaffRole.ADMIN)
+async def clear_all_data(
+    current_user: Annotated[Staff, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Clear all data from database for fresh testing.
+    Admin only.
+    """
+    return await clear_all_data_controller(db)
