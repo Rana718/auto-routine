@@ -21,6 +21,7 @@ interface Stop {
     stop_sequence: number;
     stop_status: string;
     items_count: number;
+    total_quantity?: number;
     estimated_arrival: string | null;
 }
 
@@ -188,10 +189,10 @@ export function DraggableStopList({
                         </div>
                     </div>
 
-                    {/* Orders Count */}
+                    {/* Quantity Count */}
                     <div className="text-right shrink-0">
-                        <p className="text-lg font-bold text-foreground">{stop.items_count}</p>
-                        <p className="text-xs text-muted-foreground">件</p>
+                        <p className="text-lg font-bold text-foreground">{stop.total_quantity || stop.items_count}</p>
+                        <p className="text-xs text-muted-foreground">個</p>
                     </div>
                 </div>
             ))}

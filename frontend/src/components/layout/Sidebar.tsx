@@ -21,6 +21,7 @@ import {
     MapPin,
     ClipboardCheck,
     X,
+    Database,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -45,6 +46,7 @@ const adminNavItems = [
 
 const managementItems = [
     { icon: Shield, label: "ユーザー管理", path: "/admin/users" },
+    { icon: Database, label: "データ管理", path: "/admin/data" },
 ];
 
 interface SidebarProps {

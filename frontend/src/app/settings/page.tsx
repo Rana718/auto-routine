@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Clock, Users, MapPin, Bell, Database, Loader2, Calendar } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { Clock, Users, MapPin, Bell, Database, Loader2, Calendar, Upload } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -10,7 +11,10 @@ import type { AllSettings } from "@/lib/types";
 import Link from "next/link";
 import { AlertModal } from "@/components/modals/AlertModal";
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
 export default function SettingsPage() {
+    const { data: session } = useSession();
     const [settings, setSettings] = useState<AllSettings | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -106,13 +110,88 @@ export default function SettingsPage() {
         }
     }
 
-    async function handleImportStores() {
-        try {
-            await settingsApi.importStores();
-            setAlertModal({ message: "店舗データのインポートが完了しました", type: "success" });
-        } catch (err) {
-            setAlertModal({ message: err instanceof Error ? err.message : "インポートに失敗しました", type: "error" });
-        }
+    function handleImportStores() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.csv';
+        input.onchange = async (e) => {
+            const file = (e.target as HTMLInputElement).files?.[0];
+            if (!file || !session?.accessToken) return;
+            try {
+                const text = await file.text();
+                const response = await fetch(`${API_BASE_URL}/api/settings/data/import-stores`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${session.accessToken}`
+                    },
+                    body: JSON.stringify({ csv_data: text })
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.detail || "インポートに失敗しました");
+                setAlertModal({ message: result.message, type: "success" });
+            } catch (err) {
+                setAlertModal({ message: err instanceof Error ? err.message : "インポートに失敗しました", type: "error" });
+            }
+        };
+        input.click();
+    }
+
+    function handleImportMappings() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.csv';
+        input.onchange = async (e) => {
+            const file = (e.target as HTMLInputElement).files?.[0];
+            if (!file || !session?.accessToken) return;
+            try {
+                const text = await file.text();
+                const response = await fetch(`${API_BASE_URL}/api/settings/data/import-mappings`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${session.accessToken}`
+                    },
+                    body: JSON.stringify({ csv_data: text })
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.detail || "インポートに失敗しました");
+                setAlertModal({ message: result.message, type: "success" });
+            } catch (err) {
+                setAlertModal({ message: err instanceof Error ? err.message : "インポートに失敗しました", type: "error" });
+            }
+        };
+        input.click();
+    }
+
+    function handleImportPurchaseList() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.csv';
+        input.onchange = async (e) => {
+            const file = (e.target as HTMLInputElement).files?.[0];
+            if (!file || !session?.accessToken) return;
+            try {
+                const text = await file.text();
+                const response = await fetch(`${API_BASE_URL}/api/settings/data/import-purchase-list`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${session.accessToken}`
+                    },
+                    body: JSON.stringify({ csv_data: text })
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.detail || "インポートに失敗しました");
+                setAlertModal({
+                    message: `${result.message}${result.errors?.length > 0 ? `\nエラー: ${result.errors.slice(0, 3).join(', ')}` : ''}`,
+                    type: result.errors?.length > 0 ? "info" : "success"
+                });
+            } catch (err) {
+                setAlertModal({ message: err instanceof Error ? err.message : "インポートに失敗しました", type: "error" });
+            }
+        };
+        input.click();
     }
 
     async function handleExportOrders() {
@@ -428,8 +507,19 @@ export default function SettingsPage() {
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-                        <Button variant="outline" onClick={handleImportStores}>店舗インポート</Button>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
+                        <Button variant="default" className="gap-2 bg-primary" onClick={handleImportPurchaseList}>
+                            <Upload className="h-4 w-4" />
+                            購入リストCSVインポート
+                        </Button>
+                        <Button variant="outline" className="gap-2" onClick={handleImportStores}>
+                            <Upload className="h-4 w-4" />
+                            店舗CSVインポート
+                        </Button>
+                        <Button variant="outline" className="gap-2" onClick={handleImportMappings}>
+                            <Upload className="h-4 w-4" />
+                            商品-店舗マッピングインポート
+                        </Button>
                         <Button variant="outline" onClick={handleExportOrders}>注文エクスポート</Button>
                         <Button variant="outline" onClick={handleBackup}>データバックアップ</Button>
                         <Button variant="outline" onClick={async () => {

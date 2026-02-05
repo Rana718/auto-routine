@@ -254,6 +254,7 @@ export interface RouteStop {
     actual_arrival: string | null;
     actual_departure: string | null;
     items_count: number;
+    total_quantity: number;  // Total quantity to purchase at this store
     stop_status: StopStatus;
 }
 
@@ -313,4 +314,109 @@ export interface AllSettings {
     staff: StaffSettings;
     route: RouteSettings;
     notification: NotificationSettings;
+}
+
+// ============================================================================
+// PURCHASE LIST (with quantity splitting support)
+// ============================================================================
+
+export interface PurchaseListItem {
+    list_item_id: number;
+    list_id: number;
+    item_id: number;
+    store_id: number;
+    quantity_to_purchase: number;  // NEW: Quantity to buy from this store
+    sequence_order: number;
+    purchase_status: PurchaseStatus;
+    actual_price: number | null;
+    purchase_time: string | null;
+    failure_reason: string | null;
+    notes: string | null;
+    // Joined fields
+    sku?: string;
+    product_name?: string;
+    store_name?: string;
+    store_address?: string;
+}
+
+export interface PurchaseList {
+    list_id: number;
+    staff_id: number;
+    purchase_date: string;
+    list_status: "draft" | "assigned" | "in_progress" | "completed";
+    total_items: number;
+    total_stores: number;
+}
+
+export interface StoreAllocation {
+    store_id: number;
+    store_name: string;
+    address: string | null;
+    items: PurchaseListItem[];
+    total_quantity: number;
+}
+
+export interface StaffAllocationSummary {
+    staff_id: number;
+    purchase_date: string;
+    list_id: number;
+    list_status: string;
+    total_stores: number;
+    total_quantity: number;
+    stores: StoreAllocation[];
+}
+
+// ============================================================================
+// ROUTE DETAILS (with quantity info)
+// ============================================================================
+
+export interface RouteStopWithItems extends RouteStop {
+    items: PurchaseListItem[];
+    total_quantity: number;
+}
+
+export interface RouteDetailsWithQuantities {
+    route_id: number;
+    staff_id: number;
+    route_date: string;
+    route_status: RouteStatus;
+    total_distance_km: number;
+    estimated_time_minutes: number;
+    stops: RouteStopWithItems[];
+}
+
+// ============================================================================
+// PRODUCT-STORE MAPPING
+// ============================================================================
+
+export interface ProductStoreMapping {
+    mapping_id: number;
+    product_id: number;
+    store_id: number;
+    is_primary_store: boolean;
+    priority: number;
+    stock_status: StockStatus;
+    max_daily_quantity: number | null;  // NEW: Max items per day
+    current_available: number | null;   // NEW: Current available
+}
+
+// ============================================================================
+// CSV IMPORT
+// ============================================================================
+
+export interface PurchaseListCSVRow {
+    product_code: string;
+    product_name: string;
+    specification: string | null;
+    quantity: number;
+    store_name: string;
+    address: string;
+}
+
+export interface ImportResult {
+    success: boolean;
+    message: string;
+    imported_count?: number;
+    skipped_count?: number;
+    errors?: string[];
 }

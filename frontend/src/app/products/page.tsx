@@ -264,41 +264,45 @@ export default function ProductsPage() {
 
                 {/* Desktop table layout */}
                 <div className="hidden md:block overflow-x-auto">
-                    <table className="w-full">
+                    <table className="w-full table-fixed">
                         <thead>
                             <tr className="border-b border-border bg-muted/30">
-                                <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium uppercase text-muted-foreground">
+                                <th className="px-3 lg:px-4 py-3 text-left text-xs font-medium uppercase text-muted-foreground w-[140px] lg:w-[180px]">
                                     SKU
                                 </th>
-                                <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium uppercase text-muted-foreground">
+                                <th className="px-3 lg:px-4 py-3 text-left text-xs font-medium uppercase text-muted-foreground">
                                     商品名
                                 </th>
-                                <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium uppercase text-muted-foreground">
+                                <th className="px-3 lg:px-4 py-3 text-center text-xs font-medium uppercase text-muted-foreground w-[80px]">
                                     店舗固定
                                 </th>
-                                <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium uppercase text-muted-foreground">
+                                <th className="px-3 lg:px-4 py-3 text-left text-xs font-medium uppercase text-muted-foreground w-[150px] lg:w-[180px]">
                                     固定店舗
                                 </th>
-                                <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium uppercase text-muted-foreground">
-                                    ルーティング除外
+                                <th className="px-3 lg:px-4 py-3 text-center text-xs font-medium uppercase text-muted-foreground w-[100px]">
+                                    除外
                                 </th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-border">
                             {products.map((product) => (
                                 <tr key={product.product_id} className="hover:bg-muted/20">
-                                    <td className="px-4 lg:px-6 py-4">
-                                        <span className="font-mono text-sm">{product.sku}</span>
+                                    <td className="px-3 lg:px-4 py-3">
+                                        <span className="font-mono text-xs lg:text-sm truncate block" title={product.sku}>
+                                            {product.sku}
+                                        </span>
                                     </td>
-                                    <td className="px-4 lg:px-6 py-4">
-                                        <p className="text-sm font-medium">{product.product_name}</p>
+                                    <td className="px-3 lg:px-4 py-3">
+                                        <p className="text-sm font-medium truncate" title={product.product_name}>
+                                            {product.product_name}
+                                        </p>
                                         {product.is_set_product && (
-                                            <Badge className="mt-1 bg-purple-500/20 text-purple-400">
-                                                セット商品
+                                            <Badge className="mt-1 bg-purple-500/20 text-purple-400 text-xs">
+                                                セット
                                             </Badge>
                                         )}
                                     </td>
-                                    <td className="px-4 lg:px-6 py-4">
+                                    <td className="px-3 lg:px-4 py-3 text-center">
                                         <input
                                             type="checkbox"
                                             checked={product.is_store_fixed}
@@ -307,10 +311,10 @@ export default function ProductsPage() {
                                                 e.target.checked,
                                                 product.fixed_store_id
                                             )}
-                                            className="h-4 w-4"
+                                            className="h-4 w-4 cursor-pointer"
                                         />
                                     </td>
-                                    <td className="px-4 lg:px-6 py-4">
+                                    <td className="px-3 lg:px-4 py-3">
                                         {product.is_store_fixed ? (
                                             <select
                                                 value={product.fixed_store_id || ""}
@@ -319,7 +323,7 @@ export default function ProductsPage() {
                                                     true,
                                                     Number(e.target.value)
                                                 )}
-                                                className="rounded border border-border bg-secondary px-2 py-1 text-sm"
+                                                className="w-full rounded border border-border bg-secondary px-2 py-1 text-xs lg:text-sm truncate"
                                             >
                                                 <option value="">選択...</option>
                                                 {stores.map((store) => (
@@ -332,7 +336,7 @@ export default function ProductsPage() {
                                             <span className="text-muted-foreground text-sm">—</span>
                                         )}
                                     </td>
-                                    <td className="px-4 lg:px-6 py-4">
+                                    <td className="px-3 lg:px-4 py-3 text-center">
                                         <input
                                             type="checkbox"
                                             checked={product.exclude_from_routing}
@@ -340,7 +344,7 @@ export default function ProductsPage() {
                                                 product.product_id,
                                                 e.target.checked
                                             )}
-                                            className="h-4 w-4"
+                                            className="h-4 w-4 cursor-pointer"
                                         />
                                     </td>
                                 </tr>

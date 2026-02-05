@@ -28,6 +28,7 @@ interface RouteStop {
     stop_sequence: number;
     stop_status: string;
     items_count: number;
+    total_quantity?: number;
 }
 
 interface MyRoute {
@@ -174,6 +175,7 @@ export default function MyRoutePage() {
                             }}
                             stops={route.stops.map(s => ({
                                 ...s,
+                                total_quantity: s.total_quantity || s.items_count,
                                 latitude: s.store_latitude,
                                 longitude: s.store_longitude
                             }))}
@@ -230,7 +232,7 @@ export default function MyRoutePage() {
                                                         {stop.store_address}
                                                     </p>
                                                     <p className="text-xs text-muted-foreground mt-1">
-                                                        {stop.items_count}件の商品
+                                                        {stop.total_quantity || stop.items_count}個の商品
                                                     </p>
                                                 </div>
                                             </div>

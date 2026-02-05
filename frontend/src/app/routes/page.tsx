@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { MapPin, Clock, ChevronRight, Play, RefreshCw, Loader2 } from "lucide-react";
+import { ChevronRight, RefreshCw, Loader2 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useSession } from "next-auth/react";
 
@@ -39,9 +39,7 @@ export default function RoutesPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [selectedRoute, setSelectedRoute] = useState<number | null>(null);
-    const [regenerating, setRegenerating] = useState(false);
-    const [startingAll, setStartingAll] = useState(false);
-    const [autoAssigning, setAutoAssigning] = useState(false);
+    const [generating, setGenerating] = useState(false);
     const [alertModal, setAlertModal] = useState<{ message: string; type: "success" | "error" | "info" | "warning" } | null>(null);
     const [targetDate, setTargetDate] = useState<string>(new Date().toISOString().split("T")[0]);
 
@@ -92,43 +90,16 @@ export default function RoutesPage() {
         }
     }
 
-    async function handleAutoAssign() {
+    async function handleGenerateRoutes() {
         try {
-            setAutoAssigning(true);
-            const result = await automationApi.autoAssignDaily(targetDate);
-            setAlertModal({ message: result.message || "注文を割り当てました", type: "success" });
-        } catch (err) {
-            setAlertModal({ message: err instanceof Error ? err.message : "自動割り当てに失敗しました", type: "error" });
-        } finally {
-            setAutoAssigning(false);
-        }
-    }
-
-    async function handleRegenerateAll() {
-        try {
-            setRegenerating(true);
+            setGenerating(true);
             const result = await automationApi.generateAllRoutes(targetDate);
             await fetchRoutes();
-            setAlertModal({ message: result.message || "ルートを再生成しました", type: "success" });
+            setAlertModal({ message: result.message || "ルートを生成しました", type: "success" });
         } catch (err) {
-            setAlertModal({ message: err instanceof Error ? err.message : "ルート再生成に失敗しました", type: "error" });
+            setAlertModal({ message: err instanceof Error ? err.message : "ルート生成に失敗しました", type: "error" });
         } finally {
-            setRegenerating(false);
-        }
-    }
-
-    async function handleStartAll() {
-        try {
-            setStartingAll(true);
-            const result = await routesApi.startAll(targetDate);
-            // Small delay to let backend commit changes
-            await new Promise(resolve => setTimeout(resolve, 300));
-            await fetchRoutes(); // Refresh to show updated status
-            setAlertModal({ message: result.message || `${result.count}件のルートを開始しました`, type: "success" });
-        } catch (err) {
-            setAlertModal({ message: err instanceof Error ? err.message : "ルート開始に失敗しました", type: "error" });
-        } finally {
-            setStartingAll(false);
+            setGenerating(false);
         }
     }
 
@@ -182,21 +153,8 @@ export default function RoutesPage() {
 
             {/* Actions */}
             <div className="flex flex-wrap gap-2 sm:gap-3 mb-6">
-                <Button variant="outline" className="gap-2 flex-1 sm:flex-initial" onClick={handleAutoAssign} disabled={autoAssigning}>
-                    {autoAssigning ? (
-                        <span className="flex items-center gap-2">
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            割り当て中...
-                        </span>
-                    ) : (
-                        <span className="flex items-center gap-2">
-                            <Clock className="h-4 w-4" />
-                            自動割り当て
-                        </span>
-                    )}
-                </Button>
-                <Button className="gap-2 flex-1 sm:flex-initial" onClick={handleRegenerateAll} disabled={regenerating}>
-                    {regenerating ? (
+                <Button className="gap-2" onClick={handleGenerateRoutes} disabled={generating}>
+                    {generating ? (
                         <span className="flex items-center gap-2">
                             <Loader2 className="h-4 w-4 animate-spin" />
                             生成中...
@@ -204,20 +162,7 @@ export default function RoutesPage() {
                     ) : (
                         <span className="flex items-center gap-2">
                             <RefreshCw className="h-4 w-4" />
-                            全ルート再生成
-                        </span>
-                    )}
-                </Button>
-                <Button variant="secondary" className="gap-2 flex-1 sm:flex-initial" onClick={handleStartAll} disabled={startingAll}>
-                    {startingAll ? (
-                        <span className="flex items-center gap-2">
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            処理中...
-                        </span>
-                    ) : (
-                        <span className="flex items-center gap-2">
-                            <Play className="h-4 w-4" />
-                            全ルート開始
+                            ルート生成
                         </span>
                     )}
                 </Button>
@@ -239,9 +184,9 @@ export default function RoutesPage() {
             ) : routes.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-64 gap-4">
                     <p className="text-muted-foreground text-lg">本日のルートはありません</p>
-                    <p className="text-sm text-muted-foreground">ルートを生成するには、まず注文を割り当ててください</p>
-                    <Button onClick={handleRegenerateAll} disabled={regenerating} className="gap-2">
-                        {regenerating ? (
+                    <p className="text-sm text-muted-foreground">「ルート生成」ボタンで注文の割り当てとルート生成を行います</p>
+                    <Button onClick={handleGenerateRoutes} disabled={generating} className="gap-2">
+                        {generating ? (
                             <>
                                 <Loader2 className="h-4 w-4 animate-spin" />
                                 生成中...
@@ -249,7 +194,7 @@ export default function RoutesPage() {
                         ) : (
                             <>
                                 <RefreshCw className="h-4 w-4" />
-                                ルートを生成
+                                ルート生成
                             </>
                         )}
                     </Button>
@@ -315,6 +260,7 @@ export default function RoutesPage() {
                                         stop_sequence: stop.stop_sequence,
                                         stop_status: stop.stop_status,
                                         items_count: stop.items_count,
+                                        total_quantity: stop.total_quantity || stop.items_count,
                                         latitude: stop.store_latitude,
                                         longitude: stop.store_longitude,
                                     }))}

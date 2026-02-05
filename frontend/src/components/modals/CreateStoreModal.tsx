@@ -115,7 +115,7 @@ export function CreateStoreModal({ isOpen, onClose, onSuccess, editStore }: Crea
             title={editStore ? "店舗を編集" : "新規店舗登録"}
             className="max-w-lg max-h-[90vh]"
         >
-            <form onSubmit={handleSubmit} className="space-y-4 max-h-[calc(90vh-120px)] overflow-y-auto px-1 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
+            <form onSubmit={handleSubmit} className="space-y-4 px-1">
                 {error && (
                     <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
                         {error}

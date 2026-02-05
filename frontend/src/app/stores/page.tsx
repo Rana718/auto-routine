@@ -1,14 +1,18 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Search, MapPin, Clock, Star, Plus, Filter, Loader2, Edit } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { Search, MapPin, Clock, Star, Plus, Loader2, Edit, Upload, Download, Trash2 } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { storesApi } from "@/lib/api";
 import { CreateStoreModal } from "@/components/modals/CreateStoreModal";
+import { AlertModal } from "@/components/modals/AlertModal";
 import type { StoreWithOrders, Store } from "@/lib/types";
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 const categoryColors: Record<string, string> = {
     家電: "bg-blue-500/20 text-blue-400",
@@ -19,6 +23,7 @@ const categoryColors: Record<string, string> = {
 };
 
 export default function StoresPage() {
+    const { data: session } = useSession();
     const [stores, setStores] = useState<StoreWithOrders[]>([]);
     const [categories, setCategories] = useState<string[]>([]);
     const [loading, setLoading] = useState(true);
@@ -27,6 +32,9 @@ export default function StoresPage() {
     const [categoryFilter, setCategoryFilter] = useState("all");
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [editStore, setEditStore] = useState<Store | null>(null);
+    const [alertModal, setAlertModal] = useState<{ message: string; type: "success" | "error" } | null>(null);
+    const [deleteStore, setDeleteStore] = useState<Store | null>(null);
+    const [deleting, setDeleting] = useState(false);
 
     useEffect(() => {
         fetchData();
@@ -55,6 +63,21 @@ export default function StoresPage() {
     function handleSearch(e: React.FormEvent) {
         e.preventDefault();
         fetchData();
+    }
+
+    async function handleDelete() {
+        if (!deleteStore) return;
+        try {
+            setDeleting(true);
+            await storesApi.delete(deleteStore.store_id);
+            setAlertModal({ message: "店舗を削除しました", type: "success" });
+            setDeleteStore(null);
+            await fetchData();
+        } catch (err) {
+            setAlertModal({ message: err instanceof Error ? err.message : "削除に失敗しました", type: "error" });
+        } finally {
+            setDeleting(false);
+        }
     }
 
     const filteredStores = stores.filter((store) => {
@@ -89,6 +112,71 @@ export default function StoresPage() {
                     <p className="text-sm text-muted-foreground">総注文数</p>
                     <p className="text-2xl font-bold text-foreground">{totalOrders}</p>
                 </div>
+            </div>
+
+            {/* Import/Export Buttons */}
+            <div className="mb-6 flex gap-3">
+                <Button
+                    onClick={async () => {
+                        if (!session?.accessToken) return;
+                        try {
+                            const response = await fetch(`${API_BASE_URL}/api/settings/data/export-stores`, {
+                                headers: { Authorization: `Bearer ${session.accessToken}` }
+                            });
+                            const blob = await response.blob();
+                            const url = window.URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `stores_${new Date().toISOString().split('T')[0]}.csv`;
+                            document.body.appendChild(a);
+                            a.click();
+                            window.URL.revokeObjectURL(url);
+                            document.body.removeChild(a);
+                            setAlertModal({ message: "CSVをエクスポートしました", type: "success" });
+                        } catch (err) {
+                            setAlertModal({ message: err instanceof Error ? err.message : "エラーが発生しました", type: "error" });
+                        }
+                    }}
+                    variant="outline"
+                    className="gap-2"
+                >
+                    <Download className="h-4 w-4" />
+                    CSVエクスポート
+                </Button>
+                <Button
+                    onClick={() => {
+                        const input = document.createElement('input');
+                        input.type = 'file';
+                        input.accept = '.csv';
+                        input.onchange = async (e) => {
+                            const file = (e.target as HTMLInputElement).files?.[0];
+                            if (!file || !session?.accessToken) return;
+                            try {
+                                const text = await file.text();
+                                const response = await fetch(`${API_BASE_URL}/api/settings/data/import-stores`, {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        Authorization: `Bearer ${session.accessToken}`
+                                    },
+                                    body: JSON.stringify({ csv_data: text })
+                                });
+                                const result = await response.json();
+                                if (!response.ok) throw new Error(result.detail || "インポートに失敗しました");
+                                setAlertModal({ message: result.message, type: "success" });
+                                await fetchData();
+                            } catch (err) {
+                                setAlertModal({ message: err instanceof Error ? err.message : "エラーが発生しました", type: "error" });
+                            }
+                        };
+                        input.click();
+                    }}
+                    variant="outline"
+                    className="gap-2"
+                >
+                    <Upload className="h-4 w-4" />
+                    CSVインポート
+                </Button>
             </div>
 
             {/* Toolbar */}
@@ -151,7 +239,7 @@ export default function StoresPage() {
                     {filteredStores.map((store, index) => (
                         <div
                             key={store.store_id}
-                            className="rounded-xl border border-border bg-card p-4 card-shadow hover:elevated-shadow transition-all duration-200 animate-slide-up"
+                            className="rounded-xl border border-border bg-card p-4 card-shadow hover:elevated-shadow transition-all duration-200 animate-slide-up flex flex-col"
                             style={{ animationDelay: `${index * 30}ms` }}
                         >
                             {/* Header */}
@@ -183,7 +271,7 @@ export default function StoresPage() {
                             )}
 
                             {/* Details */}
-                            <div className="space-y-2 mb-4 text-sm">
+                            <div className="space-y-2 mb-4 text-sm flex-1">
                                 {store.address && (
                                     <div className="flex items-center gap-2 text-muted-foreground">
                                         <MapPin className="h-3.5 w-3.5 shrink-0" />
@@ -203,8 +291,8 @@ export default function StoresPage() {
                             </div>
 
                             {/* Orders Badge */}
-                            {store.orders_today > 0 ? (
-                                <div className="flex items-center justify-between p-2 rounded-lg bg-primary/10 border border-primary/20">
+                            {store.orders_today > 0 && (
+                                <div className="flex items-center justify-between p-2 rounded-lg bg-primary/10 border border-primary/20 mb-3">
                                     <span className="text-sm text-primary font-medium">
                                         本日 {store.orders_today}件の注文
                                     </span>
@@ -212,11 +300,14 @@ export default function StoresPage() {
                                         表示
                                     </Button>
                                 </div>
-                            ) : (
-                                <Button 
-                                    variant="outline" 
-                                    size="sm" 
-                                    className="w-full gap-2"
+                            )}
+
+                            {/* Action Buttons */}
+                            <div className="flex gap-2 mt-auto">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="flex-1 gap-2"
                                     onClick={() => {
                                         setEditStore(store);
                                         setShowCreateModal(true);
@@ -225,7 +316,15 @@ export default function StoresPage() {
                                     <Edit className="h-3.5 w-3.5" />
                                     編集
                                 </Button>
-                            )}
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="gap-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                    onClick={() => setDeleteStore(store)}
+                                >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                            </div>
                         </div>
                     ))}
                 </div>
@@ -241,6 +340,55 @@ export default function StoresPage() {
                 onSuccess={fetchData}
                 editStore={editStore}
             />
+
+            {/* Alert Modal */}
+            <AlertModal
+                isOpen={alertModal !== null}
+                onClose={() => setAlertModal(null)}
+                message={alertModal?.message || ""}
+                type={alertModal?.type || "error"}
+            />
+
+            {/* Delete Confirmation Modal */}
+            {deleteStore && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div
+                        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+                        onClick={() => setDeleteStore(null)}
+                    />
+                    <div className="relative z-10 w-full max-w-sm rounded-xl border border-border bg-card p-6 shadow-xl">
+                        <h3 className="text-lg font-semibold text-foreground mb-2">店舗を削除</h3>
+                        <p className="text-sm text-muted-foreground mb-4">
+                            「{deleteStore.store_name}」を削除してもよろしいですか？この操作は取り消せません。
+                        </p>
+                        <div className="flex gap-3">
+                            <Button
+                                variant="outline"
+                                className="flex-1"
+                                onClick={() => setDeleteStore(null)}
+                                disabled={deleting}
+                            >
+                                キャンセル
+                            </Button>
+                            <Button
+                                variant="destructive"
+                                className="flex-1"
+                                onClick={handleDelete}
+                                disabled={deleting}
+                            >
+                                {deleting ? (
+                                    <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        削除中...
+                                    </>
+                                ) : (
+                                    "削除"
+                                )}
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </MainLayout>
     );
 }

@@ -41,6 +41,7 @@ interface Stop {
     stop_sequence: number;
     stop_status: string;
     items_count: number;
+    total_quantity?: number;
     latitude?: number;
     longitude?: number;
 }
@@ -132,7 +133,7 @@ export function RouteMap({ stops, startLocation, className = "" }: RouteMapProps
                     .bindPopup(
                         `<b>${stop.stop_sequence}. ${stop.store_name || `店舗 #${stop.store_id}`}</b><br/>` +
                         `${stop.store_address || ""}<br/>` +
-                        `商品数: ${stop.items_count}件<br/>` +
+                        `購入数量: ${stop.total_quantity || stop.items_count}個<br/>` +
                         `状態: ${stop.stop_status === "completed" ? "完了" : stop.stop_status === "current" ? "現在地" : "待機中"}`
                     );
             }
