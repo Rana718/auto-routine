@@ -17,3 +17,22 @@ export async function readFileAsCSVText(file: File): Promise<string> {
 
     return file.text();
 }
+
+/**
+ * Downloads CSV text as an Excel (.xlsx) file.
+ */
+export function downloadAsExcel(csvText: string, filename: string) {
+    const workbook = XLSX.read(csvText, { type: "string" });
+    const xlsxData = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+    const blob = new Blob([xlsxData], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename.replace(/\.csv$/, ".xlsx");
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+}

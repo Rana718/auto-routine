@@ -21,7 +21,6 @@ from db.schema import (
     PurchaseList, PurchaseListItem, ListStatus, StoreDistanceMatrix,
     Order, OrderItem, OrderStatus
 )
-from services.store_selection import calculate_distance
 
 # Default office location (Osaka central) - all routes start here
 DEFAULT_OFFICE_LAT = Decimal("34.6937")
@@ -69,7 +68,7 @@ async def generate_route_for_staff(
     if not purchase_list or purchase_list.total_items == 0:
         return None
 
-    # Get unique stores to visit with total quantities AND opening hours
+    # Get unique stores to visit with total quantities (no JSON in GROUP BY)
     result = await db.execute(
         select(
             Store.store_id,
@@ -77,7 +76,6 @@ async def generate_route_for_staff(
             Store.address,
             Store.latitude,
             Store.longitude,
-            Store.opening_hours,
             func.count(PurchaseListItem.list_item_id).label("items_count"),
             func.sum(PurchaseListItem.quantity_to_purchase).label("total_quantity")
         )
@@ -85,13 +83,21 @@ async def generate_route_for_staff(
         .where(PurchaseListItem.list_id == purchase_list.list_id)
         .group_by(
             Store.store_id, Store.store_name, Store.address,
-            Store.latitude, Store.longitude, Store.opening_hours
+            Store.latitude, Store.longitude
         )
     )
     stores = result.all()
 
     if not stores:
         return None
+
+    # Fetch opening_hours separately (JSON can't be in GROUP BY)
+    store_ids_list = [s.store_id for s in stores]
+    oh_result = await db.execute(
+        select(Store.store_id, Store.opening_hours)
+        .where(Store.store_id.in_(store_ids_list))
+    )
+    opening_hours_map = {row.store_id: row.opening_hours for row in oh_result.all()}
 
     # Batch fetch all item_ids per store — eliminates N+1 query in loop
     items_result = await db.execute(
@@ -137,18 +143,18 @@ async def generate_route_for_staff(
     store_ids = [s.store_id for s in stores]
     distance_cache = await _fetch_distance_cache(db, store_ids)
 
-    # Build store data tuples including opening_hours
+    # Build store data tuples including opening_hours from separate lookup
     store_tuples = [
         (
             s.store_id, s.latitude, s.longitude,
             s.items_count, s.total_quantity or s.items_count,
-            s.opening_hours,
+            opening_hours_map.get(s.store_id),
         )
         for s in stores
     ]
 
-    # Generate optimized order: Nearest Neighbor → 2-opt → opening hours pass
-    optimized_order = _optimize_route(
+    # Generate optimized order + pre-computed distance matrix
+    optimized_order, full_matrix = _optimize_route(
         start_point=(start_lat, start_lng),
         stores=store_tuples,
         distance_cache=distance_cache,
@@ -159,8 +165,7 @@ async def generate_route_for_staff(
     # --- Create route stops and calculate totals ---
     total_distance = 0.0
     estimated_time = 0
-    prev_lat, prev_lng = start_lat, start_lng
-    prev_store_id: Optional[int] = None
+    prev_store_id: Optional[int] = None  # None = start point
     current_time = datetime.combine(
         target_date,
         datetime.strptime(DEFAULT_ROUTE_START_TIME, "%H:%M").time(),
@@ -171,15 +176,11 @@ async def generate_route_for_staff(
     ):
         travel_time = 0
         if lat and lng:
-            dist = _get_distance(
-                prev_lat, prev_lng, lat, lng,
-                prev_store_id, store_id, distance_cache,
-            )
+            dist = full_matrix.get((prev_store_id, store_id), 0.0)
             total_distance += dist
             # 25 km/h — consistent with distance_matrix.py
             travel_time = int(dist / AVERAGE_SPEED_KMH * 60) if dist > 0 else 0
             current_time += timedelta(minutes=travel_time)
-            prev_lat, prev_lng = lat, lng
             prev_store_id = store_id
 
         # Wait for store to open if needed
@@ -244,152 +245,210 @@ async def generate_route_for_staff(
 # ============================================================================
 
 
+def _build_full_distance_matrix(
+    start_point: Tuple[Decimal, Decimal],
+    stores: List[Tuple],
+    distance_cache: Dict[Tuple[int, int], float],
+) -> Dict[Tuple, float]:
+    """
+    Pre-compute ALL pairwise distances (including start point) once.
+    Eliminates thousands of repeated Haversine calls + Decimal→float conversions
+    in the 2-opt inner loop.
+
+    Keys: (store_id_or_None, store_id_or_None) → distance in km
+    """
+    matrix: Dict[Tuple, float] = {}
+
+    # Convert coordinates to float once
+    start_lat_f = float(start_point[0])
+    start_lng_f = float(start_point[1])
+
+    coords = {}  # store_id → (lat_f, lng_f)
+    for s in stores:
+        if s[1] and s[2]:
+            coords[s[0]] = (float(s[1]), float(s[2]))
+
+    all_ids = list(coords.keys())
+
+    # Start → each store
+    for sid in all_ids:
+        lat_f, lng_f = coords[sid]
+        cached = distance_cache.get((None, sid))
+        if cached is None and sid:
+            cached = distance_cache.get((0, sid))
+        if cached is not None:
+            dist = cached
+        else:
+            dist = _haversine_fast(start_lat_f, start_lng_f, lat_f, lng_f)
+        matrix[(None, sid)] = dist
+        matrix[(sid, None)] = dist
+
+    # Store ↔ store
+    for i in range(len(all_ids)):
+        sid_a = all_ids[i]
+        lat_a, lng_a = coords[sid_a]
+        for j in range(i + 1, len(all_ids)):
+            sid_b = all_ids[j]
+            lat_b, lng_b = coords[sid_b]
+
+            cached = distance_cache.get((sid_a, sid_b))
+            if cached is None:
+                cached = distance_cache.get((sid_b, sid_a))
+            if cached is not None:
+                dist = cached
+            else:
+                dist = _haversine_fast(lat_a, lng_a, lat_b, lng_b)
+
+            matrix[(sid_a, sid_b)] = dist
+            matrix[(sid_b, sid_a)] = dist
+
+    return matrix
+
+
+def _haversine_fast(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
+    """Haversine distance in km — operates on floats directly (no Decimal conversion)."""
+    import math
+    R = 6371
+    dlat = math.radians(lat2 - lat1)
+    dlng = math.radians(lng2 - lng1)
+    a = math.sin(dlat / 2) ** 2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlng / 2) ** 2
+    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+
+
 def _optimize_route(
     start_point: Tuple[Decimal, Decimal],
     stores: List[Tuple],
     distance_cache: Dict[Tuple[int, int], float],
     optimization_priority: str = "speed",
     target_date: date = None,
-) -> List[Tuple]:
+) -> Tuple[List[Tuple], Dict[Tuple, float]]:
     """
     Full route optimization pipeline:
-      1. Nearest Neighbor initial solution
-      2. 2-opt local search improvement
-      3. Opening-hours-aware reordering (speed mode)
+      1. Pre-compute full distance matrix (eliminates repeated Haversine)
+      2. Nearest Neighbor initial solution
+      3. 2-opt local search improvement
+      4. Opening-hours-aware reordering (speed mode)
+
+    Returns: (optimized_stores, distance_matrix)
     """
+    empty_matrix: Dict[Tuple, float] = {}
+
     if not stores:
-        return []
+        return [], empty_matrix
     if len(stores) == 1:
-        return stores
+        return stores, empty_matrix
 
     # Separate stores with/without coordinates
     stores_with_coords = [s for s in stores if s[1] and s[2]]
     stores_without_coords = [s for s in stores if not s[1] or not s[2]]
 
     if not stores_with_coords:
-        return stores
+        return stores, empty_matrix
+
+    # Pre-compute ALL distances once (biggest performance win)
+    full_matrix = _build_full_distance_matrix(
+        start_point, stores_with_coords, distance_cache
+    )
 
     # Step 1: Nearest Neighbor initial solution
-    nn_route = _nearest_neighbor(start_point, stores_with_coords, distance_cache)
+    nn_route = _nearest_neighbor_fast(stores_with_coords, full_matrix)
 
-    # Step 2: 2-opt improvement (works for all priorities)
-    improved = _two_opt_improve(start_point, nn_route, distance_cache)
+    # Step 2: 2-opt improvement
+    improved = _two_opt_fast(nn_route, full_matrix)
 
     # Step 3: For "speed" priority, reorder to reduce wait at closed stores
     if optimization_priority == "speed" and target_date:
-        improved = _reorder_for_opening_hours(
-            start_point, improved, distance_cache, target_date
+        improved = _reorder_for_opening_hours_fast(
+            improved, full_matrix, target_date
         )
 
     # Append stores without coordinates at end
     improved.extend(stores_without_coords)
-    return improved
+    return improved, full_matrix
 
 
-def _nearest_neighbor(
-    start_point: Tuple[Decimal, Decimal],
+def _nearest_neighbor_fast(
     stores: List[Tuple],
-    distance_cache: Dict[Tuple[int, int], float],
+    matrix: Dict[Tuple, float],
 ) -> List[Tuple]:
-    """Nearest Neighbor greedy TSP heuristic."""
+    """Nearest Neighbor greedy TSP heuristic using pre-computed matrix."""
     result = []
     remaining = list(stores)
-    current_lat, current_lng = start_point
-    current_store_id: Optional[int] = None
+    current_id: Optional[int] = None  # None = start point
 
     while remaining:
         nearest_idx = 0
         nearest_dist = float("inf")
 
         for i, s in enumerate(remaining):
-            dist = _get_distance(
-                current_lat, current_lng, s[1], s[2],
-                current_store_id, s[0], distance_cache,
-            )
+            dist = matrix.get((current_id, s[0]), 0.0)
             if dist < nearest_dist:
                 nearest_dist = dist
                 nearest_idx = i
 
         store = remaining.pop(nearest_idx)
         result.append(store)
-        current_lat, current_lng = store[1], store[2]
-        current_store_id = store[0]
+        current_id = store[0]
 
     return result
 
 
-def _two_opt_improve(
-    start_point: Tuple[Decimal, Decimal],
+def _two_opt_fast(
     route: List[Tuple],
-    distance_cache: Dict[Tuple[int, int], float],
-    max_iterations: int = 50,
+    matrix: Dict[Tuple, float],
+    max_iterations: int = 20,
 ) -> List[Tuple]:
     """
-    2-opt local search: repeatedly reverse segments to reduce total distance.
-    Typically improves Nearest Neighbor by 10-20%.
+    2-opt local search using pre-computed distance matrix.
+    All distance lookups are O(1) dict hits — no Haversine or Decimal conversion.
+    Exits early if no improvement found in an iteration.
     """
     if len(route) < 3:
         return list(route)
 
     best = list(route)
-    improved = True
-    iterations = 0
+    n = len(best)
 
-    while improved and iterations < max_iterations:
+    for _ in range(max_iterations):
         improved = False
-        iterations += 1
 
-        for i in range(len(best) - 1):
-            for j in range(i + 2, len(best)):
-                # Points around the segment [i..j]
-                if i == 0:
-                    a_lat, a_lng, a_id = start_point[0], start_point[1], None
-                else:
-                    a_lat, a_lng, a_id = best[i - 1][1], best[i - 1][2], best[i - 1][0]
+        for i in range(n - 1):
+            a_id = None if i == 0 else best[i - 1][0]
+            b_id = best[i][0]
 
-                b_lat, b_lng, b_id = best[i][1], best[i][2], best[i][0]
-                c_lat, c_lng, c_id = best[j][1], best[j][2], best[j][0]
+            for j in range(i + 2, n):
+                c_id = best[j][0]
+                d_id = best[j + 1][0] if j + 1 < n else None
 
-                if j + 1 < len(best):
-                    d_lat, d_lng, d_id = best[j + 1][1], best[j + 1][2], best[j + 1][0]
-                else:
-                    d_lat, d_lng, d_id = None, None, None
+                # Current edges: a→b + c→d
+                current_cost = matrix.get((a_id, b_id), 0.0)
+                if d_id is not None:
+                    current_cost += matrix.get((c_id, d_id), 0.0)
 
-                # Current edges: a→b  +  c→d
-                current_cost = _get_distance(
-                    a_lat, a_lng, b_lat, b_lng, a_id, b_id, distance_cache
-                )
-                if d_lat is not None and d_lng is not None:
-                    current_cost += _get_distance(
-                        c_lat, c_lng, d_lat, d_lng, c_id, d_id, distance_cache
-                    )
-
-                # Reversed edges: a→c  +  b→d
-                new_cost = _get_distance(
-                    a_lat, a_lng, c_lat, c_lng, a_id, c_id, distance_cache
-                )
-                if d_lat is not None and d_lng is not None:
-                    new_cost += _get_distance(
-                        b_lat, b_lng, d_lat, d_lng, b_id, d_id, distance_cache
-                    )
+                # Reversed edges: a→c + b→d
+                new_cost = matrix.get((a_id, c_id), 0.0)
+                if d_id is not None:
+                    new_cost += matrix.get((b_id, d_id), 0.0)
 
                 if new_cost < current_cost - 0.01:
-                    best[i : j + 1] = best[i : j + 1][::-1]
+                    best[i: j + 1] = best[i: j + 1][::-1]
                     improved = True
+
+        if not improved:
+            break
 
     return best
 
 
-def _reorder_for_opening_hours(
-    start_point: Tuple[Decimal, Decimal],
+def _reorder_for_opening_hours_fast(
     route: List[Tuple],
-    distance_cache: Dict[Tuple[int, int], float],
+    matrix: Dict[Tuple, float],
     target_date: date,
 ) -> List[Tuple]:
     """
-    Post-process: if a store is closed on arrival, try swapping with the next
-    stop to reduce idle wait time (only if the next stop is already open and
-    the detour is small).
+    Post-process: swap adjacent stops to reduce wait at closed stores.
+    Uses pre-computed distance matrix.
     """
     if len(route) < 2:
         return route
@@ -399,61 +458,38 @@ def _reorder_for_opening_hours(
         target_date,
         datetime.strptime(DEFAULT_ROUTE_START_TIME, "%H:%M").time(),
     )
-    prev_lat, prev_lng = start_point
-    prev_store_id: Optional[int] = None
+    prev_id: Optional[int] = None  # start point
 
     i = 0
     while i < len(result) - 1:
         store = result[i]
-        store_id, lat, lng = store[0], store[1], store[2]
+        store_id = store[0]
         total_qty = store[4] or store[3]
         opening_hours = store[5]
 
         # Arrival time at this stop
-        if lat and lng:
-            dist = _get_distance(
-                prev_lat, prev_lng, lat, lng,
-                prev_store_id, store_id, distance_cache,
-            )
-            travel_min = int(dist / AVERAGE_SPEED_KMH * 60) if dist > 0 else 0
-            arrival = current_time + timedelta(minutes=travel_min)
-        else:
-            arrival = current_time
+        dist = matrix.get((prev_id, store_id), 0.0)
+        travel_min = int(dist / AVERAGE_SPEED_KMH * 60) if dist > 0 else 0
+        arrival = current_time + timedelta(minutes=travel_min)
 
         opens_at = _get_opening_time(opening_hours, target_date)
         if opens_at and arrival < opens_at:
             wait_minutes = int((opens_at - arrival).total_seconds() / 60)
 
-            # Worth swapping only if wait > 10 min
             if wait_minutes > 10 and i + 1 < len(result):
                 next_store = result[i + 1]
                 next_opening = _get_opening_time(next_store[5], target_date)
 
-                # Next store is already open at our arrival time
                 if not next_opening or arrival >= next_opening:
-                    orig_dist = _get_distance(
-                        prev_lat, prev_lng, lat, lng,
-                        prev_store_id, store_id, distance_cache,
-                    )
-                    swap_dist = _get_distance(
-                        prev_lat, prev_lng, next_store[1], next_store[2],
-                        prev_store_id, next_store[0], distance_cache,
-                    )
-                    # Only swap if detour < 2 km
+                    orig_dist = matrix.get((prev_id, store_id), 0.0)
+                    swap_dist = matrix.get((prev_id, next_store[0]), 0.0)
                     if swap_dist - orig_dist < 2.0:
                         result[i], result[i + 1] = result[i + 1], result[i]
-                        continue  # re-process swapped index
+                        continue
 
         # Advance simulation clock
-        if lat and lng:
-            dist = _get_distance(
-                prev_lat, prev_lng, lat, lng,
-                prev_store_id, store_id, distance_cache,
-            )
-            travel_min = int(dist / AVERAGE_SPEED_KMH * 60) if dist > 0 else 0
-            current_time += timedelta(minutes=travel_min)
-            prev_lat, prev_lng = lat, lng
-            prev_store_id = store_id
+        current_time += timedelta(minutes=travel_min)
+        prev_id = store_id
 
         adjusted = _adjust_for_opening_hours(current_time, opening_hours, target_date)
         if adjusted > current_time:
@@ -535,24 +571,6 @@ async def _fetch_distance_cache(
     }
 
 
-def _get_distance(
-    lat1: Decimal, lng1: Decimal,
-    lat2: Decimal, lng2: Decimal,
-    store1_id: Optional[int],
-    store2_id: Optional[int],
-    distance_cache: Dict[Tuple[int, int], float],
-) -> float:
-    """
-    Get distance between two points, using cache if available.
-    Falls back to Haversine calculation if not in cache.
-    """
-    if store1_id and store2_id:
-        cached = distance_cache.get((store1_id, store2_id))
-        if cached is not None:
-            return cached
-
-    return calculate_distance(lat1, lng1, lat2, lng2)
-
 
 # ============================================================================
 # PUBLIC API — kept signatures identical
@@ -572,7 +590,7 @@ def nearest_neighbor_route(
     """
     distance_cache = distance_cache or {}
     stores_6 = [(s[0], s[1], s[2], s[3], s[4], None) for s in stores]
-    optimized = _optimize_route(
+    optimized, _ = _optimize_route(
         start_point=start_point,
         stores=stores_6,
         distance_cache=distance_cache,
@@ -653,18 +671,25 @@ async def get_route_details_with_quantities(
         .order_by(RouteStop.stop_sequence)
     )
 
-    stops_data = []
-    for stop, store in result:
-        items_result = await db.execute(
-            select(PurchaseListItem, OrderItem)
-            .join(OrderItem, OrderItem.item_id == PurchaseListItem.item_id)
-            .where(PurchaseListItem.list_id == route.list_id)
-            .where(PurchaseListItem.store_id == store.store_id)
-        )
+    stops_list = result.all()
 
+    # Batch fetch ALL items for this purchase list in one query (eliminates N+1)
+    store_ids = [store.store_id for _, store in stops_list]
+    all_items_result = await db.execute(
+        select(PurchaseListItem, OrderItem)
+        .join(OrderItem, OrderItem.item_id == PurchaseListItem.item_id)
+        .where(PurchaseListItem.list_id == route.list_id)
+        .where(PurchaseListItem.store_id.in_(store_ids))
+    )
+    items_by_store: Dict[int, list] = {}
+    for list_item, order_item in all_items_result:
+        items_by_store.setdefault(list_item.store_id, []).append((list_item, order_item))
+
+    stops_data = []
+    for stop, store in stops_list:
         items = []
         total_qty = 0
-        for list_item, order_item in items_result:
+        for list_item, order_item in items_by_store.get(store.store_id, []):
             items.append({
                 "list_item_id": list_item.list_item_id,
                 "sku": order_item.sku,

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { Search, MapPin, Clock, Star, Plus, Loader2, Edit, Upload, Download, Trash2 } from "lucide-react";
+import { Search, MapPin, Clock, Star, Plus, Loader2, Edit, Upload, Trash2 } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +10,8 @@ import { cn } from "@/lib/utils";
 import { storesApi } from "@/lib/api";
 import { CreateStoreModal } from "@/components/modals/CreateStoreModal";
 import { AlertModal } from "@/components/modals/AlertModal";
+import { ExportButton } from "@/components/ui/ExportButton";
+import { readFileAsCSVText } from "@/lib/excel";
 import type { StoreWithOrders, Store } from "@/lib/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -116,43 +118,23 @@ export default function StoresPage() {
 
             {/* Import/Export Buttons */}
             <div className="mb-6 flex gap-3">
-                <Button
-                    onClick={async () => {
-                        if (!session?.accessToken) return;
-                        try {
-                            const response = await fetch(`${API_BASE_URL}/api/settings/data/export-stores`, {
-                                headers: { Authorization: `Bearer ${session.accessToken}` }
-                            });
-                            const blob = await response.blob();
-                            const url = window.URL.createObjectURL(blob);
-                            const a = document.createElement('a');
-                            a.href = url;
-                            a.download = `stores_${new Date().toISOString().split('T')[0]}.csv`;
-                            document.body.appendChild(a);
-                            a.click();
-                            window.URL.revokeObjectURL(url);
-                            document.body.removeChild(a);
-                            setAlertModal({ message: "CSVをエクスポートしました", type: "success" });
-                        } catch (err) {
-                            setAlertModal({ message: err instanceof Error ? err.message : "エラーが発生しました", type: "error" });
-                        }
-                    }}
-                    variant="outline"
-                    className="gap-2"
-                >
-                    <Download className="h-4 w-4" />
-                    CSVエクスポート
-                </Button>
+                <ExportButton
+                    fetchCsv={() => fetch(`${API_BASE_URL}/api/settings/data/export-stores`, {
+                        headers: { Authorization: `Bearer ${session?.accessToken}` }
+                    })}
+                    filenameBase={`stores_${new Date().toISOString().split('T')[0]}`}
+                    onError={(msg) => setAlertModal({ message: msg, type: "error" })}
+                />
                 <Button
                     onClick={() => {
                         const input = document.createElement('input');
                         input.type = 'file';
-                        input.accept = '.csv';
+                        input.accept = '.csv,.xlsx,.xls';
                         input.onchange = async (e) => {
                             const file = (e.target as HTMLInputElement).files?.[0];
                             if (!file || !session?.accessToken) return;
                             try {
-                                const text = await file.text();
+                                const text = await readFileAsCSVText(file);
                                 const response = await fetch(`${API_BASE_URL}/api/settings/data/import-stores`, {
                                     method: 'POST',
                                     headers: {
@@ -175,7 +157,7 @@ export default function StoresPage() {
                     className="gap-2"
                 >
                     <Upload className="h-4 w-4" />
-                    CSVインポート
+                    インポート
                 </Button>
             </div>
 

@@ -386,21 +386,11 @@ async def import_purchase_list_csv(db: AsyncSession, csv_data: str):
     """
     Import the client's purchase list CSV format (購入リスト店舗入力.csv)
 
-    This CSV format includes:
-    - Product codes and names
-    - Quantities split across multiple stores
-    - Store names and addresses
-
-    The function will:
-    1. Create/update Products
-    2. Create/update Stores (extracting from addresses)
-    3. Create ProductStoreMapping entries
-    4. Set up quantity allocations based on the CSV data
+    Optimized: pre-loads existing data in bulk (3 queries) instead of per-row lookups.
     """
     from db.schema import Product, Store, ProductStoreMapping, StockStatus
     from io import StringIO
     import csv
-    import re
 
     if not csv_data:
         return {"message": "CSVデータがありません", "products_created": 0, "stores_created": 0, "mappings_created": 0, "errors": []}
@@ -408,144 +398,183 @@ async def import_purchase_list_csv(db: AsyncSession, csv_data: str):
     reader = csv.reader(StringIO(csv_data))
     rows = list(reader)
 
-    products_created = 0
-    stores_created = 0
-    mappings_created = 0
     errors = []
 
-    # Skip header rows (first 7 rows based on the file format)
-    # Find the header row with column names
+    # Find the header row
     header_idx = 0
     for i, row in enumerate(rows):
         if len(row) >= 6 and ('商品コード' in row[1] or 'product_code' in str(row).lower()):
             header_idx = i
             break
 
-    # Process data rows
+    # === Phase 1: Parse all CSV rows in memory ===
+    parsed_rows = []
     current_product_code = None
     current_product_name = None
-
-    # Cache for lookups
-    product_cache = {}
-    store_cache = {}
+    all_product_codes = set()
+    all_store_names = set()
+    store_address_map = {}  # store_name -> address (first seen)
 
     for row_idx, row in enumerate(rows[header_idx + 1:], start=header_idx + 2):
+        if len(row) < 6:
+            continue
+
+        product_code = row[1].strip() if len(row) > 1 else ''
+        product_name = row[2].strip() if len(row) > 2 else ''
+        quantity_str = row[4].strip() if len(row) > 4 else ''
+        store_name = row[5].strip() if len(row) > 5 else ''
+        address = row[6].strip() if len(row) > 6 else ''
+
+        if not quantity_str or not store_name:
+            continue
+
+        if product_code:
+            current_product_code = product_code
+            current_product_name = product_name
+
+        if not current_product_code:
+            continue
+
         try:
-            if len(row) < 6:
-                continue
+            quantity = int(quantity_str)
+        except ValueError:
+            errors.append(f"行 {row_idx}: 数量が無効です: {quantity_str}")
+            continue
 
-            # Parse row: [empty, product_code, product_name, specification, quantity, store_name, address]
-            product_code = row[1].strip() if len(row) > 1 else ''
-            product_name = row[2].strip() if len(row) > 2 else ''
-            specification = row[3].strip() if len(row) > 3 else ''
-            quantity_str = row[4].strip() if len(row) > 4 else ''
-            store_name = row[5].strip() if len(row) > 5 else ''
-            address = row[6].strip() if len(row) > 6 else ''
+        all_product_codes.add(current_product_code)
+        all_store_names.add(store_name)
+        if store_name not in store_address_map and address:
+            store_address_map[store_name] = address
 
-            # Skip empty rows
-            if not quantity_str or not store_name:
-                continue
+        parsed_rows.append({
+            "product_code": current_product_code,
+            "product_name": current_product_name,
+            "store_name": store_name,
+            "address": address,
+            "quantity": quantity,
+            "row_idx": row_idx,
+        })
 
-            # Handle continuation rows (same product, different store)
-            if product_code:
-                current_product_code = product_code
-                current_product_name = product_name
+    if not parsed_rows:
+        return {"message": "インポートするデータがありません", "products_created": 0, "stores_created": 0, "mappings_created": 0, "errors": errors}
 
-            if not current_product_code:
-                continue
+    # === Phase 2: Bulk-load existing products and stores (2 queries) ===
+    result = await db.execute(
+        select(Product).where(Product.sku.in_(list(all_product_codes)))
+    )
+    existing_products = {p.sku: p for p in result.scalars().all()}
 
-            # Parse quantity
-            try:
-                quantity = int(quantity_str)
-            except ValueError:
-                errors.append(f"行 {row_idx}: 数量が無効です: {quantity_str}")
-                continue
+    result = await db.execute(
+        select(Store).where(Store.store_name.in_(list(all_store_names)))
+    )
+    existing_stores = {s.store_name: s for s in result.scalars().all()}
 
-            # Get or create Product
-            if current_product_code not in product_cache:
-                result = await db.execute(
-                    select(Product).where(Product.sku == current_product_code)
-                )
-                product = result.scalar_one_or_none()
+    # === Phase 3: Create missing products and stores in batch ===
+    products_created = 0
+    product_cache = {}  # sku -> product_id
 
-                if not product:
-                    product = Product(
-                        sku=current_product_code,
-                        product_name=current_product_name or current_product_code,
-                        is_store_fixed=False,
-                        exclude_from_routing=False
-                    )
-                    db.add(product)
-                    await db.flush()
-                    await db.refresh(product)
-                    products_created += 1
-
-                product_cache[current_product_code] = product.product_id
-
-            product_id = product_cache[current_product_code]
-
-            # Get or create Store
-            if store_name not in store_cache:
-                result = await db.execute(
-                    select(Store).where(Store.store_name == store_name)
-                )
-                store = result.scalar_one_or_none()
-
-                if not store:
-                    # Extract district from address
-                    district = extract_district(address)
-                    # Extract coordinates from address if available
-                    lat, lng = extract_coordinates_from_address(address)
-
-                    store = Store(
-                        store_name=store_name,
-                        address=address,
-                        district=district,
-                        latitude=lat,
-                        longitude=lng,
-                        priority_level=2,
-                        is_active=True
-                    )
-                    db.add(store)
-                    await db.flush()
-                    await db.refresh(store)
-                    stores_created += 1
-                else:
-                    # Update address if not set
-                    if not store.address and address:
-                        store.address = address
-                        # Extract coordinates if we have an address
-                        lat, lng = extract_coordinates_from_address(address)
-                        if lat and lng:
-                            store.latitude = lat
-                            store.longitude = lng
-
-                store_cache[store_name] = store.store_id
-
-            store_id = store_cache[store_name]
-
-            # Create or update ProductStoreMapping
-            result = await db.execute(
-                select(ProductStoreMapping)
-                .where(ProductStoreMapping.product_id == product_id)
-                .where(ProductStoreMapping.store_id == store_id)
+    for sku in all_product_codes:
+        if sku in existing_products:
+            product_cache[sku] = existing_products[sku].product_id
+        else:
+            # Find name from parsed rows
+            name = next((r["product_name"] for r in parsed_rows if r["product_code"] == sku and r["product_name"]), sku)
+            product = Product(
+                sku=sku,
+                product_name=name,
+                is_store_fixed=False,
+                exclude_from_routing=False
             )
-            mapping = result.scalar_one_or_none()
+            db.add(product)
+            products_created += 1
 
-            if not mapping:
+    if products_created > 0:
+        await db.flush()
+        # Re-fetch newly created products to get their IDs
+        result = await db.execute(
+            select(Product).where(Product.sku.in_([s for s in all_product_codes if s not in product_cache]))
+        )
+        for p in result.scalars().all():
+            product_cache[p.sku] = p.product_id
+
+    stores_created = 0
+    store_cache = {}  # store_name -> store_id
+
+    for sname in all_store_names:
+        if sname in existing_stores:
+            store = existing_stores[sname]
+            store_cache[sname] = store.store_id
+            # Update address if not set
+            addr = store_address_map.get(sname, "")
+            if not store.address and addr:
+                store.address = addr
+                lat, lng = extract_coordinates_from_address(addr)
+                if lat and lng:
+                    store.latitude = lat
+                    store.longitude = lng
+        else:
+            addr = store_address_map.get(sname, "")
+            district = extract_district(addr)
+            lat, lng = extract_coordinates_from_address(addr)
+            store = Store(
+                store_name=sname,
+                address=addr,
+                district=district,
+                latitude=lat,
+                longitude=lng,
+                priority_level=2,
+                is_active=True
+            )
+            db.add(store)
+            stores_created += 1
+
+    if stores_created > 0:
+        await db.flush()
+        # Re-fetch newly created stores to get their IDs
+        result = await db.execute(
+            select(Store).where(Store.store_name.in_([s for s in all_store_names if s not in store_cache]))
+        )
+        for s in result.scalars().all():
+            store_cache[s.store_name] = s.store_id
+
+    # === Phase 4: Bulk-load existing mappings (1 query) ===
+    all_product_ids = set(product_cache.values())
+    all_store_ids = set(store_cache.values())
+
+    result = await db.execute(
+        select(ProductStoreMapping)
+        .where(ProductStoreMapping.product_id.in_(list(all_product_ids)))
+        .where(ProductStoreMapping.store_id.in_(list(all_store_ids)))
+    )
+    existing_mappings = {}
+    for m in result.scalars().all():
+        existing_mappings[(m.product_id, m.store_id)] = m
+
+    # === Phase 5: Create/update mappings in batch ===
+    mappings_created = 0
+
+    for row_data in parsed_rows:
+        try:
+            product_id = product_cache[row_data["product_code"]]
+            store_id = store_cache[row_data["store_name"]]
+            quantity = row_data["quantity"]
+            key = (product_id, store_id)
+
+            if key not in existing_mappings:
                 mapping = ProductStoreMapping(
                     product_id=product_id,
                     store_id=store_id,
                     is_primary_store=False,
                     priority=1,
                     stock_status=StockStatus.IN_STOCK,
-                    max_daily_quantity=quantity,  # Use CSV quantity as max capacity
+                    max_daily_quantity=quantity,
                     current_available=quantity
                 )
                 db.add(mapping)
+                existing_mappings[key] = mapping
                 mappings_created += 1
             else:
-                # Update with the quantity info
+                mapping = existing_mappings[key]
                 if mapping.max_daily_quantity:
                     mapping.max_daily_quantity = max(mapping.max_daily_quantity, quantity)
                 else:
@@ -554,7 +583,7 @@ async def import_purchase_list_csv(db: AsyncSession, csv_data: str):
                 mapping.stock_status = StockStatus.IN_STOCK
 
         except Exception as e:
-            errors.append(f"行 {row_idx}: エラー - {str(e)}")
+            errors.append(f"行 {row_data['row_idx']}: エラー - {str(e)}")
 
     await db.commit()
 
@@ -563,7 +592,7 @@ async def import_purchase_list_csv(db: AsyncSession, csv_data: str):
         "products_created": products_created,
         "stores_created": stores_created,
         "mappings_created": mappings_created,
-        "errors": errors[:20] if errors else []  # Limit error display
+        "errors": errors[:20] if errors else []
     }
 
 

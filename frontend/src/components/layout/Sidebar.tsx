@@ -21,7 +21,6 @@ import {
     MapPin,
     ClipboardCheck,
     X,
-    Database,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -44,9 +43,6 @@ const adminNavItems = [
     // { icon: Settings, label: "設定", path: "/settings" },
 ];
 
-const managementItems = [
-    { icon: Database, label: "データ管理", path: "/admin/data" },
-];
 
 interface SidebarProps {
     mobileOpen: boolean;
@@ -168,37 +164,6 @@ export function Sidebar({ mobileOpen, onMobileClose, onCollapsedChange }: Sideba
                         );
                     })}
 
-                    {/* Admin Section */}
-                    {isAdmin && (
-                        <div className={cn("mt-4 pt-4 border-t border-sidebar-border", collapsed && "md:mt-2 md:pt-2")}>
-                            {!collapsed && (
-                                <p className="px-3 mb-2 text-xs font-semibold text-sidebar-foreground/50 uppercase">
-                                    管理
-                                </p>
-                            )}
-                            {managementItems.map((item) => {
-                                const isActive = pathname === item.path;
-                                return (
-                                    <Link
-                                        key={item.path}
-                                        href={item.path}
-                                        onClick={onMobileClose}
-                                        className={cn(
-                                            "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 touch-target",
-                                            isActive
-                                                ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-md"
-                                                : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground",
-                                            collapsed && "md:justify-center md:px-2"
-                                        )}
-                                    >
-                                        <item.icon className="h-5 w-5 shrink-0" />
-                                        {/* Show label on mobile always, hide on desktop only when collapsed */}
-                                        <span className={cn(collapsed && "md:hidden")}>{item.label}</span>
-                                    </Link>
-                                );
-                            })}
-                        </div>
-                    )}
                 </nav>
 
 
