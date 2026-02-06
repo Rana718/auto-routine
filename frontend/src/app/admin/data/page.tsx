@@ -7,6 +7,7 @@ import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { AlertModal } from "@/components/modals/AlertModal";
 import { ConfirmModal } from "@/components/modals/ConfirmModal";
+import { readFileAsCSVText } from "@/lib/excel";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -19,13 +20,13 @@ export default function AdminDataPage() {
     async function handleImport(endpoint: string, loadingKey: string) {
         const input = document.createElement('input');
         input.type = 'file';
-        input.accept = '.csv';
+        input.accept = '.csv,.xlsx,.xls';
         input.onchange = async (e) => {
             const file = (e.target as HTMLInputElement).files?.[0];
             if (!file || !session?.accessToken) return;
             try {
                 setLoading(loadingKey);
-                const text = await file.text();
+                const text = await readFileAsCSVText(file);
                 const response = await fetch(`${API_BASE_URL}${endpoint}`, {
                     method: 'POST',
                     headers: {
@@ -98,8 +99,8 @@ export default function AdminDataPage() {
             key: 'purchase-list',
             icon: FileSpreadsheet,
             iconColor: 'text-primary',
-            title: '購入リストCSV',
-            desc: '商品・店舗・マッピング',
+            title: '購入リスト',
+            desc: 'CSV/Excel対応',
             endpoint: '/api/settings/data/import-purchase-list',
             primary: true
         },
@@ -107,8 +108,8 @@ export default function AdminDataPage() {
             key: 'orders',
             icon: ShoppingCart,
             iconColor: 'text-orange-500',
-            title: '注文CSV',
-            desc: '注文データ取込',
+            title: '注文データ',
+            desc: 'CSV/Excel対応',
             endpoint: '/api/orders/import',
             primary: true
         },
@@ -116,8 +117,8 @@ export default function AdminDataPage() {
             key: 'stores',
             icon: Store,
             iconColor: 'text-blue-500',
-            title: '店舗CSV',
-            desc: '店舗マスタ',
+            title: '店舗データ',
+            desc: 'CSV/Excel対応',
             endpoint: '/api/settings/data/import-stores',
             primary: false
         },
@@ -125,8 +126,8 @@ export default function AdminDataPage() {
             key: 'mappings',
             icon: Package,
             iconColor: 'text-green-500',
-            title: 'マッピングCSV',
-            desc: '商品-店舗紐付け',
+            title: 'マッピング',
+            desc: 'CSV/Excel対応',
             endpoint: '/api/settings/data/import-mappings',
             primary: false
         }

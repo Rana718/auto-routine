@@ -6,6 +6,7 @@ import { Modal, FormField, Input } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { ordersApi } from "@/lib/api";
 import type { OrderCreate } from "@/lib/types";
+import { readFileAsCSVText } from "@/lib/excel";
 
 interface ImportOrdersModalProps {
     isOpen: boolean;
@@ -92,19 +93,15 @@ export function ImportOrdersModal({ isOpen, onClose, onSuccess }: ImportOrdersMo
         return orders;
     }
 
-    function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            const text = event.target?.result as string;
-            setCsvText(text);
-            const orders = parseCSV(text);
-            setParsedOrders(orders);
-            setStep("preview");
-        };
-        reader.readAsText(file);
+        const text = await readFileAsCSVText(file);
+        setCsvText(text);
+        const orders = parseCSV(text);
+        setParsedOrders(orders);
+        setStep("preview");
     }
 
     function handlePasteCSV() {
@@ -168,7 +165,7 @@ export function ImportOrdersModal({ isOpen, onClose, onSuccess }: ImportOrdersMo
             {step === "upload" && (
                 <div className="space-y-4">
                     <p className="text-sm text-muted-foreground">
-                        CSVファイルをアップロードするか、データを直接貼り付けてください。
+                        CSV/Excelファイルをアップロードするか、データを直接貼り付けてください。
                     </p>
                     
                     <div className="p-3 rounded-lg bg-muted/30 text-xs space-y-1">
@@ -189,15 +186,15 @@ export function ImportOrdersModal({ isOpen, onClose, onSuccess }: ImportOrdersMo
                     <div className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary/50 transition-colors">
                         <input
                             type="file"
-                            accept=".csv,.txt"
+                            accept=".csv,.txt,.xlsx,.xls"
                             onChange={handleFileUpload}
                             className="hidden"
                             id="csv-upload"
                         />
                         <label htmlFor="csv-upload" className="cursor-pointer">
                             <FileSpreadsheet className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-                            <p className="text-foreground font-medium">CSVファイルをドロップまたはクリック</p>
-                            <p className="text-sm text-muted-foreground mt-1">.csv, .txt ファイル対応</p>
+                            <p className="text-foreground font-medium">ファイルをドロップまたはクリック</p>
+                            <p className="text-sm text-muted-foreground mt-1">.csv, .txt, .xlsx, .xls ファイル対応</p>
                         </label>
                     </div>
 
