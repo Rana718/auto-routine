@@ -453,6 +453,18 @@ export const adminApi = {
             { method: "DELETE" }
         );
     },
+    async updateUser(userId: number, data: { staff_name?: string; email?: string; password?: string; role?: string }): Promise<{ message: string }> {
+        return fetchApi<{ message: string }>(
+            `/api/admin/users/${userId}`,
+            { method: "PATCH", body: JSON.stringify(data) }
+        );
+    },
+    async toggleActive(userId: number, active: boolean): Promise<{ message: string }> {
+        return fetchApi<{ message: string }>(
+            `/api/admin/users/${userId}/activate?active=${active}`,
+            { method: "PATCH" }
+        );
+    },
 };
 
 // ============================================================================

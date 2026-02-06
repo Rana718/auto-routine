@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Upload, Filter, Search, ChevronDown, Loader2, Plus, Download, Eye, Trash2 } from "lucide-react";
+import { Upload, Filter, Search, ChevronDown, Loader2, Plus, Eye, Trash2, FileSpreadsheet } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +9,8 @@ import { cn } from "@/lib/utils";
 import { ordersApi } from "@/lib/api";
 import { ImportOrdersModal } from "@/components/modals/ImportOrdersModal";
 import { CreateOrderModal } from "@/components/modals/CreateOrderModal";
+import { ExportButton } from "@/components/ui/ExportButton";
+import { readFileAsCSVText } from "@/lib/excel";
 import type { OrderWithItems, OrderStatus } from "@/lib/types";
 import { useSession } from "next-auth/react";
 import { AlertModal } from "@/components/modals/AlertModal";
@@ -42,6 +44,7 @@ export default function OrdersPage() {
     const [alertModal, setAlertModal] = useState<{ message: string; type: "success" | "error" } | null>(null);
     const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
     const [deleting, setDeleting] = useState(false);
+    const [importingPurchaseList, setImportingPurchaseList] = useState(false);
     const limit = 20;
 
     useEffect(() => {
@@ -133,23 +136,69 @@ export default function OrdersPage() {
                         <span className="sm:hidden">追加</span>
                     </Button>
                     {canManageOrders && (
-                        <Button variant="outline" className="gap-2 flex-1 sm:flex-none" type="button" onClick={() => {
-                            const token = (session as any)?.accessToken;
-                            if (!token) {
-                                setAlertModal({ message: "認証トークンが見つかりません。再度ログインしてください。", type: "error" });
-                                return;
-                            }
-                            window.open(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/settings/data/export-orders?token=${token}`, "_blank");
-                        }}>
-                            <Download className="h-4 w-4" />
-                            <span className="hidden sm:inline">CSV出力</span>
-                            <span className="sm:hidden">CSV</span>
-                        </Button>
+                        <ExportButton
+                            fetchCsv={() => {
+                                const token = (session as any)?.accessToken;
+                                if (!token) throw new Error("認証トークンが見つかりません");
+                                return fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/settings/data/export-orders?token=${token}`);
+                            }}
+                            filenameBase={`orders_${new Date().toISOString().split('T')[0]}`}
+                            onError={(msg) => setAlertModal({ message: msg, type: "error" })}
+                        />
                     )}
                     <Button className="gap-2 flex-1 sm:flex-none" type="button" onClick={() => setShowImportModal(true)}>
                         <Upload className="h-4 w-4" />
                         <span className="hidden sm:inline">注文取込</span>
                         <span className="sm:hidden">取込</span>
+                    </Button>
+                    <Button
+                        variant="outline"
+                        className="gap-2 flex-1 sm:flex-none"
+                        type="button"
+                        disabled={importingPurchaseList}
+                        onClick={() => {
+                            const input = document.createElement('input');
+                            input.type = 'file';
+                            input.accept = '.csv,.xlsx,.xls';
+                            input.onchange = async (e) => {
+                                const file = (e.target as HTMLInputElement).files?.[0];
+                                if (!file) return;
+                                const token = (session as any)?.accessToken;
+                                if (!token) {
+                                    setAlertModal({ message: "認証トークンが見つかりません。再度ログインしてください。", type: "error" });
+                                    return;
+                                }
+                                setImportingPurchaseList(true);
+                                try {
+                                    const text = await readFileAsCSVText(file);
+                                    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/settings/data/import-purchase-list`, {
+                                        method: 'POST',
+                                        headers: {
+                                            'Content-Type': 'application/json',
+                                            Authorization: `Bearer ${token}`
+                                        },
+                                        body: JSON.stringify({ csv_data: text })
+                                    });
+                                    const result = await response.json();
+                                    if (!response.ok) throw new Error(result.detail || "インポートに失敗しました");
+                                    setAlertModal({ message: result.message || "購入リストをインポートしました", type: "success" });
+                                    await fetchOrders();
+                                } catch (err) {
+                                    setAlertModal({ message: err instanceof Error ? err.message : "インポートに失敗しました", type: "error" });
+                                } finally {
+                                    setImportingPurchaseList(false);
+                                }
+                            };
+                            input.click();
+                        }}
+                    >
+                        {importingPurchaseList ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                            <FileSpreadsheet className="h-4 w-4" />
+                        )}
+                        <span className="hidden sm:inline">{importingPurchaseList ? "インポート中..." : "購入リスト"}</span>
+                        <span className="sm:hidden">{importingPurchaseList ? "処理中" : "購入"}</span>
                     </Button>
                 </div>
             </form>

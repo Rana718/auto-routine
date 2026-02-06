@@ -84,6 +84,8 @@ export function Input({ className, ...props }: InputProps) {
                 "disabled:opacity-50 disabled:cursor-not-allowed",
                 className
             )}
+            spellCheck={false}
+            autoComplete="off"
             {...props}
         />
     );

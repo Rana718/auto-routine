@@ -139,8 +139,23 @@ async def auto_assign_daily_orders(db: AsyncSession, target_date: date) -> Dict[
         lng = float(s.start_location_lng) if s.start_location_lng else 135.5023
         staff_centroids[s.staff_id] = (lat, lng)
 
+    # Calculate target load per staff for balanced distribution
+    total_alloc_count = sum(
+        len(a.allocations) for a in item_allocations.values() if a and a.allocations
+    )
+    target_load_per_staff = max(1, total_alloc_count // len(available_staff))
+
     def _find_best_staff(item_store_ids: List[int], alloc_count: int):
-        """Find staff with capacity who is geographically closest to the item's stores."""
+        """
+        Find best staff balancing geography + workload distribution.
+
+        Scoring: distance * (1 + load_ratio * BALANCE_WEIGHT)
+        - Empty staff get no penalty → naturally attract items
+        - Busy staff get higher scores → items go to less-loaded staff
+        - Overlap bonus still applies → same-store items cluster together
+        """
+        BALANCE_WEIGHT = 3.0  # How strongly to penalize uneven distribution
+
         # Compute centroid of this item's store locations
         item_lats, item_lngs = [], []
         for sid in item_store_ids:
@@ -173,6 +188,10 @@ async def auto_assign_daily_orders(db: AsyncSession, target_date: date) -> Dict[
             overlap = len(staff_store_sets[s.staff_id] & set(item_store_ids))
             if overlap > 0:
                 dist *= 0.5  # halve distance score for overlapping stores
+
+            # Load balancing: penalize staff who already have more than their fair share
+            load_ratio = current_load / max(target_load_per_staff, 1)
+            dist = (dist + 0.001) * (1 + load_ratio * BALANCE_WEIGHT)
 
             if dist < best_score:
                 best_score = dist
