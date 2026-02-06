@@ -293,9 +293,9 @@ class Staff(Base):
     password_hash = Column(String(255), nullable=True)
     role = Column(Enum(StaffRole), default=StaffRole.BUYER)
     status = Column(Enum(StaffStatus), default=StaffStatus.OFF_DUTY)
-    start_location_lat = Column(Numeric(10, 7), nullable=True)
-    start_location_lng = Column(Numeric(10, 7), nullable=True)
-    start_location_name = Column(String(200), default="オフィス（六本木）")
+    start_location_lat = Column(Numeric(10, 7), default=Decimal("34.6937"))
+    start_location_lng = Column(Numeric(10, 7), default=Decimal("135.5023"))
+    start_location_name = Column(String(200), default="オフィス（大阪）")
     current_location_lat = Column(Numeric(10, 7), nullable=True)
     current_location_lng = Column(Numeric(10, 7), nullable=True)
     current_location_name = Column(String(200), nullable=True)
@@ -600,7 +600,7 @@ class StaffBase(BaseModel):
     email: Optional[str] = None
     phone: Optional[str] = None
     role: StaffRole = StaffRole.BUYER
-    start_location_name: str = "オフィス（六本木）"
+    start_location_name: str = "オフィス（大阪）"
     max_daily_capacity: int = 20
 
 
@@ -663,7 +663,7 @@ class SettingsBase(BaseModel):
     cutoff_time: time = Field(default=time(13, 10))
     weekend_processing: bool = False
     holiday_override: bool = True
-    default_start_location: str = "オフィス（六本木）"
+    default_start_location: str = "オフィス（大阪）"
     max_orders_per_staff: int = 20
     auto_assign: bool = True
     optimization_priority: str = "speed"  # speed, distance, cost, balanced

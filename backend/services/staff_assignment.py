@@ -114,59 +114,127 @@ async def auto_assign_daily_orders(db: AsyncSession, target_date: date) -> Dict[
             await db.refresh(new_list)
             staff_lists[staff.staff_id] = new_list
 
-    # Assign items using round-robin with capacity checks
+    # Build store coordinate lookup for geography-aware assignment
+    all_store_ids = set()
+    for allocation in item_allocations.values():
+        for sa in allocation.allocations:
+            all_store_ids.add(sa.store_id)
+
+    store_coords: Dict[int, tuple] = {}
+    if all_store_ids:
+        store_result = await db.execute(
+            select(Store.store_id, Store.latitude, Store.longitude)
+            .where(Store.store_id.in_(list(all_store_ids)))
+        )
+        for row in store_result.all():
+            if row.latitude and row.longitude:
+                store_coords[row.store_id] = (float(row.latitude), float(row.longitude))
+
+    # Track which stores each staff member is already visiting (geographic centroid)
+    staff_store_sets: Dict[int, set] = {s.staff_id: set() for s in available_staff}
+    staff_centroids: Dict[int, tuple] = {}
+    for s in available_staff:
+        # Start centroid at staff's office/start location
+        lat = float(s.start_location_lat) if s.start_location_lat else 34.6937
+        lng = float(s.start_location_lng) if s.start_location_lng else 135.5023
+        staff_centroids[s.staff_id] = (lat, lng)
+
+    def _find_best_staff(item_store_ids: List[int], alloc_count: int):
+        """Find staff with capacity who is geographically closest to the item's stores."""
+        # Compute centroid of this item's store locations
+        item_lats, item_lngs = [], []
+        for sid in item_store_ids:
+            if sid in store_coords:
+                item_lats.append(store_coords[sid][0])
+                item_lngs.append(store_coords[sid][1])
+
+        if not item_lats:
+            item_centroid = (34.6937, 135.5023)
+        else:
+            item_centroid = (
+                sum(item_lats) / len(item_lats),
+                sum(item_lngs) / len(item_lngs),
+            )
+
+        best_staff_id = None
+        best_score = float("inf")
+
+        for s in available_staff:
+            current_load = staff_workload.get(s.staff_id, 0)
+            max_load = staff_capacity.get(s.staff_id, 20)
+            if current_load + alloc_count > max_load:
+                continue
+
+            # Score = distance from staff's centroid to item's stores
+            c = staff_centroids[s.staff_id]
+            dist = ((c[0] - item_centroid[0]) ** 2 + (c[1] - item_centroid[1]) ** 2) ** 0.5
+
+            # Bonus: prefer staff who already visit one of the same stores (reduces new stops)
+            overlap = len(staff_store_sets[s.staff_id] & set(item_store_ids))
+            if overlap > 0:
+                dist *= 0.5  # halve distance score for overlapping stores
+
+            if dist < best_score:
+                best_score = dist
+                best_staff_id = s.staff_id
+
+        return best_staff_id
+
+    def _update_staff_centroid(sid: int, new_store_ids: List[int]):
+        """Incrementally update staff centroid as stores are added."""
+        for store_id in new_store_ids:
+            staff_store_sets[sid].add(store_id)
+
+        all_lats, all_lngs = [], []
+        for store_id in staff_store_sets[sid]:
+            if store_id in store_coords:
+                all_lats.append(store_coords[store_id][0])
+                all_lngs.append(store_coords[store_id][1])
+
+        if all_lats:
+            staff_centroids[sid] = (
+                sum(all_lats) / len(all_lats),
+                sum(all_lngs) / len(all_lngs),
+            )
+
+    # Geography-aware assignment
     assigned_items_count = 0
     assigned_list_items_count = 0
-    staff_list = list(available_staff)
-    staff_index = 0
 
     for item in pending_items:
         allocation = item_allocations.get(item.item_id)
         if not allocation or not allocation.allocations:
             continue
 
-        # Try to assign this item's allocations to a staff member
-        attempts = 0
-        assigned = False
+        allocations_count = len(allocation.allocations)
+        item_store_ids = [sa.store_id for sa in allocation.allocations]
 
-        while attempts < len(staff_list):
-            staff = staff_list[staff_index]
-            staff_index = (staff_index + 1) % len(staff_list)
-            attempts += 1
+        # Find best staff by geography + capacity
+        best_sid = _find_best_staff(item_store_ids, allocations_count)
+        if best_sid is None:
+            continue  # All staff at capacity
 
-            current_load = staff_workload.get(staff.staff_id, 0)
-            max_load = staff_capacity.get(staff.staff_id, 20)
+        purchase_list = staff_lists[best_sid]
+        current_load = staff_workload.get(best_sid, 0)
 
-            # Check if staff has capacity (count each store allocation as 1 task)
-            allocations_count = len(allocation.allocations)
-            if current_load + allocations_count <= max_load:
-                purchase_list = staff_lists[staff.staff_id]
+        for store_alloc in allocation.allocations:
+            list_item = PurchaseListItem(
+                list_id=purchase_list.list_id,
+                item_id=item.item_id,
+                store_id=store_alloc.store_id,
+                quantity_to_purchase=store_alloc.quantity,
+                sequence_order=current_load + 1,
+                purchase_status=PurchaseStatus.PENDING,
+            )
+            db.add(list_item)
+            current_load += 1
+            assigned_list_items_count += 1
 
-                # Create PurchaseListItem for EACH store allocation
-                for store_alloc in allocation.allocations:
-                    list_item = PurchaseListItem(
-                        list_id=purchase_list.list_id,
-                        item_id=item.item_id,
-                        store_id=store_alloc.store_id,
-                        quantity_to_purchase=store_alloc.quantity,  # NEW FIELD
-                        sequence_order=current_load + 1,
-                        purchase_status=PurchaseStatus.PENDING,
-                    )
-                    db.add(list_item)
-                    current_load += 1
-                    assigned_list_items_count += 1
-
-                # Update item status
-                item.item_status = ItemStatus.ASSIGNED
-                staff_workload[staff.staff_id] = current_load
-                purchase_list.total_items += allocations_count
-                assigned_items_count += 1
-                assigned = True
-                break
-
-        if not assigned:
-            # All staff are at capacity
-            pass
+        item.item_status = ItemStatus.ASSIGNED
+        staff_workload[best_sid] = current_load
+        purchase_list.total_items += allocations_count
+        assigned_items_count += 1
+        _update_staff_centroid(best_sid, item_store_ids)
 
     # Update order statuses
     for order in pending_orders:

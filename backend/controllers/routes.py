@@ -11,6 +11,11 @@ from db.schema import (
 )
 from models.routes import RouteWithDetails, RouteGenerate, StopUpdate, RouteReorder
 
+# Default office location: Osaka central
+DEFAULT_OFFICE_LAT = 34.6937
+DEFAULT_OFFICE_LNG = 135.5023
+DEFAULT_OFFICE_NAME = "オフィス（大阪）"
+
 async def get_all_routes(
     db: AsyncSession,
     route_date: Optional[date],
@@ -19,53 +24,77 @@ async def get_all_routes(
     skip: int,
     limit: int
 ) -> List[RouteWithDetails]:
-    from db.schema import Store
-    
+    from controllers.settings import extract_coordinates_from_address
+
     query = select(Route).options(
         selectinload(Route.stops).selectinload(RouteStop.store),
         selectinload(Route.staff)
     )
-    
+
     if route_date:
         query = query.where(Route.route_date == route_date)
     if staff_id:
         query = query.where(Route.staff_id == staff_id)
     if status:
         query = query.where(Route.route_status == status)
-    
+
     query = query.order_by(Route.route_date.desc()).offset(skip).limit(limit)
     result = await db.execute(query)
     routes = result.scalars().all()
-    
-    return [
-        RouteWithDetails(
-            route_id=r.route_id,
-            staff_id=r.staff_id,
-            staff_name=r.staff.staff_name if r.staff else "Unknown",
-            staff_avatar=r.staff.staff_name[0] if r.staff else "?",
-            route_date=r.route_date,
-            route_status=r.route_status,
-            total_stops=len(r.stops),
-            completed_stops=sum(1 for s in r.stops if s.stop_status == StopStatus.COMPLETED),
-            estimated_duration=f"{r.estimated_time_minutes or 0}分",
-            stops=[
-                {
-                    "stop_id": s.stop_id,
-                    "store_id": s.store_id,
-                    "store_name": s.store.store_name if s.store else None,
-                    "store_address": s.store.address if s.store else None,
-                    "store_latitude": float(s.store.latitude) if s.store and s.store.latitude else None,
-                    "store_longitude": float(s.store.longitude) if s.store and s.store.longitude else None,
-                    "stop_sequence": s.stop_sequence,
-                    "stop_status": s.stop_status.value,
-                    "items_count": s.items_count,
-                    "estimated_arrival": s.estimated_arrival.isoformat() if s.estimated_arrival else None,
-                }
-                for s in sorted(r.stops, key=lambda x: x.stop_sequence)
-            ],
+
+    def get_store_coords(store):
+        """Get store coordinates, auto-geocoding from address if missing."""
+        if not store:
+            return None, None
+        lat = float(store.latitude) if store.latitude else None
+        lng = float(store.longitude) if store.longitude else None
+        if (lat is None or lng is None) and store.address:
+            geo_lat, geo_lng = extract_coordinates_from_address(store.address)
+            if geo_lat and geo_lng:
+                lat = float(geo_lat)
+                lng = float(geo_lng)
+                # Save for future queries (committed by session)
+                store.latitude = geo_lat
+                store.longitude = geo_lng
+        return lat, lng
+
+    route_list = []
+    for r in routes:
+        stops = []
+        for s in sorted(r.stops, key=lambda x: x.stop_sequence):
+            store_lat, store_lng = get_store_coords(s.store)
+            stops.append({
+                "stop_id": s.stop_id,
+                "store_id": s.store_id,
+                "store_name": s.store.store_name if s.store else None,
+                "store_address": s.store.address if s.store else None,
+                "store_latitude": store_lat,
+                "store_longitude": store_lng,
+                "stop_sequence": s.stop_sequence,
+                "stop_status": s.stop_status.value,
+                "items_count": s.items_count,
+                "estimated_arrival": s.estimated_arrival.isoformat() if s.estimated_arrival else None,
+            })
+
+        route_list.append(
+            RouteWithDetails(
+                route_id=r.route_id,
+                staff_id=r.staff_id,
+                staff_name=r.staff.staff_name if r.staff else "Unknown",
+                staff_avatar=r.staff.staff_name[0] if r.staff else "?",
+                route_date=r.route_date,
+                route_status=r.route_status,
+                total_stops=len(r.stops),
+                completed_stops=sum(1 for s in r.stops if s.stop_status == StopStatus.COMPLETED),
+                estimated_duration=f"{r.estimated_time_minutes or 0}分",
+                start_location_lat=float(r.start_location_lat) if r.start_location_lat else (float(r.staff.start_location_lat) if r.staff and r.staff.start_location_lat else DEFAULT_OFFICE_LAT),
+                start_location_lng=float(r.start_location_lng) if r.start_location_lng else (float(r.staff.start_location_lng) if r.staff and r.staff.start_location_lng else DEFAULT_OFFICE_LNG),
+                start_location_name=(r.staff.start_location_name if r.staff and r.staff.start_location_name else DEFAULT_OFFICE_NAME),
+                stops=stops,
+            )
         )
-        for r in routes
-    ]
+
+    return route_list
 
 async def get_route_by_id(db: AsyncSession, route_id: int):
     result = await db.execute(
@@ -109,27 +138,26 @@ async def generate_route_controller(db: AsyncSession, data: RouteGenerate):
     staff = result.scalar_one_or_none()
     if not staff:
         raise HTTPException(status_code=404, detail="スタッフが見つかりません")
-    
+
     result = await db.execute(select(PurchaseList).where(PurchaseList.list_id == data.list_id))
     purchase_list = result.scalar_one_or_none()
     if not purchase_list:
         raise HTTPException(status_code=404, detail="買付リストが見つかりません")
-    
-    route = Route(
-        list_id=data.list_id,
-        staff_id=data.staff_id,
-        route_date=purchase_list.purchase_date,
-        start_location_lat=staff.start_location_lat,
-        start_location_lng=staff.start_location_lng,
-        route_status=RouteStatus.NOT_STARTED,
+
+    from services.route_optimization import generate_route_for_staff
+    route_id = await generate_route_for_staff(
+        db, data.staff_id, purchase_list.purchase_date, data.optimization_priority
     )
-    db.add(route)
-    await db.flush()
-    await db.refresh(route)
-    
+
+    if not route_id:
+        raise HTTPException(
+            status_code=400,
+            detail="ルート生成に失敗しました（購入アイテムがありません）"
+        )
+
     return {
         "message": "ルートを生成しました",
-        "route_id": route.route_id,
+        "route_id": route_id,
         "optimization": data.optimization_priority,
     }
 
@@ -254,7 +282,7 @@ async def update_stop_controller(db: AsyncSession, route_id: int, stop_id: int, 
             if completed_stops == len(all_stops):
                 route.route_status = RouteStatus.COMPLETED
     
-    await db.commit()
+    await db.flush()
     return {"message": "ストップを更新しました", "new_status": update.stop_status}
 
 async def start_all_routes_controller(db: AsyncSession, route_date: date = None):
@@ -269,7 +297,7 @@ async def start_all_routes_controller(db: AsyncSession, route_date: date = None)
     for route in routes:
         route.route_status = RouteStatus.IN_PROGRESS
     
-    await db.commit()
+    await db.flush()
     return {"message": f"{len(routes)}件のルートを開始しました", "count": len(routes)}
 
 async def reorder_route_stops_controller(db: AsyncSession, route_id: int, reorder: RouteReorder, current_user: Staff):
@@ -320,6 +348,6 @@ async def reorder_route_stops_controller(db: AsyncSession, route_id: int, reorde
         if stop:
             stop.stop_sequence = new_sequence
     
-    await db.commit()
+    await db.flush()
     return {"message": "ルートを並び替えました"}
 

@@ -96,10 +96,35 @@ export function RouteMap({ stops, startLocation, className = "" }: RouteMapProps
             waypoints.push(`${startLocation.lng},${startLocation.lat}`);
         }
 
-        validStops.forEach((stop) => {
+        // Detect overlapping coordinates and apply small offsets for marker visibility
+        const coordKey = (lat: number, lng: number) => `${lat.toFixed(4)},${lng.toFixed(4)}`;
+        const coordGroups = new Map<string, number[]>();
+        validStops.forEach((stop, idx) => {
             if (stop.latitude && stop.longitude) {
-                const point: [number, number] = [stop.latitude, stop.longitude];
-                routePoints.push(point);
+                const key = coordKey(stop.latitude, stop.longitude);
+                if (!coordGroups.has(key)) coordGroups.set(key, []);
+                coordGroups.get(key)!.push(idx);
+            }
+        });
+
+        // Get display point with offset for overlapping markers
+        const getDisplayPoint = (stop: Stop, idx: number): [number, number] => {
+            const lat = stop.latitude!;
+            const lng = stop.longitude!;
+            const key = coordKey(lat, lng);
+            const group = coordGroups.get(key);
+            if (!group || group.length <= 1) return [lat, lng];
+            const posInGroup = group.indexOf(idx);
+            const angle = (posInGroup * 2 * Math.PI) / group.length - Math.PI / 2;
+            const offset = 0.0004; // ~40 meters
+            return [lat + offset * Math.cos(angle), lng + offset * Math.sin(angle)];
+        };
+
+        validStops.forEach((stop, idx) => {
+            if (stop.latitude && stop.longitude) {
+                const displayPoint = getDisplayPoint(stop, idx);
+                // Use original coords for routing, display coords for markers
+                routePoints.push([stop.latitude, stop.longitude]);
                 waypoints.push(`${stop.longitude},${stop.latitude}`);
 
                 // Choose icon based on status
@@ -110,7 +135,7 @@ export function RouteMap({ stops, startLocation, className = "" }: RouteMapProps
                     icon = CurrentIcon;
                 }
 
-                L.marker(point, { icon })
+                L.marker(displayPoint, { icon })
                     .bindPopup(
                         `<b>${stop.stop_sequence}. ${stop.store_name || `店舗 #${stop.store_id}`}</b><br/>` +
                         `${stop.store_address || ""}<br/>` +
@@ -121,7 +146,7 @@ export function RouteMap({ stops, startLocation, className = "" }: RouteMapProps
             }
         });
 
-        // Fetch and draw actual road route using OSRM
+        // Fetch and draw road route using single OSRM call with full geometry
         if (waypoints.length > 1) {
             const coordinates = waypoints.join(";");
             fetch(`https://router.project-osrm.org/route/v1/driving/${coordinates}?overview=full&geometries=geojson`)
@@ -130,38 +155,25 @@ export function RouteMap({ stops, startLocation, className = "" }: RouteMapProps
                     if (!routeLayer) return;
 
                     if (data.code === "Ok" && data.routes && data.routes.length > 0) {
-                        // Draw route segments between stops with different colors based on completion
-                        for (let i = 0; i < validStops.length; i++) {
-                            const currentStop = validStops[i];
-                            const isCompleted = currentStop.stop_status === "completed";
+                        const route = data.routes[0];
 
-                            const startIdx = startLocation ? i : i;
-                            const endIdx = startIdx + 1;
+                        // Draw full continuous route from the overview geometry
+                        if (route.geometry?.coordinates) {
+                            const allCoords: [number, number][] = route.geometry.coordinates.map(
+                                (coord: [number, number]) => [coord[1], coord[0]] as [number, number]
+                            );
 
-                            if (endIdx < waypoints.length) {
-                                const segmentWaypoints = [waypoints[startIdx], waypoints[endIdx]].join(";");
-                                fetch(`https://router.project-osrm.org/route/v1/driving/${segmentWaypoints}?overview=full&geometries=geojson`)
-                                    .then(res => res.json())
-                                    .then(segData => {
-                                        if (!routeLayer) return;
-                                        if (segData.code === "Ok" && segData.routes && segData.routes.length > 0) {
-                                            const segRoute = segData.routes[0];
-                                            const segCoordinates = segRoute.geometry.coordinates.map(
-                                                (coord: [number, number]) => [coord[1], coord[0]] as [number, number]
-                                            );
+                            // Check if any stops are completed for coloring
+                            const hasCompleted = validStops.some(s => s.stop_status === "completed");
+                            const allCompleted = validStops.every(s => s.stop_status === "completed");
 
-                                            L.polyline(segCoordinates, {
-                                                color: isCompleted ? "#10b981" : "#2563eb",
-                                                weight: 5,
-                                                opacity: isCompleted ? 0.9 : 0.7,
-                                            }).addTo(routeLayer);
-                                        }
-                                    })
-                                    .catch(err => console.error("Segment routing error:", err));
-                            }
+                            L.polyline(allCoords, {
+                                color: allCompleted ? "#10b981" : hasCompleted ? "#6366f1" : "#2563eb",
+                                weight: 5,
+                                opacity: 0.8,
+                            }).addTo(routeLayer);
                         }
                     } else {
-                        // Fallback to straight lines if routing fails
                         drawFallbackRoutes(routePoints, validStops, startLocation, routeLayer);
                     }
                 })
@@ -192,8 +204,8 @@ export function RouteMap({ stops, startLocation, className = "" }: RouteMapProps
     useEffect(() => {
         if (!mapContainerRef.current || mapRef.current) return;
 
-        // Default center: Tokyo
-        const defaultCenter: [number, number] = [35.6762, 139.6503];
+        // Default center: Osaka (primary operating city)
+        const defaultCenter: [number, number] = [34.6937, 135.5023];
 
         // Calculate initial center
         const validStops = stops.filter((s) => s.latitude && s.longitude);

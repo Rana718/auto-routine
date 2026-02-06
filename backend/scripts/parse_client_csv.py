@@ -65,8 +65,9 @@ def extract_postal_code(address: str) -> Tuple[str, str]:
 
 
 def extract_district(address: str) -> str:
-    """Extract district (区) from address."""
-    match = re.search(r'大阪府大阪市(\w+区)', address)
+    """Extract district (区) from address. Supports any Japanese city."""
+    # General pattern: city + district (e.g., 大阪市中央区, 堺市北区, 尼崎市...)
+    match = re.search(r'(?:都|道|府|県)\w+?市(\w+区)', address)
     if match:
         return match.group(1)
     return ""

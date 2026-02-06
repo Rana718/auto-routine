@@ -142,7 +142,7 @@ export function CreateStoreModal({ isOpen, onClose, onSuccess, editStore }: Crea
                     <Input
                         value={address}
                         onChange={(e) => setAddress(e.target.value)}
-                        placeholder="東京都渋谷区道玄坂2-25-12"
+                        placeholder="大阪府大阪市中央区難波3-6-3"
                     />
                 </FormField>
 

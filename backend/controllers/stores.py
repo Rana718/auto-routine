@@ -17,7 +17,7 @@ async def get_all_stores(
     limit: int
 ) -> List[StoreWithOrders]:
     query = select(Store)
-    
+
     if active_only:
         query = query.where(Store.is_active == True)
     if category:
@@ -29,15 +29,15 @@ async def get_all_stores(
             Store.store_name.ilike(f"%{search}%") |
             Store.district.ilike(f"%{search}%")
         )
-    
+
     query = query.order_by(Store.priority_level, Store.store_name).offset(skip).limit(limit)
     result = await db.execute(query)
     stores = result.scalars().all()
-    
+
     # Batch query for order counts to avoid N+1
     store_ids = [s.store_id for s in stores]
     today = date.today()
-    
+
     orders_query = select(
         PurchaseListItem.store_id,
         func.count(PurchaseListItem.list_item_id).label('count')
@@ -47,10 +47,10 @@ async def get_all_stores(
         PurchaseListItem.store_id.in_(store_ids),
         PurchaseList.purchase_date == today
     ).group_by(PurchaseListItem.store_id)
-    
+
     orders_result = await db.execute(orders_query)
     order_counts = {row[0]: row[1] for row in orders_result.all()}
-    
+
     return [
         StoreWithOrders(
             store_id=s.store_id,
@@ -77,7 +77,7 @@ async def get_store_statistics(db: AsyncSession) -> StoreStats:
     )
     store_result = await db.execute(store_query)
     store_row = store_result.one()
-    
+
     # Get stores with orders and total orders in single query
     today = date.today()
     orders_query = select(
@@ -90,7 +90,7 @@ async def get_store_statistics(db: AsyncSession) -> StoreStats:
     )
     orders_result = await db.execute(orders_query)
     orders_row = orders_result.one()
-    
+
     return StoreStats(
         total_stores=store_row.total or 0,
         active_stores=store_row.active or 0,
@@ -117,7 +117,7 @@ async def get_store_by_id(db: AsyncSession, store_id: int) -> StoreWithOrders:
     store = result.scalar_one_or_none()
     if not store:
         raise HTTPException(status_code=404, detail="店舗が見つかりません")
-    
+
     return StoreWithOrders(
         store_id=store.store_id,
         store_name=store.store_name,
@@ -151,10 +151,10 @@ async def update_store_controller(db: AsyncSession, store_id: int, update: Store
     store = result.scalar_one_or_none()
     if not store:
         raise HTTPException(status_code=404, detail="店舗が見つかりません")
-    
+
     for field, value in update.model_dump(exclude_unset=True).items():
         setattr(store, field, value)
-    
+
     await db.flush()
     await db.refresh(store)
     return store
@@ -164,6 +164,6 @@ async def delete_store_controller(db: AsyncSession, store_id: int):
     store = result.scalar_one_or_none()
     if not store:
         raise HTTPException(status_code=404, detail="店舗が見つかりません")
-    
+
     store.is_active = False
     return {"message": "店舗を無効化しました"}

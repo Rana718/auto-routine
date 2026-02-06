@@ -6,7 +6,7 @@ class CutoffSettings(BaseModel):
     holiday_override: bool = True
 
 class StaffSettings(BaseModel):
-    default_start_location: str = "オフィス（六本木）"
+    default_start_location: str = "オフィス（大阪）"
     max_orders_per_staff: int = 20
     auto_assign: bool = True
 

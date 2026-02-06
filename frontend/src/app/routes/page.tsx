@@ -227,7 +227,11 @@ export default function RoutesPage() {
                                         latitude: stop.store_latitude,
                                         longitude: stop.store_longitude,
                                     }))}
-                                    startLocation={{ lat: 35.6762, lng: 139.6503, name: "オフィス" }}
+                                    startLocation={
+                                        activeRoute.start_location_lat && activeRoute.start_location_lng
+                                            ? { lat: activeRoute.start_location_lat, lng: activeRoute.start_location_lng, name: activeRoute.start_location_name || "オフィス" }
+                                            : undefined
+                                    }
                                     className="h-75"
                                 />
                             ) : (
