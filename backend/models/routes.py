@@ -13,6 +13,9 @@ class RouteWithDetails(BaseModel):
     total_stops: int
     completed_stops: int
     estimated_duration: str
+    start_location_lat: Optional[float] = None
+    start_location_lng: Optional[float] = None
+    start_location_name: Optional[str] = None
     stops: List[dict] = []
 
 class RouteGenerate(BaseModel):

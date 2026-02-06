@@ -272,6 +272,9 @@ export interface Route {
     total_stops: number;
     completed_stops: number;
     estimated_duration: string;
+    start_location_lat: number | null;
+    start_location_lng: number | null;
+    start_location_name: string | null;
     stops: RouteStop[];
 }
 

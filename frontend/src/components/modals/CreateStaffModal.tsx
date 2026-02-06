@@ -23,7 +23,7 @@ export function CreateStaffModal({ isOpen, onClose, onSuccess }: CreateStaffModa
     const [phone, setPhone] = useState("");
     const [password, setPassword] = useState("");
     const [role, setRole] = useState<StaffRole>("buyer");
-    const [startLocation, setStartLocation] = useState("オフィス（六本木）");
+    const [startLocation, setStartLocation] = useState("オフィス（大阪）");
     const [maxCapacity, setMaxCapacity] = useState(20);
 
     async function handleSubmit(e: React.FormEvent) {
@@ -65,7 +65,7 @@ export function CreateStaffModal({ isOpen, onClose, onSuccess }: CreateStaffModa
         setPhone("");
         setPassword("");
         setRole("buyer");
-        setStartLocation("オフィス（六本木）");
+        setStartLocation("オフィス（大阪）");
         setMaxCapacity(20);
         setError(null);
     }
@@ -134,7 +134,7 @@ export function CreateStaffModal({ isOpen, onClose, onSuccess }: CreateStaffModa
                     <Input
                         value={startLocation}
                         onChange={(e) => setStartLocation(e.target.value)}
-                        placeholder="オフィス（六本木）"
+                        placeholder="オフィス（大阪）"
                     />
                 </FormField>
 

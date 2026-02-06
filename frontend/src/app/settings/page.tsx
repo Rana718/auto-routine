@@ -24,7 +24,7 @@ export default function SettingsPage() {
     const [cutoffTime, setCutoffTime] = useState("13:10");
     const [weekendProcessing, setWeekendProcessing] = useState(false);
     const [holidayOverride, setHolidayOverride] = useState(true);
-    const [defaultStartLocation, setDefaultStartLocation] = useState("オフィス（六本木）");
+    const [defaultStartLocation, setDefaultStartLocation] = useState("オフィス（大阪）");
     const [maxOrdersPerStaff, setMaxOrdersPerStaff] = useState(20);
     const [autoAssign, setAutoAssign] = useState(true);
     const [optimizationPriority, setOptimizationPriority] = useState("speed");
