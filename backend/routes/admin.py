@@ -14,6 +14,12 @@ router = APIRouter()
 class RoleUpdateRequest(BaseModel):
     role: StaffRole
 
+class UserUpdateRequest(BaseModel):
+    staff_name: Optional[str] = None
+    email: Optional[str] = None
+    password: Optional[str] = None
+    role: Optional[StaffRole] = None
+
 @router.get("/users", response_model=List[StaffResponse])
 @require_role(StaffRole.ADMIN)
 async def get_all_users(
@@ -61,6 +67,41 @@ async def create_user(
     await db.commit()
     await db.refresh(new_user)
     return new_user
+
+@router.patch("/users/{user_id}")
+@require_role(StaffRole.ADMIN)
+async def update_user(
+    user_id: int,
+    request: UserUpdateRequest,
+    current_user: Annotated[Staff, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db)
+):
+    """Update user details (admin only)"""
+    result = await db.execute(select(Staff).where(Staff.staff_id == user_id))
+    user = result.scalar_one_or_none()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="ユーザーが見つかりません")
+
+    if request.staff_name is not None:
+        user.staff_name = request.staff_name
+    if request.email is not None:
+        # Check for duplicate email
+        existing = await db.execute(
+            select(Staff).where(Staff.email == request.email, Staff.staff_id != user_id)
+        )
+        if existing.scalar_one_or_none():
+            raise HTTPException(status_code=400, detail="このメールアドレスは既に登録されています")
+        user.email = request.email
+    if request.password is not None:
+        user.password_hash = hash_password(request.password)
+    if request.role is not None:
+        if user.staff_id == current_user.staff_id:
+            raise HTTPException(status_code=400, detail="自分自身の権限を変更できません")
+        user.role = request.role
+
+    await db.commit()
+    return {"message": "ユーザー情報を更新しました"}
 
 @router.patch("/users/{user_id}/role")
 @require_role(StaffRole.ADMIN)

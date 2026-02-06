@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { UserPlus, MapPin, Package, Route as RouteIcon, MoreVertical, Loader2, Edit2, Trash2, UserCheck, UserX } from "lucide-react";
+import { UserPlus, MapPin, Package, Route as RouteIcon, MoreVertical, Loader2, Trash2, UserCheck, UserX, CheckCircle, XCircle, Edit2 } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { staffApi, automationApi, ordersApi, routesApi, adminApi } from "@/lib/api";
+import { staffApi, automationApi, adminApi } from "@/lib/api";
 import { CreateStaffModal } from "@/components/modals/CreateStaffModal";
+import { EditStaffModal } from "@/components/modals/EditStaffModal";
 import { ConfirmModal } from "@/components/modals/ConfirmModal";
 import { AlertModal } from "@/components/modals/AlertModal";
 import type { StaffWithStats, StaffStatus, StaffRole } from "@/lib/types";
@@ -38,6 +39,7 @@ export default function StaffPage() {
     const [confirmDelete, setConfirmDelete] = useState<{ staffId: number; staffName: string } | null>(null);
     const [alertModal, setAlertModal] = useState<{ message: string; type: "success" | "error" } | null>(null);
     const [deleting, setDeleting] = useState(false);
+    const [editingStaff, setEditingStaff] = useState<StaffWithStats | null>(null);
 
     useEffect(() => {
         fetchStaff();
@@ -81,6 +83,24 @@ export default function StaffPage() {
             setMenuPosition(null);
         } catch (err) {
             setError(err instanceof Error ? err.message : "ステータス変更に失敗しました");
+        } finally {
+            setUpdatingStatusIds(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(staffId);
+                return newSet;
+            });
+        }
+    }
+
+    async function handleToggleActive(staffId: number, currentlyActive: boolean) {
+        try {
+            setUpdatingStatusIds(prev => new Set(prev).add(staffId));
+            await adminApi.toggleActive(staffId, !currentlyActive);
+            await fetchStaff();
+            setOpenMenuId(null);
+            setMenuPosition(null);
+        } catch (err) {
+            setAlertModal({ message: err instanceof Error ? err.message : "ステータス変更に失敗しました", type: "error" });
         } finally {
             setUpdatingStatusIds(prev => {
                 const newSet = new Set(prev);
@@ -229,7 +249,15 @@ export default function StaffPage() {
                                         />
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-semibold text-foreground truncate">{member.staff_name}</p>
+                                        <div className="flex items-center gap-1.5">
+                                            <p className="text-sm font-semibold text-foreground truncate">{member.staff_name}</p>
+                                            {!member.is_active && (
+                                                <Badge className="text-[10px] bg-destructive/20 text-destructive px-1 py-0">無効</Badge>
+                                            )}
+                                        </div>
+                                        {member.email && (
+                                            <p className="text-xs text-muted-foreground truncate">{member.email}</p>
+                                        )}
                                         <Badge className={cn("text-xs mt-0.5", roleConfig[member.role]?.className || roleConfig.buyer.className)}>
                                             {roleConfig[member.role]?.label || member.role}
                                         </Badge>
@@ -328,6 +356,7 @@ export default function StaffPage() {
                             left: `${menuPosition.left}px`,
                         }}
                     >
+                        {/* Work status toggle */}
                         <button
                             onClick={() => {
                                 const member = staff.find(s => s.staff_id === openMenuId);
@@ -354,6 +383,45 @@ export default function StaffPage() {
                             )}
                         </button>
                         <div className="h-px bg-border" />
+                        {/* Active/Inactive toggle */}
+                        <button
+                            onClick={() => {
+                                const member = staff.find(s => s.staff_id === openMenuId);
+                                if (member) handleToggleActive(member.staff_id, member.is_active);
+                            }}
+                            disabled={updatingStatusIds.has(openMenuId)}
+                            className="w-full px-4 py-2.5 text-sm text-left hover:bg-accent hover:text-accent-foreground flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                            {staff.find(s => s.staff_id === openMenuId)?.is_active ? (
+                                <>
+                                    <XCircle className="h-4 w-4" />
+                                    アカウント無効化
+                                </>
+                            ) : (
+                                <>
+                                    <CheckCircle className="h-4 w-4" />
+                                    アカウント有効化
+                                </>
+                            )}
+                        </button>
+                        <div className="h-px bg-border" />
+                        {/* Edit */}
+                        <button
+                            onClick={() => {
+                                const member = staff.find(s => s.staff_id === openMenuId);
+                                if (member) {
+                                    setEditingStaff(member);
+                                    setOpenMenuId(null);
+                                    setMenuPosition(null);
+                                }
+                            }}
+                            className="w-full px-4 py-2.5 text-sm text-left hover:bg-accent hover:text-accent-foreground flex items-center gap-2 transition-colors"
+                        >
+                            <Edit2 className="h-4 w-4" />
+                            編集
+                        </button>
+                        <div className="h-px bg-border" />
+                        {/* Delete */}
                         <button
                             onClick={() => {
                                 const member = staff.find(s => s.staff_id === openMenuId);
@@ -373,6 +441,14 @@ export default function StaffPage() {
                 isOpen={showCreateModal}
                 onClose={() => setShowCreateModal(false)}
                 onSuccess={fetchStaff}
+            />
+
+            {/* Edit Staff Modal */}
+            <EditStaffModal
+                isOpen={editingStaff !== null}
+                onClose={() => setEditingStaff(null)}
+                onSuccess={fetchStaff}
+                staff={editingStaff}
             />
 
             {/* Confirm Delete Modal */}
