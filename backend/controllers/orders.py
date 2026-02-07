@@ -123,21 +123,21 @@ async def get_all_orders(
     ]
 
 async def get_order_statistics(db: AsyncSession, target_date: Optional[date]) -> OrderStats:
-    # OPTIMIZED: Single query with conditional aggregations using CASE
+    # Count OrderItems (products) instead of Orders, since CSV import creates 1 Order with many items
     query = select(
-        func.count(Order.order_id).label('total'),
-        func.sum(case((Order.order_status == OrderStatus.PENDING, 1), else_=0)).label('pending'),
-        func.sum(case((Order.order_status == OrderStatus.ASSIGNED, 1), else_=0)).label('assigned'),
-        func.sum(case((Order.order_status == OrderStatus.COMPLETED, 1), else_=0)).label('completed'),
-        func.sum(case((Order.order_status == OrderStatus.FAILED, 1), else_=0)).label('failed')
-    )
-    
+        func.count(OrderItem.item_id).label('total'),
+        func.sum(case((OrderItem.item_status == ItemStatus.PENDING, 1), else_=0)).label('pending'),
+        func.sum(case((OrderItem.item_status == ItemStatus.ASSIGNED, 1), else_=0)).label('assigned'),
+        func.sum(case((OrderItem.item_status.in_([ItemStatus.PURCHASED]), 1), else_=0)).label('completed'),
+        func.sum(case((OrderItem.item_status.in_([ItemStatus.FAILED, ItemStatus.OUT_OF_STOCK, ItemStatus.DISCONTINUED]), 1), else_=0)).label('failed')
+    ).join(Order, OrderItem.order_id == Order.order_id)
+
     if target_date:
         query = query.where(Order.target_purchase_date == target_date)
-    
+
     result = await db.execute(query)
     row = result.one()
-    
+
     return OrderStats(
         total_orders=row.total or 0,
         pending_orders=row.pending or 0,

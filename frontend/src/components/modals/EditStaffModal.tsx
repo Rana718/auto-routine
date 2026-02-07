@@ -22,12 +22,14 @@ export function EditStaffModal({ isOpen, onClose, onSuccess, staff }: EditStaffM
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [role, setRole] = useState<StaffRole>("buyer");
+    const [maxCapacity, setMaxCapacity] = useState(20);
 
     useEffect(() => {
         if (staff && isOpen) {
             setStaffName(staff.staff_name);
             setEmail(staff.email || "");
             setRole(staff.role);
+            setMaxCapacity(staff.max_daily_capacity ?? 20);
             setPassword("");
             setError(null);
         }
@@ -45,12 +47,13 @@ export function EditStaffModal({ isOpen, onClose, onSuccess, staff }: EditStaffM
 
         try {
             setLoading(true);
-            const data: { staff_name?: string; email?: string; password?: string; role?: string } = {};
+            const data: { staff_name?: string; email?: string; password?: string; role?: string; max_daily_capacity?: number } = {};
 
             if (staffName !== staff.staff_name) data.staff_name = staffName;
             if (email !== (staff.email || "")) data.email = email || undefined;
             if (password) data.password = password;
             if (role !== staff.role) data.role = role;
+            if (maxCapacity !== (staff.max_daily_capacity ?? 20)) data.max_daily_capacity = maxCapacity;
 
             if (Object.keys(data).length === 0) {
                 onClose();
@@ -108,6 +111,16 @@ export function EditStaffModal({ isOpen, onClose, onSuccess, staff }: EditStaffM
                         <option value="supervisor">スーパーバイザー</option>
                         <option value="admin">管理者</option>
                     </Select>
+                </FormField>
+
+                <FormField label="1日の最大注文数">
+                    <Input
+                        type="number"
+                        min={1}
+                        max={100}
+                        value={maxCapacity}
+                        onChange={(e) => setMaxCapacity(Number(e.target.value))}
+                    />
                 </FormField>
 
                 <div className="flex gap-3 pt-4">
