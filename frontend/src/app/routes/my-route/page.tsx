@@ -7,6 +7,7 @@ import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { getJSTDateString } from "@/lib/date";
 import dynamic from "next/dynamic";
 import { AlertModal } from "@/components/modals/AlertModal";
 
@@ -58,7 +59,7 @@ export default function MyRoutePage() {
     const [updatingStop, setUpdatingStop] = useState<number | null>(null);
     const [alertModal, setAlertModal] = useState<{ message: string; type: "error" } | null>(null);
 
-    const today = new Date().toISOString().split("T")[0];
+    const today = getJSTDateString();
 
     useEffect(() => {
         if (session?.accessToken) {
@@ -97,9 +98,20 @@ export default function MyRoutePage() {
     async function updateStopStatus(stopId: number, newStatus: string) {
         if (!session?.accessToken || !route) return;
 
+        // Optimistic update — apply immediately for fast UI feedback
+        setRoute(prev => {
+            if (!prev) return prev;
+            return {
+                ...prev,
+                stops: prev.stops.map(s =>
+                    s.stop_id === stopId ? { ...s, stop_status: newStatus } : s
+                ),
+            };
+        });
+
         try {
             setUpdatingStop(stopId);
-            await fetch(
+            const res = await fetch(
                 `${API_BASE_URL}/api/routes/${route.route_id}/stops/${stopId}`,
                 {
                     method: "PATCH",
@@ -110,8 +122,12 @@ export default function MyRoutePage() {
                     body: JSON.stringify({ stop_status: newStatus })
                 }
             );
-            await fetchMyRoute();
+            if (!res.ok) throw new Error("更新に失敗しました");
+            // Background sync — no need to wait
+            fetchMyRoute();
         } catch (err) {
+            // Revert on error
+            fetchMyRoute();
             setAlertModal({ message: err instanceof Error ? err.message : "更新に失敗しました", type: "error" });
         } finally {
             setUpdatingStop(null);

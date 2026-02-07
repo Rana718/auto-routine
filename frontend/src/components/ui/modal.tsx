@@ -20,7 +20,7 @@ export function Modal({ isOpen, onClose, title, children, className }: ModalProp
         <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4">
             {/* Backdrop */}
             <div
-                className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+                className="absolute inset-0 bg-black/70"
                 onClick={onClose}
             />
 
@@ -28,7 +28,7 @@ export function Modal({ isOpen, onClose, title, children, className }: ModalProp
             <div
                 className={cn(
                     "relative z-10 w-full max-w-md max-h-[95vh] overflow-hidden",
-                    "rounded-xl border border-border bg-card shadow-xl",
+                    "rounded-xl border border-border bg-popover shadow-2xl",
                     className
                 )}
             >

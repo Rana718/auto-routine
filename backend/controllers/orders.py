@@ -3,6 +3,7 @@ from typing import List, Optional
 from fastapi import HTTPException
 from sqlalchemy import select, func, case
 from sqlalchemy.ext.asyncio import AsyncSession
+from utils.timezone import jst_now
 from sqlalchemy.orm import selectinload
 
 from db.schema import Order, OrderItem, OrderStatus, ItemStatus, OrderCreate, OrderResponse, OrderItemCreate, OrderItemResponse
@@ -152,7 +153,25 @@ async def get_order_by_id(db: AsyncSession, order_id: int):
     order = result.scalar_one_or_none()
     if not order:
         raise HTTPException(status_code=404, detail="注文が見つかりません")
-    return order
+    return OrderWithItemsResponse(
+        order_id=order.order_id,
+        robot_in_order_id=order.robot_in_order_id,
+        mall_name=order.mall_name,
+        customer_name=order.customer_name,
+        order_date=order.order_date.date() if isinstance(order.order_date, datetime) else order.order_date,
+        order_status=order.order_status,
+        target_purchase_date=order.target_purchase_date,
+        items=[
+            {
+                "item_id": item.item_id,
+                "sku": item.sku,
+                "product_name": item.product_name,
+                "quantity": item.quantity,
+                "item_status": item.item_status.value if item.item_status else "pending"
+            }
+            for item in order.items
+        ]
+    )
 
 async def create_new_order(db: AsyncSession, order_data: OrderCreate) -> OrderResponse:
     from utils.order_processing import apply_cutoff_logic
@@ -228,7 +247,7 @@ async def update_order_status_controller(db: AsyncSession, order_id: int, status
         raise HTTPException(status_code=404, detail="注文が見つかりません")
     
     order.order_status = status
-    order.updated_at = datetime.utcnow()
+    order.updated_at = jst_now()
     return {"message": "ステータスを更新しました", "new_status": status.value}
 
 async def import_bulk_orders(db: AsyncSession, data: BulkOrderImport):

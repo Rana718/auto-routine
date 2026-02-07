@@ -10,6 +10,7 @@ from db.schema import (
     PurchaseListItem, OrderItem, ItemStatus, Order, OrderStatus
 )
 from models.routes import RouteWithDetails, RouteGenerate, StopUpdate, RouteReorder
+from utils.timezone import jst_today
 
 # Default office location: Osaka central
 DEFAULT_OFFICE_LAT = 34.6937
@@ -164,7 +165,7 @@ async def generate_route_controller(db: AsyncSession, data: RouteGenerate):
 async def regenerate_all_routes_controller(db: AsyncSession, route_date: date = None):
     from services.route_optimization import generate_all_routes_for_date
     
-    target_date = route_date or date.today()
+    target_date = route_date or jst_today()
     route_ids = await generate_all_routes_for_date(db, target_date)
     return {
         "message": f"{target_date}の{len(route_ids)}件のルートを再生成しました", 
@@ -286,7 +287,7 @@ async def update_stop_controller(db: AsyncSession, route_id: int, stop_id: int, 
     return {"message": "ストップを更新しました", "new_status": update.stop_status}
 
 async def start_all_routes_controller(db: AsyncSession, route_date: date = None):
-    target_date = route_date or date.today()
+    target_date = route_date or jst_today()
     result = await db.execute(
         select(Route)
         .where(Route.route_date == target_date)

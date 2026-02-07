@@ -5,6 +5,7 @@ import { Upload, Loader2, FileSpreadsheet, AlertCircle } from "lucide-react";
 import { Modal, FormField, Input } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { ordersApi } from "@/lib/api";
+import { formatDateJP } from "@/lib/date";
 import type { OrderCreate } from "@/lib/types";
 import { readFileAsCSVText } from "@/lib/excel";
 
@@ -260,7 +261,7 @@ export function ImportOrdersModal({ isOpen, onClose, onSuccess }: ImportOrdersMo
                                         <td className="p-2">{order.mall_name || "-"}</td>
                                         <td className="p-2">{order.customer_name || "-"}</td>
                                         <td className="p-2 text-xs text-muted-foreground">
-                                            {new Date(order.order_date).toLocaleDateString("ja-JP")}
+                                            {formatDateJP(order.order_date)}
                                         </td>
                                     </tr>
                                 ))}

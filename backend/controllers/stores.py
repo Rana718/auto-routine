@@ -2,9 +2,9 @@ from typing import List, Optional
 from fastapi import HTTPException
 from sqlalchemy import select, func, case
 from sqlalchemy.ext.asyncio import AsyncSession
-from datetime import date
 
 from db.schema import Store, StoreCreate, StoreResponse, PurchaseListItem, PurchaseList
+from utils.timezone import jst_today
 from models.stores import StoreStats, StoreWithOrders, StoreUpdate
 
 async def get_all_stores(
@@ -36,7 +36,7 @@ async def get_all_stores(
 
     # Batch query for order counts to avoid N+1
     store_ids = [s.store_id for s in stores]
-    today = date.today()
+    today = jst_today()
 
     orders_query = select(
         PurchaseListItem.store_id,
@@ -79,7 +79,7 @@ async def get_store_statistics(db: AsyncSession) -> StoreStats:
     store_row = store_result.one()
 
     # Get stores with orders and total orders in single query
-    today = date.today()
+    today = jst_today()
     orders_query = select(
         func.count(func.distinct(PurchaseListItem.store_id)).label('stores_with_orders'),
         func.count(PurchaseListItem.list_item_id).label('total_orders')

@@ -5,6 +5,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from datetime import date
 
+from utils.timezone import jst_today
+
 from db.schema import Staff, StaffRole, StaffStatus, StaffCreate, StaffResponse, PurchaseList, ListStatus
 from models.staff import StaffStats, StaffWithStats, StaffStatusUpdate
 from middlewares.auth import hash_password
@@ -23,8 +25,8 @@ async def get_all_staff(db: AsyncSession, active_only: bool, skip: int, limit: i
     
     # OPTIMIZED: Single query with all aggregations using CASE
     staff_ids = [s.staff_id for s in staff_list]
-    today = date.today()
-    
+    today = jst_today()
+
     stats_query = select(
         PurchaseList.staff_id,
         func.count(PurchaseList.list_id).label('total_lists'),
@@ -148,5 +150,5 @@ async def auto_assign_orders_controller(db: AsyncSession, staff_id: int):
     if not staff:
         raise HTTPException(status_code=404, detail="スタッフが見つかりません")
     
-    assignment_result = await assign_to_specific_staff(db, staff_id, date.today())
+    assignment_result = await assign_to_specific_staff(db, staff_id, jst_today())
     return assignment_result

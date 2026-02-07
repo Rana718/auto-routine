@@ -9,6 +9,7 @@ import { StaffOverview } from "@/components/dashboard/StaffOverview";
 import { CutoffTimer } from "@/components/dashboard/CutoffTimer";
 import { QuickActions } from "@/components/dashboard/QuickActions";
 import { dashboardApi } from "@/lib/api";
+import { getJSTDateString, getJSTDateDisplayString } from "@/lib/date";
 import type { OrderWithItems, OrderStats, StaffWithStats, StoreStats } from "@/lib/types";
 
 export default function Dashboard() {
@@ -20,10 +21,8 @@ export default function Dashboard() {
   const [recentOrders, setRecentOrders] = useState<OrderWithItems[]>([]);
 
   // Use Japan timezone for all date calculations
-  const now = new Date();
-  const japanTime = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Tokyo" }));
-  const dateStr = `${japanTime.getFullYear()}年${japanTime.getMonth() + 1}月${japanTime.getDate()}日`;
-  const todayISO = japanTime.toISOString().split("T")[0];
+  const dateStr = getJSTDateDisplayString();
+  const todayISO = getJSTDateString();
 
   useEffect(() => {
     async function fetchData() {

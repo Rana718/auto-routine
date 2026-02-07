@@ -334,3 +334,28 @@
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
+/* Dark popup - hide Leaflet default wrapper styles */
+.dark-popup .leaflet-popup-content-wrapper {
+  background: transparent;
+  box-shadow: none;
+  border: none;
+  padding: 0;
+  border-radius: 0;
+}
+
+.dark-popup .leaflet-popup-content {
+  margin: 0;
+}
+
+.dark-popup .leaflet-popup-tip {
+  background: #1a2235;
+}
+
+.dark-popup .leaflet-popup-close-button {
+  color: #7b8ba5;
+  right: 6px;
+  top: 6px;
+  z-index: 10;
+}
+

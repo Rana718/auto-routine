@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { ordersApi } from "@/lib/api";
+import { formatDateJP } from "@/lib/date";
 import { AlertModal } from "@/components/modals/AlertModal";
 import type { OrderWithItems } from "@/lib/types";
 
@@ -128,7 +129,7 @@ export default function OrderDetailPage() {
                 <div className="rounded-xl border border-border bg-card p-4 card-shadow">
                     <p className="text-sm text-muted-foreground mb-1">注文日</p>
                     <p className="text-lg font-semibold text-foreground">
-                        {new Date(order.order_date).toLocaleDateString("ja-JP")}
+                        {formatDateJP(order.order_date)}
                     </p>
                 </div>
                 <div className="rounded-xl border border-border bg-card p-4 card-shadow">

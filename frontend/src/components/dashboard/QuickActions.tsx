@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import { useSession } from "next-auth/react";
-import { Upload, UserPlus, MapPin, RefreshCw, Loader2, Navigation } from "lucide-react";
+import { FileSpreadsheet, UserPlus, MapPin, RefreshCw, Loader2, Navigation } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { automationApi } from "@/lib/api";
-import { ImportOrdersModal } from "@/components/modals/ImportOrdersModal";
 import { AlertModal } from "@/components/modals/AlertModal";
+import { readFileAsCSVText } from "@/lib/excel";
 import Link from "next/link";
 
 interface ActionItem {
@@ -21,7 +21,6 @@ interface ActionItem {
 export function QuickActions() {
     const { data: session } = useSession();
     const [loading, setLoading] = useState<string | null>(null);
-    const [showImportModal, setShowImportModal] = useState(false);
     const [alertModal, setAlertModal] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
 
     const userRole = session?.user?.role || "buyer";
@@ -36,7 +35,37 @@ export function QuickActions() {
         console.log("Action triggered:", actionType);
 
         if (actionType === "import") {
-            setShowImportModal(true);
+            // Open file picker for purchase list CSV
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.csv,.xlsx,.xls';
+            input.onchange = async (ev) => {
+                const file = (ev.target as HTMLInputElement).files?.[0];
+                if (!file) return;
+                const token = (session as any)?.accessToken;
+                if (!token) {
+                    setAlertModal({ message: "認証トークンが見つかりません", type: "error" });
+                    return;
+                }
+                setLoading("import");
+                try {
+                    const text = await readFileAsCSVText(file);
+                    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/settings/data/import-purchase-list`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                        body: JSON.stringify({ csv_data: text, target_date: today })
+                    });
+                    const result = await response.json();
+                    if (!response.ok) throw new Error(result.detail || "インポートに失敗しました");
+                    setAlertModal({ message: result.message || "購入リストをインポートしました", type: "success" });
+                    setTimeout(() => window.location.reload(), 1500);
+                } catch (err) {
+                    setAlertModal({ message: err instanceof Error ? err.message : "インポートに失敗しました", type: "error" });
+                } finally {
+                    setLoading(null);
+                }
+            };
+            input.click();
             return;
         }
 
@@ -78,9 +107,9 @@ export function QuickActions() {
     const adminActions: ActionItem[] = [
         {
             id: "import",
-            icon: Upload,
-            label: "注文取込",
-            description: "Robot-inから取込",
+            icon: FileSpreadsheet,
+            label: "購入リスト取込",
+            description: "CSVファイルから取込",
             variant: "default",
         },
         {
@@ -183,13 +212,6 @@ export function QuickActions() {
                     })}
                 </div>
             </div>
-
-            {/* Import Orders Modal */}
-            <ImportOrdersModal
-                isOpen={showImportModal}
-                onClose={() => setShowImportModal(false)}
-                onSuccess={() => window.location.reload()}
-            />
 
             {/* Alert Modal */}
             <AlertModal

@@ -2,11 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { Clock, Users, MapPin, Bell, Database, Loader2, Calendar, Upload } from "lucide-react";
+import { Clock, Users, MapPin, Bell, Database, Loader2, Calendar, Upload, Download } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { settingsApi, extendedSettingsApi } from "@/lib/api";
+import { readFileAsCSVText } from "@/lib/excel";
+import { getJSTDateString } from "@/lib/date";
 import type { AllSettings } from "@/lib/types";
 import Link from "next/link";
 import { AlertModal } from "@/components/modals/AlertModal";
@@ -113,12 +115,12 @@ export default function SettingsPage() {
     function handleImportStores() {
         const input = document.createElement('input');
         input.type = 'file';
-        input.accept = '.csv';
+        input.accept = '.csv,.xlsx,.xls';
         input.onchange = async (e) => {
             const file = (e.target as HTMLInputElement).files?.[0];
             if (!file || !session?.accessToken) return;
             try {
-                const text = await file.text();
+                const text = await readFileAsCSVText(file);
                 const response = await fetch(`${API_BASE_URL}/api/settings/data/import-stores`, {
                     method: 'POST',
                     headers: {
@@ -140,12 +142,12 @@ export default function SettingsPage() {
     function handleImportMappings() {
         const input = document.createElement('input');
         input.type = 'file';
-        input.accept = '.csv';
+        input.accept = '.csv,.xlsx,.xls';
         input.onchange = async (e) => {
             const file = (e.target as HTMLInputElement).files?.[0];
             if (!file || !session?.accessToken) return;
             try {
-                const text = await file.text();
+                const text = await readFileAsCSVText(file);
                 const response = await fetch(`${API_BASE_URL}/api/settings/data/import-mappings`, {
                     method: 'POST',
                     headers: {
@@ -167,19 +169,19 @@ export default function SettingsPage() {
     function handleImportPurchaseList() {
         const input = document.createElement('input');
         input.type = 'file';
-        input.accept = '.csv';
+        input.accept = '.csv,.xlsx,.xls';
         input.onchange = async (e) => {
             const file = (e.target as HTMLInputElement).files?.[0];
             if (!file || !session?.accessToken) return;
             try {
-                const text = await file.text();
+                const text = await readFileAsCSVText(file);
                 const response = await fetch(`${API_BASE_URL}/api/settings/data/import-purchase-list`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         Authorization: `Bearer ${session.accessToken}`
                     },
-                    body: JSON.stringify({ csv_data: text })
+                    body: JSON.stringify({ csv_data: text, target_date: getJSTDateString() })
                 });
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.detail || "インポートに失敗しました");
@@ -196,8 +198,22 @@ export default function SettingsPage() {
 
     async function handleExportOrders() {
         try {
-            await settingsApi.exportOrders();
-            setAlertModal({ message: "注文データのエクスポートが完了しました", type: "success" });
+            const token = session?.accessToken;
+            if (!token) {
+                setAlertModal({ message: "認証トークンが見つかりません。再度ログインしてください。", type: "error" });
+                return;
+            }
+            const response = await fetch(`${API_BASE_URL}/api/settings/data/export-orders?token=${token}`);
+            if (!response.ok) throw new Error("エクスポートに失敗しました");
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `orders_${getJSTDateString()}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
         } catch (err) {
             setAlertModal({ message: err instanceof Error ? err.message : "エクスポートに失敗しました", type: "error" });
         }
@@ -520,7 +536,10 @@ export default function SettingsPage() {
                             <Upload className="h-4 w-4" />
                             商品-店舗マッピングインポート
                         </Button>
-                        <Button variant="outline" onClick={handleExportOrders}>注文エクスポート</Button>
+                        <Button variant="outline" className="gap-2" onClick={handleExportOrders}>
+                            <Download className="h-4 w-4" />
+                            注文エクスポート
+                        </Button>
                         <Button variant="outline" onClick={handleBackup}>データバックアップ</Button>
                         <Button variant="outline" onClick={async () => {
                             try {

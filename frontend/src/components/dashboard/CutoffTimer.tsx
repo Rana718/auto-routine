@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Clock, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getJSTNow } from "@/lib/date";
 
 export function CutoffTimer() {
     const [timeRemaining, setTimeRemaining] = useState<{
@@ -14,8 +15,8 @@ export function CutoffTimer() {
 
     useEffect(() => {
         const calculateTimeRemaining = () => {
-            const now = new Date();
-            const cutoff = new Date();
+            const now = getJSTNow();
+            const cutoff = getJSTNow();
             cutoff.setHours(13, 10, 0, 0);
 
             // If past cutoff time, show time until next day's cutoff

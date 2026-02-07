@@ -146,9 +146,9 @@ async def import_japan_holidays(
     year: int = None
 ):
     """Import Japan public holidays for a year"""
-    from datetime import date as dt_date
-    
-    target_year = year or dt_date.today().year
+    from utils.timezone import jst_year
+
+    target_year = year or jst_year()
     
     # Japan public holidays (approximate - some vary by year)
     japan_holidays = [
