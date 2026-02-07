@@ -153,13 +153,7 @@ export function RouteMap({ stops, startLocation, className = "" }: RouteMapProps
             }
         });
 
-        // Add return route to office (final stop → start location)
-        if (startLocation && validStops.length > 0) {
-            routePoints.push([startLocation.lat, startLocation.lng]);
-            waypoints.push(`${startLocation.lng},${startLocation.lat}`);
-        }
-
-        // Fetch and draw road route using single OSRM call with full geometry
+        // Fetch main delivery route (office → all stops) via OSRM
         if (waypoints.length > 1) {
             const coordinates = waypoints.join(";");
             fetch(`https://router.project-osrm.org/route/v1/driving/${coordinates}?overview=full&geometries=geojson`, {
@@ -167,88 +161,97 @@ export function RouteMap({ stops, startLocation, className = "" }: RouteMapProps
             })
                 .then(response => response.json())
                 .then(data => {
-                    // Check if this request was aborted
                     if (abortController.signal.aborted) return;
                     if (!routeLayer) return;
 
                     if (data.code === "Ok" && data.routes && data.routes.length > 0) {
                         const route = data.routes[0];
-
-                        // Draw the route using per-leg segments with different colors
-                        if (route.legs && route.geometry?.coordinates) {
-                            const allCoords: [number, number][] = route.geometry.coordinates.map(
+                        if (route.geometry?.coordinates) {
+                            const coords: [number, number][] = route.geometry.coordinates.map(
                                 (coord: [number, number]) => [coord[1], coord[0]] as [number, number]
                             );
-
-                            // Calculate coordinate indices for each leg boundary
-                            // Each leg has a number of steps; we use leg distances to split the coords
-                            const legBoundaries: number[] = [0];
-
-                            if (route.legs.length > 1) {
-                                // Use leg weight/distance proportions to split coordinates
-                                const totalCoords = allCoords.length;
-                                const totalDistance = route.legs.reduce((sum: number, leg: { distance: number }) => sum + leg.distance, 0);
-                                let accumulatedDistance = 0;
-
-                                for (let i = 0; i < route.legs.length - 1; i++) {
-                                    accumulatedDistance += route.legs[i].distance;
-                                    const ratio = accumulatedDistance / totalDistance;
-                                    legBoundaries.push(Math.round(ratio * (totalCoords - 1)));
-                                }
-                            }
-                            legBoundaries.push(allCoords.length - 1);
-
-                            const hasReturn = startLocation && validStops.length > 0;
-
-                            // Draw each leg with appropriate color
-                            for (let i = 0; i < route.legs.length; i++) {
-                                const startIdx = legBoundaries[i];
-                                const endIdx = legBoundaries[i + 1];
-                                if (startIdx === undefined || endIdx === undefined) continue;
-
-                                const legCoords = allCoords.slice(startIdx, endIdx + 1);
-                                if (legCoords.length < 2) continue;
-
-                                // Determine color:
-                                // - If the preceding stop is completed → green
-                                // - Return leg (last leg when hasReturn) → dashed blue
-                                // - Otherwise → blue
-                                const isReturnLeg = hasReturn && i === route.legs.length - 1;
-                                const stopIndex = startLocation ? i - 1 : i;
-                                const precedingStop = stopIndex >= 0 ? validStops[stopIndex] : null;
-                                const isAfterCompleted = precedingStop?.stop_status === "completed";
-
-                                let color = "#3b82f6"; // blue default
-                                let dashArray: string | undefined = undefined;
-                                let opacity = 0.8;
-
-                                if (isReturnLeg) {
-                                    color = "#8b5cf6"; // purple for return
-                                    dashArray = "8, 6";
-                                    opacity = 0.6;
-                                } else if (isAfterCompleted) {
-                                    color = "#10b981"; // green for completed
-                                }
-
-                                L.polyline(legCoords, {
-                                    color,
-                                    weight: 5,
-                                    opacity,
-                                    dashArray,
-                                }).addTo(routeLayer);
-                            }
+                            // Draw main route as a single solid blue line
+                            L.polyline(coords, {
+                                color: "#3b82f6",
+                                weight: 5,
+                                opacity: 0.8,
+                            }).addTo(routeLayer);
                         }
                     } else {
-                        drawFallbackRoutes(routePoints, validStops, startLocation, routeLayer);
+                        // Fallback: straight lines for main route only
+                        for (let i = 0; i < routePoints.length - 1; i++) {
+                            L.polyline([routePoints[i], routePoints[i + 1]], {
+                                color: "#3b82f6",
+                                weight: 4,
+                                opacity: 0.6,
+                                dashArray: "10, 5",
+                            }).addTo(routeLayer);
+                        }
                     }
                 })
                 .catch(err => {
                     if (abortController.signal.aborted) return;
-                    console.error("Routing error:", err);
+                    console.error("Main route error:", err);
                     if (routeLayer) {
-                        drawFallbackRoutes(routePoints, validStops, startLocation, routeLayer);
+                        for (let i = 0; i < routePoints.length - 1; i++) {
+                            L.polyline([routePoints[i], routePoints[i + 1]], {
+                                color: "#3b82f6",
+                                weight: 4,
+                                opacity: 0.6,
+                                dashArray: "10, 5",
+                            }).addTo(routeLayer);
+                        }
                     }
                 });
+        }
+
+        // Fetch return route (last stop → office) separately
+        if (startLocation && validStops.length > 0) {
+            const lastStop = validStops[validStops.length - 1];
+            if (lastStop.latitude && lastStop.longitude) {
+                const returnCoords = `${lastStop.longitude},${lastStop.latitude};${startLocation.lng},${startLocation.lat}`;
+                fetch(`https://router.project-osrm.org/route/v1/driving/${returnCoords}?overview=full&geometries=geojson`, {
+                    signal: abortController.signal,
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (abortController.signal.aborted) return;
+                        if (!routeLayer) return;
+
+                        if (data.code === "Ok" && data.routes && data.routes.length > 0) {
+                            const route = data.routes[0];
+                            if (route.geometry?.coordinates) {
+                                const coords: [number, number][] = route.geometry.coordinates.map(
+                                    (coord: [number, number]) => [coord[1], coord[0]] as [number, number]
+                                );
+                                L.polyline(coords, {
+                                    color: "#f97316",
+                                    weight: 4,
+                                    opacity: 0.85,
+                                    dashArray: "10, 6",
+                                }).addTo(routeLayer);
+                            }
+                        } else {
+                            // Fallback: straight line
+                            L.polyline(
+                                [[lastStop.latitude!, lastStop.longitude!], [startLocation.lat, startLocation.lng]],
+                                { color: "#f97316", weight: 4, opacity: 0.85, dashArray: "10, 6" }
+                            ).addTo(routeLayer);
+                        }
+                    })
+                    .catch(() => {
+                        if (abortController.signal.aborted) return;
+                        if (routeLayer && lastStop.latitude && lastStop.longitude) {
+                            L.polyline(
+                                [[lastStop.latitude, lastStop.longitude], [startLocation.lat, startLocation.lng]],
+                                { color: "#f97316", weight: 4, opacity: 0.85, dashArray: "10, 6" }
+                            ).addTo(routeLayer);
+                        }
+                    });
+
+                // Add return point to bounds calculation
+                routePoints.push([startLocation.lat, startLocation.lng]);
+            }
         }
 
         // Fit bounds
@@ -352,26 +355,3 @@ export function RouteMap({ stops, startLocation, className = "" }: RouteMapProps
     );
 }
 
-// Helper function for fallback straight-line routes
-function drawFallbackRoutes(
-    routePoints: [number, number][],
-    validStops: Stop[],
-    startLocation: { lat: number; lng: number; name: string } | undefined,
-    routeLayer: L.LayerGroup
-) {
-    const hasReturn = startLocation && validStops.length > 0;
-
-    for (let i = 0; i < routePoints.length - 1; i++) {
-        const isReturnLeg = hasReturn && i === routePoints.length - 2;
-        const stopIndex = startLocation ? i - 1 : i;
-        const currentStop = stopIndex >= 0 ? validStops[stopIndex] : null;
-        const isCompleted = currentStop?.stop_status === "completed";
-
-        L.polyline([routePoints[i], routePoints[i + 1]], {
-            color: isReturnLeg ? "#8b5cf6" : isCompleted ? "#10b981" : "#3b82f6",
-            weight: 4,
-            opacity: isReturnLeg ? 0.6 : isCompleted ? 0.8 : 0.6,
-            dashArray: isReturnLeg ? "8, 6" : "10, 5",
-        }).addTo(routeLayer);
-    }
-}
