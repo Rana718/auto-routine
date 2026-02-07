@@ -92,8 +92,30 @@ export default function RoutesPage() {
 
     async function handleStopUpdate(stopId: number, newStatus: string) {
         if (!activeRoute) return;
-        await routesApi.updateStop(activeRoute.route_id, stopId, newStatus);
-        await fetchRoutes();
+
+        // Optimistic update — apply immediately for fast UI feedback
+        const typedStatus = newStatus as import("@/lib/types").StopStatus;
+        setRoutes(prev => prev.map(r => {
+            if (r.route_id !== activeRoute.route_id) return r;
+            return {
+                ...r,
+                stops: r.stops.map(s =>
+                    s.stop_id === stopId ? { ...s, stop_status: typedStatus } : s
+                ),
+                completed_stops: r.stops.filter(s =>
+                    s.stop_id === stopId ? newStatus === "completed" : s.stop_status === "completed"
+                ).length,
+            };
+        }));
+
+        try {
+            await routesApi.updateStop(activeRoute.route_id, stopId, newStatus);
+            // Background sync
+            fetchRoutes();
+        } catch {
+            // Revert on error
+            fetchRoutes();
+        }
     }
 
     async function handleReorder(stopIds: number[]) {
@@ -114,21 +136,25 @@ export default function RoutesPage() {
             <div className="mb-5 flex flex-wrap items-center gap-3">
                 <div className="flex items-center gap-1 bg-muted/30 rounded-lg p-1">
                     <button onClick={() => changeDate(-1)} className="px-3 py-1.5 text-sm hover:bg-muted rounded transition-colors">前日</button>
-                    <div className="relative flex items-center">
-                        <Calendar
-                            className="absolute left-2 h-4 w-4 text-muted-foreground cursor-pointer z-10"
-                            onClick={() => {
-                                const input = document.querySelector('input[type="date"]') as HTMLInputElement;
-                                input?.showPicker?.();
-                            }}
-                        />
+                    <button
+                        type="button"
+                        className="relative flex items-center cursor-pointer px-3 py-1.5 hover:bg-muted rounded transition-colors"
+                        onClick={() => {
+                            const input = document.getElementById('route-date-picker') as HTMLInputElement;
+                            input?.showPicker?.();
+                        }}
+                    >
+                        <Calendar className="h-4 w-4 text-muted-foreground mr-2" />
+                        <span className="text-sm">{targetDate}</span>
                         <input
+                            id="route-date-picker"
                             type="date"
                             value={targetDate}
                             onChange={(e) => setTargetDate(e.target.value)}
-                            className="pl-8 pr-3 py-1.5 text-sm bg-transparent border-0 focus:outline-none cursor-pointer"
+                            className="absolute inset-0 opacity-0 cursor-pointer"
+                            tabIndex={-1}
                         />
-                    </div>
+                    </button>
                     <button onClick={() => setTargetDate(new Date().toISOString().split('T')[0])} className="px-3 py-1.5 text-sm hover:bg-muted rounded transition-colors">今日</button>
                     <button onClick={() => changeDate(1)} className="px-3 py-1.5 text-sm hover:bg-muted rounded transition-colors">翌日</button>
                 </div>
@@ -215,6 +241,7 @@ export default function RoutesPage() {
                         <div className="rounded-lg border border-border bg-card overflow-hidden">
                             {activeRoute && activeRoute.stops.length > 0 ? (
                                 <RouteMap
+                                    key={activeRoute.route_id}
                                     stops={activeRoute.stops.map((stop) => ({
                                         stop_id: stop.stop_id,
                                         store_id: stop.store_id,

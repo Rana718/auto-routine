@@ -17,7 +17,6 @@ import {
     LogOut,
     User,
     Shield,
-    Box,
     MapPin,
     ClipboardCheck,
     X,
@@ -38,7 +37,6 @@ const adminNavItems = [
     { icon: Users, label: "スタッフ", path: "/staff" },
     { icon: Store, label: "店舗", path: "/stores" },
     { icon: Package, label: "商品", path: "/products" },
-    { icon: Box, label: "セット商品", path: "/products/bundles" },
     { icon: Route, label: "ルート", path: "/routes" },
     // { icon: Settings, label: "設定", path: "/settings" },
 ];

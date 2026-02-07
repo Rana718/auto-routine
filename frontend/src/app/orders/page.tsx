@@ -1,14 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Upload, Filter, Search, ChevronDown, Loader2, Plus, Eye, Trash2, FileSpreadsheet } from "lucide-react";
+import { Search, Loader2, Eye, Trash2, FileSpreadsheet } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { ordersApi } from "@/lib/api";
-import { ImportOrdersModal } from "@/components/modals/ImportOrdersModal";
-import { CreateOrderModal } from "@/components/modals/CreateOrderModal";
 import { ExportButton } from "@/components/ui/ExportButton";
 import { readFileAsCSVText } from "@/lib/excel";
 import type { OrderWithItems, OrderStatus } from "@/lib/types";
@@ -38,9 +36,6 @@ export default function OrdersPage() {
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState<string>("all");
     const [page, setPage] = useState(0);
-    const [total, setTotal] = useState(0);
-    const [showImportModal, setShowImportModal] = useState(false);
-    const [showCreateModal, setShowCreateModal] = useState(false);
     const [alertModal, setAlertModal] = useState<{ message: string; type: "success" | "error" } | null>(null);
     const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
     const [deleting, setDeleting] = useState(false);
@@ -62,7 +57,6 @@ export default function OrdersPage() {
                 limit,
             });
             setOrders(data);
-            setTotal(data.length);
         } catch (err) {
             setError(err instanceof Error ? err.message : "注文の取得に失敗しました");
         } finally {
@@ -130,11 +124,6 @@ export default function OrdersPage() {
                         <option value="completed">完了</option>
                         <option value="failed">失敗</option>
                     </select>
-                    <Button variant="outline" className="gap-2 flex-1 sm:flex-none" type="button" onClick={() => setShowCreateModal(true)}>
-                        <Plus className="h-4 w-4" />
-                        <span className="hidden sm:inline">手動追加</span>
-                        <span className="sm:hidden">追加</span>
-                    </Button>
                     {canManageOrders && (
                         <ExportButton
                             fetchCsv={() => {
@@ -146,13 +135,7 @@ export default function OrdersPage() {
                             onError={(msg) => setAlertModal({ message: msg, type: "error" })}
                         />
                     )}
-                    <Button className="gap-2 flex-1 sm:flex-none" type="button" onClick={() => setShowImportModal(true)}>
-                        <Upload className="h-4 w-4" />
-                        <span className="hidden sm:inline">注文取込</span>
-                        <span className="sm:hidden">取込</span>
-                    </Button>
                     <Button
-                        variant="outline"
                         className="gap-2 flex-1 sm:flex-none"
                         type="button"
                         disabled={importingPurchaseList}
@@ -235,7 +218,7 @@ export default function OrdersPage() {
                                 >
                                     <div className="flex items-start justify-between mb-2">
                                         <span className="font-mono text-sm text-primary font-medium">
-                                            {order.robot_in_order_id || `#${order.order_id}`}
+                                            #{order.order_id}
                                         </span>
                                         <Badge
                                             className={cn(
@@ -246,16 +229,13 @@ export default function OrdersPage() {
                                             {statusConfig[order.order_status]?.label || order.order_status}
                                         </Badge>
                                     </div>
-                                    <p className="text-sm font-medium text-foreground truncate mb-1">
-                                        {order.customer_name || "—"}
-                                    </p>
                                     <div className="flex items-center gap-4 text-xs text-muted-foreground">
                                         <span>商品数: {order.items?.length || 0}</span>
-                                        <span>モール: {order.mall_name || "—"}</span>
+                                        <span>買付日: {order.target_purchase_date ? new Date(order.target_purchase_date).toLocaleDateString("ja-JP") : "—"}</span>
                                     </div>
                                     {order.order_date && (
                                         <p className="text-xs text-muted-foreground mt-1">
-                                            {new Date(order.order_date).toLocaleDateString("ja-JP")}
+                                            登録: {new Date(order.order_date).toLocaleDateString("ja-JP")}
                                         </p>
                                     )}
                                 </div>
@@ -271,16 +251,13 @@ export default function OrdersPage() {
                                             注文ID
                                         </th>
                                         <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                                            顧客名
-                                        </th>
-                                        <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
                                             商品数
                                         </th>
                                         <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                                            モール
+                                            買付日
                                         </th>
                                         <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                                            注文日
+                                            登録日
                                         </th>
                                         <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
                                             ステータス
@@ -299,22 +276,17 @@ export default function OrdersPage() {
                                         >
                                             <td className="px-4 lg:px-6 py-4 whitespace-nowrap">
                                                 <span className="font-mono text-sm text-primary">
-                                                    {order.robot_in_order_id || `#${order.order_id}`}
+                                                    #{order.order_id}
                                                 </span>
-                                            </td>
-                                            <td className="px-4 lg:px-6 py-4">
-                                                <p className="text-sm font-medium text-foreground truncate max-w-37.5 lg:max-w-50">
-                                                    {order.customer_name || "—"}
-                                                </p>
                                             </td>
                                             <td className="px-4 lg:px-6 py-4 whitespace-nowrap">
                                                 <span className="text-sm font-medium text-foreground">
                                                     {order.items?.length || 0}
                                                 </span>
                                             </td>
-                                            <td className="px-4 lg:px-6 py-4">
-                                                <span className="text-sm text-foreground truncate max-w-30 lg:max-w-37.5 block">
-                                                    {order.mall_name || "—"}
+                                            <td className="px-4 lg:px-6 py-4 whitespace-nowrap">
+                                                <span className="text-sm text-foreground">
+                                                    {order.target_purchase_date ? new Date(order.target_purchase_date).toLocaleDateString("ja-JP") : "—"}
                                                 </span>
                                             </td>
                                             <td className="px-4 lg:px-6 py-4 whitespace-nowrap">
@@ -389,20 +361,6 @@ export default function OrdersPage() {
                     </div>
                 </div>
             </div>
-
-            {/* Create Order Modal */}
-            <CreateOrderModal
-                isOpen={showCreateModal}
-                onClose={() => setShowCreateModal(false)}
-                onSuccess={fetchOrders}
-            />
-
-            {/* Import Orders Modal */}
-            <ImportOrdersModal
-                isOpen={showImportModal}
-                onClose={() => setShowImportModal(false)}
-                onSuccess={fetchOrders}
-            />
 
             {/* Confirm Delete Modal */}
             <ConfirmModal

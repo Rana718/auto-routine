@@ -37,6 +37,8 @@ function createNumberedIcon(num: number, status: string): L.DivIcon {
     });
 }
 
+const POPUP_STYLE = "background:#1a2235;color:#e2e8f0;padding:10px 14px;border-radius:10px;font-size:13px;line-height:1.6;border:1px solid #2a3550;box-shadow:0 8px 24px rgba(0,0,0,0.6);min-width:160px;";
+
 interface Stop {
     stop_id: number;
     store_id: number;
@@ -94,7 +96,7 @@ export function RouteMap({ stops, startLocation, className = "" }: RouteMapProps
         // Add start location marker (office)
         if (startLocation) {
             L.marker([startLocation.lat, startLocation.lng], { icon: StartIcon })
-                .bindPopup(`<b>出発地点</b><br/>${startLocation.name}`)
+                .bindPopup(`<div style="${POPUP_STYLE}"><b>出発地点</b><br/>${startLocation.name}</div>`, { className: "dark-popup" })
                 .addTo(markersLayer);
         }
 
@@ -145,118 +147,112 @@ export function RouteMap({ stops, startLocation, className = "" }: RouteMapProps
 
             L.marker([markerLat, markerLng], { icon })
                 .bindPopup(
+                    `<div style="${POPUP_STYLE}">` +
                     `<b>${stop.stop_sequence}. ${stop.store_name || `店舗 #${stop.store_id}`}</b><br/>` +
                     `${stop.store_address || ""}<br/>` +
                     `購入数量: ${stop.total_quantity || stop.items_count}個<br/>` +
-                    `状態: ${stop.stop_status === "completed" ? "完了" : stop.stop_status === "current" ? "現在地" : "待機中"}`
+                    `状態: ${stop.stop_status === "completed" ? "完了" : stop.stop_status === "current" ? "現在地" : "待機中"}` +
+                    `</div>`,
+                    { className: "dark-popup" }
                 )
                 .addTo(markersLayer);
         });
 
-        // Fetch road-following route from OSRM
-        if (waypoints.length > 1) {
-            const coordinates = waypoints.join(";");
+        // Helper: fetch OSRM route and draw polyline
+        function fetchAndDrawRoute(
+            waypointList: string[],
+            fallbackPoints: [number, number][],
+            style: L.PolylineOptions
+        ) {
+            if (waypointList.length < 2) return;
+            const coordinates = waypointList.join(";");
             fetch(`https://router.project-osrm.org/route/v1/driving/${coordinates}?overview=full&geometries=geojson`, {
                 signal: abortController.signal,
             })
                 .then(response => response.json())
                 .then(data => {
-                    if (abortController.signal.aborted) return;
-                    if (!routeLayer) return;
-
-                    if (data.code === "Ok" && data.routes && data.routes.length > 0) {
-                        const route = data.routes[0];
-                        if (route.geometry?.coordinates) {
-                            const coords: [number, number][] = route.geometry.coordinates.map(
-                                (coord: [number, number]) => [coord[1], coord[0]] as [number, number]
-                            );
-                            L.polyline(coords, {
-                                color: "#3b82f6",
-                                weight: 5,
-                                opacity: 0.8,
-                            }).addTo(routeLayer);
-                        }
+                    if (abortController.signal.aborted || !routeLayer) return;
+                    if (data.code === "Ok" && data.routes?.[0]?.geometry?.coordinates) {
+                        const coords: [number, number][] = data.routes[0].geometry.coordinates.map(
+                            (coord: [number, number]) => [coord[1], coord[0]] as [number, number]
+                        );
+                        L.polyline(coords, style).addTo(routeLayer);
                     } else {
-                        L.polyline(routePoints, {
-                            color: "#3b82f6",
-                            weight: 4,
-                            opacity: 0.7,
-                        }).addTo(routeLayer);
+                        L.polyline(fallbackPoints, { ...style, weight: style.weight ? style.weight - 1 : 4 }).addTo(routeLayer);
                     }
                 })
                 .catch(() => {
-                    if (abortController.signal.aborted) return;
-                    if (routeLayer) {
-                        L.polyline(routePoints, {
-                            color: "#3b82f6",
-                            weight: 4,
-                            opacity: 0.7,
-                        }).addTo(routeLayer);
-                    }
+                    if (abortController.signal.aborted || !routeLayer) return;
+                    L.polyline(fallbackPoints, { ...style, weight: style.weight ? style.weight - 1 : 4 }).addTo(routeLayer);
                 });
         }
+
+        // Split route into completed (green) and pending (blue) segments
+        // Find the last completed stop index (contiguous from start)
+        let lastCompletedIdx = -1;
+        for (let i = 0; i < validStops.length; i++) {
+            if (validStops[i].stop_status === "completed") {
+                lastCompletedIdx = i;
+            } else {
+                break;
+            }
+        }
+
+        // Build waypoints for completed segment (office → ... → last completed stop)
+        const completedWaypoints: string[] = [];
+        const completedFallback: [number, number][] = [];
+        if (lastCompletedIdx >= 0) {
+            if (startLocation) {
+                completedWaypoints.push(`${startLocation.lng},${startLocation.lat}`);
+                completedFallback.push([startLocation.lat, startLocation.lng]);
+            }
+            for (let i = 0; i <= lastCompletedIdx; i++) {
+                completedWaypoints.push(`${validStops[i].longitude},${validStops[i].latitude}`);
+                completedFallback.push([validStops[i].latitude!, validStops[i].longitude!]);
+            }
+            fetchAndDrawRoute(completedWaypoints, completedFallback, {
+                color: "#22c55e", weight: 6, opacity: 0.9,
+            });
+        }
+
+        // Build waypoints for pending segment (last completed stop → ... → last stop)
+        const pendingWaypoints: string[] = [];
+        const pendingFallback: [number, number][] = [];
+        const pendingStartIdx = lastCompletedIdx >= 0 ? lastCompletedIdx : -1;
+        // Start from last completed stop (or office if none completed)
+        if (pendingStartIdx >= 0) {
+            pendingWaypoints.push(`${validStops[pendingStartIdx].longitude},${validStops[pendingStartIdx].latitude}`);
+            pendingFallback.push([validStops[pendingStartIdx].latitude!, validStops[pendingStartIdx].longitude!]);
+        } else if (startLocation) {
+            pendingWaypoints.push(`${startLocation.lng},${startLocation.lat}`);
+            pendingFallback.push([startLocation.lat, startLocation.lng]);
+        }
+        for (let i = lastCompletedIdx + 1; i < validStops.length; i++) {
+            pendingWaypoints.push(`${validStops[i].longitude},${validStops[i].latitude}`);
+            pendingFallback.push([validStops[i].latitude!, validStops[i].longitude!]);
+        }
+        fetchAndDrawRoute(pendingWaypoints, pendingFallback, {
+            color: "#3b82f6", weight: 5, opacity: 0.8,
+        });
 
         // Fetch return route (last stop → office) separately
         if (startLocation && validStops.length > 0) {
             const lastStop = validStops[validStops.length - 1];
             if (lastStop.latitude && lastStop.longitude) {
-                const returnCoords = `${lastStop.longitude},${lastStop.latitude};${startLocation.lng},${startLocation.lat}`;
-                fetch(`https://router.project-osrm.org/route/v1/driving/${returnCoords}?overview=full&geometries=geojson`, {
-                    signal: abortController.signal,
-                })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (abortController.signal.aborted) return;
-                        if (!routeLayer) return;
-
-                        if (data.code === "Ok" && data.routes && data.routes.length > 0) {
-                            const route = data.routes[0];
-                            if (route.geometry?.coordinates) {
-                                const coords: [number, number][] = route.geometry.coordinates.map(
-                                    (coord: [number, number]) => [coord[1], coord[0]] as [number, number]
-                                );
-                                L.polyline(coords, {
-                                    color: "#f97316",
-                                    weight: 4,
-                                    opacity: 0.85,
-                                    dashArray: "10, 6",
-                                }).addTo(routeLayer);
-                            }
-                        } else {
-                            // Fallback: straight line
-                            L.polyline(
-                                [[lastStop.latitude!, lastStop.longitude!], [startLocation.lat, startLocation.lng]],
-                                { color: "#f97316", weight: 4, opacity: 0.85, dashArray: "10, 6" }
-                            ).addTo(routeLayer);
-                        }
-                    })
-                    .catch(() => {
-                        if (abortController.signal.aborted) return;
-                        if (routeLayer && lastStop.latitude && lastStop.longitude) {
-                            L.polyline(
-                                [[lastStop.latitude, lastStop.longitude], [startLocation.lat, startLocation.lng]],
-                                { color: "#f97316", weight: 4, opacity: 0.85, dashArray: "10, 6" }
-                            ).addTo(routeLayer);
-                        }
-                    });
-
+                fetchAndDrawRoute(
+                    [`${lastStop.longitude},${lastStop.latitude}`, `${startLocation.lng},${startLocation.lat}`],
+                    [[lastStop.latitude, lastStop.longitude], [startLocation.lat, startLocation.lng]],
+                    { color: "#f97316", weight: 4, opacity: 0.85, dashArray: "10, 6" }
+                );
                 // Add return point to bounds calculation
                 routePoints.push([startLocation.lat, startLocation.lng]);
             }
         }
 
-        // Fit bounds
+        // Fit bounds only on initial draw — never re-zoom on data updates
         if (routePoints.length > 0 && fitBoundsOnDraw) {
             const bounds = L.latLngBounds(routePoints);
             map.fitBounds(bounds, { padding: [50, 50] });
-        } else if (routePoints.length > 0) {
-            // Only fit if points are outside current view
-            const currentBounds = map.getBounds();
-            const allPointsVisible = routePoints.every(p => currentBounds.contains(p));
-            if (!allPointsVisible) {
-                const bounds = L.latLngBounds(routePoints);
-                map.fitBounds(bounds, { padding: [50, 50] });
-            }
         }
     }, []);
 
