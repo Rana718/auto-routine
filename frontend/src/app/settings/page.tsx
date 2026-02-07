@@ -179,7 +179,7 @@ export default function SettingsPage() {
                         'Content-Type': 'application/json',
                         Authorization: `Bearer ${session.accessToken}`
                     },
-                    body: JSON.stringify({ csv_data: text })
+                    body: JSON.stringify({ csv_data: text, target_date: new Date().toISOString().split('T')[0] })
                 });
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.detail || "インポートに失敗しました");

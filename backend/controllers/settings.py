@@ -1,3 +1,5 @@
+from datetime import date
+from typing import Dict
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -382,15 +384,27 @@ async def create_backup_controller(db: AsyncSession):
     return {"message": "バックアップを作成しました"}
 
 
-async def import_purchase_list_csv(db: AsyncSession, csv_data: str):
+async def import_purchase_list_csv(db: AsyncSession, csv_data: str, target_date: date = None):
     """
     Import the client's purchase list CSV format (購入リスト店舗入力.csv)
 
+    Creates:
+    - Products & Stores (master data)
+    - ProductStoreMapping (with quantity allocations)
+    - Orders & OrderItems (ready for staff assignment + route generation)
+
     Optimized: pre-loads existing data in bulk (3 queries) instead of per-row lookups.
     """
-    from db.schema import Product, Store, ProductStoreMapping, StockStatus
+    from db.schema import (
+        Product, Store, ProductStoreMapping, StockStatus,
+        Order, OrderItem, OrderStatus, ItemStatus
+    )
     from io import StringIO
     import csv
+    from datetime import date as date_type, datetime
+
+    if target_date is None:
+        target_date = date_type.today()
 
     if not csv_data:
         return {"message": "CSVデータがありません", "products_created": 0, "stores_created": 0, "mappings_created": 0, "errors": []}
@@ -585,13 +599,62 @@ async def import_purchase_list_csv(db: AsyncSession, csv_data: str):
         except Exception as e:
             errors.append(f"行 {row_data['row_idx']}: エラー - {str(e)}")
 
+    # === Phase 6: Create Orders + OrderItems from CSV data ===
+    # The CSV IS the purchase list - create orders directly so auto-assign + route generation works.
+    # Delete existing CSV-imported orders for same date to allow re-import.
+    existing_csv_orders = await db.execute(
+        select(Order)
+        .where(Order.target_purchase_date == target_date)
+        .where(Order.mall_name == "購入リスト")
+        .where(Order.order_status == OrderStatus.PENDING)
+    )
+    for old_order in existing_csv_orders.scalars().all():
+        await db.delete(old_order)
+    await db.flush()
+
+    # Group by product_code: sum total quantity across all stores
+    product_totals: Dict[str, int] = {}
+    product_names: Dict[str, str] = {}
+    for row_data in parsed_rows:
+        code = row_data["product_code"]
+        product_totals[code] = product_totals.get(code, 0) + row_data["quantity"]
+        if code not in product_names:
+            product_names[code] = row_data["product_name"]
+
+    # Create one Order for the purchase date
+    order = Order(
+        mall_name="購入リスト",
+        order_date=datetime.now(),
+        order_status=OrderStatus.PENDING,
+        target_purchase_date=target_date,
+    )
+    db.add(order)
+    await db.flush()
+
+    # Create OrderItems for each unique product
+    items_created = 0
+    for sku, total_qty in product_totals.items():
+        if sku not in product_cache:
+            continue
+        order_item = OrderItem(
+            order_id=order.order_id,
+            sku=sku,
+            product_name=product_names.get(sku, sku),
+            quantity=total_qty,
+            item_status=ItemStatus.PENDING,
+        )
+        db.add(order_item)
+        items_created += 1
+
     await db.commit()
 
     return {
-        "message": f"インポート完了: 商品 {products_created}件, 店舗 {stores_created}件, マッピング {mappings_created}件",
+        "message": f"インポート完了: 商品 {products_created}件, 店舗 {stores_created}件, マッピング {mappings_created}件, 注文アイテム {items_created}件",
         "products_created": products_created,
         "stores_created": stores_created,
         "mappings_created": mappings_created,
+        "items_created": items_created,
+        "order_id": order.order_id,
         "errors": errors[:20] if errors else []
     }
 

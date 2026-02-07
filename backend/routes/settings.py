@@ -1,3 +1,4 @@
+from datetime import date as date_type
 from typing import Annotated, Optional
 from fastapi import APIRouter, Depends, Body
 from fastapi.responses import Response
@@ -16,6 +17,7 @@ router = APIRouter()
 
 class CSVImportRequest(BaseModel):
     csv_data: str
+    target_date: Optional[str] = None  # YYYY-MM-DD format, defaults to today
 
 @router.get("", response_model=AllSettings)
 async def get_settings(
@@ -169,8 +171,12 @@ async def import_purchase_list(
     - Products (from product codes and names)
     - Stores (from store names and addresses)
     - ProductStoreMapping (with quantity allocations)
+    - Orders + OrderItems (ready for staff assignment + route generation)
     """
-    return await import_purchase_list_csv(db, data.csv_data)
+    target_date = None
+    if data.target_date:
+        target_date = date_type.fromisoformat(data.target_date)
+    return await import_purchase_list_csv(db, data.csv_data, target_date)
 
 
 @router.post("/data/geocode-stores")
