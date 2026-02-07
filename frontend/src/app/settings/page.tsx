@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { settingsApi, extendedSettingsApi } from "@/lib/api";
 import { readFileAsCSVText } from "@/lib/excel";
+import { getJSTDateString } from "@/lib/date";
 import type { AllSettings } from "@/lib/types";
 import Link from "next/link";
 import { AlertModal } from "@/components/modals/AlertModal";
@@ -180,7 +181,7 @@ export default function SettingsPage() {
                         'Content-Type': 'application/json',
                         Authorization: `Bearer ${session.accessToken}`
                     },
-                    body: JSON.stringify({ csv_data: text, target_date: new Date().toISOString().split('T')[0] })
+                    body: JSON.stringify({ csv_data: text, target_date: getJSTDateString() })
                 });
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.detail || "インポートに失敗しました");
@@ -208,7 +209,7 @@ export default function SettingsPage() {
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement("a");
             a.href = url;
-            a.download = `orders_${new Date().toISOString().split('T')[0]}.csv`;
+            a.download = `orders_${getJSTDateString()}.csv`;
             document.body.appendChild(a);
             a.click();
             window.URL.revokeObjectURL(url);

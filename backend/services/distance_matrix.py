@@ -4,6 +4,7 @@ Pre-calculates distances between all active stores for route optimization
 """
 
 from datetime import datetime
+from utils.timezone import jst_now
 from typing import List, Tuple
 from decimal import Decimal
 from sqlalchemy import select, and_
@@ -41,7 +42,7 @@ async def calculate_store_distance_matrix(db: AsyncSession) -> int:
     }
 
     calculated_count = 0
-    now = datetime.utcnow()
+    now = jst_now()
 
     # Calculate distances for all pairs
     for store1 in stores:

@@ -8,6 +8,7 @@ from typing import Annotated
 from db.db import get_db
 from db.schema import Staff, Order, Route
 from middlewares.auth import get_current_user
+from utils.timezone import jst_now
 
 router = APIRouter()
 
@@ -20,9 +21,7 @@ async def get_notifications(
     notifications = []
     
     # Use Japan timezone for calculations
-    now_utc = datetime.utcnow()
-    jst_offset = timedelta(hours=9)
-    now_jst = now_utc + jst_offset
+    now_jst = jst_now()
     today_date = now_jst.date()
     
     # 1. Check for cutoff time (default 13:10 JST)
@@ -83,7 +82,7 @@ async def get_notifications(
         
         # Calculate time ago
         if route.completed_at:
-            time_diff = now_utc - route.completed_at
+            time_diff = now_jst - route.completed_at
             minutes = int(time_diff.total_seconds() / 60)
             if minutes < 60:
                 time_str = f"{minutes}分前"

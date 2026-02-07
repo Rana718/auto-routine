@@ -4,6 +4,7 @@ import { useState } from "react";
 import { X, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ordersApi } from "@/lib/api";
+import { getJSTDateString } from "@/lib/date";
 
 interface CreateOrderModalProps {
     isOpen: boolean;
@@ -16,8 +17,8 @@ export function CreateOrderModal({ isOpen, onClose, onSuccess }: CreateOrderModa
     const [error, setError] = useState<string | null>(null);
     const [orderNumber, setOrderNumber] = useState("");
     const [customerName, setCustomerName] = useState("");
-    const [orderDate, setOrderDate] = useState(new Date().toISOString().split("T")[0]);
-    const [targetPurchaseDate, setTargetPurchaseDate] = useState(new Date().toISOString().split("T")[0]);
+    const [orderDate, setOrderDate] = useState(getJSTDateString());
+    const [targetPurchaseDate, setTargetPurchaseDate] = useState(getJSTDateString());
     const [items, setItems] = useState([
         { sku: "", product_name: "", quantity: 1, unit_price: 0 }
     ]);
@@ -66,8 +67,8 @@ export function CreateOrderModal({ isOpen, onClose, onSuccess }: CreateOrderModa
             // Reset form
             setOrderNumber("");
             setCustomerName("");
-            setOrderDate(new Date().toISOString().split("T")[0]);
-            setTargetPurchaseDate(new Date().toISOString().split("T")[0]);
+            setOrderDate(getJSTDateString());
+            setTargetPurchaseDate(getJSTDateString());
             setItems([{ sku: "", product_name: "", quantity: 1, unit_price: 0 }]);
         } catch (err) {
             setError(err instanceof Error ? err.message : "注文の作成に失敗しました");

@@ -3,7 +3,14 @@ Procurement Operation Management System - Database Schema
 Using SQLAlchemy ORM with Pydantic for validation
 """
 
-from datetime import datetime, date, time
+from datetime import datetime, date, time, timezone, timedelta
+
+# JST timezone for consistent timestamps regardless of server location
+_JST = timezone(timedelta(hours=9))
+
+def _jst_now():
+    """Return current JST datetime (naive, for DB storage)."""
+    return datetime.now(_JST).replace(tzinfo=None)
 from decimal import Decimal
 from enum import Enum as PyEnum
 from typing import Optional, List
@@ -132,8 +139,8 @@ class Order(Base):
     order_status = Column(Enum(OrderStatus), default=OrderStatus.PENDING)
     cutoff_time = Column(DateTime, nullable=True)
     target_purchase_date = Column(Date, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=_jst_now)
+    updated_at = Column(DateTime, default=_jst_now, onupdate=_jst_now)
 
     # Relationships
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
@@ -159,8 +166,8 @@ class OrderItem(Base):
     parent_item_id = Column(Integer, ForeignKey("order_items.item_id"), nullable=True)
     item_status = Column(Enum(ItemStatus), default=ItemStatus.PENDING)
     priority = Column(String(20), default="normal")  # high, normal, low
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=_jst_now)
+    updated_at = Column(DateTime, default=_jst_now, onupdate=_jst_now)
 
     # Relationships
     order = relationship("Order", back_populates="items")
@@ -186,8 +193,8 @@ class Product(Base):
     is_store_fixed = Column(Boolean, default=False)
     fixed_store_id = Column(Integer, ForeignKey("stores.store_id"), nullable=True)
     exclude_from_routing = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=_jst_now)
+    updated_at = Column(DateTime, default=_jst_now, onupdate=_jst_now)
 
     # Relationships
     fixed_store = relationship("Store", foreign_keys=[fixed_store_id])
@@ -214,8 +221,8 @@ class Store(Base):
     category = Column(String(100), nullable=True)  # 家電, 食品・飲料, etc.
     priority_level = Column(Integer, default=2)  # 1=highest priority
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=_jst_now)
+    updated_at = Column(DateTime, default=_jst_now, onupdate=_jst_now)
 
     # Relationships
     product_mappings = relationship("ProductStoreMapping", back_populates="store")
@@ -244,8 +251,8 @@ class ProductStoreMapping(Base):
     # New: Store capacity for this product
     max_daily_quantity = Column(Integer, nullable=True)  # Max items this store can provide per day
     current_available = Column(Integer, nullable=True)   # Currently available quantity
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=_jst_now)
+    updated_at = Column(DateTime, default=_jst_now, onupdate=_jst_now)
 
     # Relationships
     product = relationship("Product", back_populates="store_mappings")
@@ -269,8 +276,8 @@ class StoreInventory(Base):
     expected_restock_date = Column(Date, nullable=True)
     last_checked_date = Column(DateTime, nullable=True)
     notes = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=_jst_now)
+    updated_at = Column(DateTime, default=_jst_now, onupdate=_jst_now)
 
     # Relationships
     store = relationship("Store", back_populates="inventory")
@@ -301,8 +308,8 @@ class Staff(Base):
     current_location_name = Column(String(200), nullable=True)
     is_active = Column(Boolean, default=True)
     max_daily_capacity = Column(Integer, default=20)  # Max orders per day
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=_jst_now)
+    updated_at = Column(DateTime, default=_jst_now, onupdate=_jst_now)
 
     # Relationships
     purchase_lists = relationship("PurchaseList", back_populates="staff")
@@ -324,7 +331,7 @@ class PurchaseList(Base):
     list_status = Column(Enum(ListStatus), default=ListStatus.DRAFT)
     total_items = Column(Integer, default=0)
     total_stores = Column(Integer, default=0)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_jst_now)
     completed_at = Column(DateTime, nullable=True)
 
     # Relationships
@@ -354,8 +361,8 @@ class PurchaseListItem(Base):
     purchase_time = Column(DateTime, nullable=True)
     failure_reason = Column(String(500), nullable=True)
     notes = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=_jst_now)
+    updated_at = Column(DateTime, default=_jst_now, onupdate=_jst_now)
 
     # Relationships
     purchase_list = relationship("PurchaseList", back_populates="items")
@@ -382,7 +389,7 @@ class Route(Base):
     estimated_time_minutes = Column(Integer, nullable=True)
     route_status = Column(Enum(RouteStatus), default=RouteStatus.NOT_STARTED)
     include_return = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_jst_now)
     completed_at = Column(DateTime, nullable=True)
 
     # Relationships
@@ -410,7 +417,7 @@ class RouteStop(Base):
     items_to_purchase = Column(JSON, nullable=True)  # List of item IDs
     items_count = Column(Integer, default=0)
     stop_status = Column(Enum(StopStatus), default=StopStatus.PENDING)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_jst_now)
 
     # Relationships
     route = relationship("Route", back_populates="stops")
@@ -430,11 +437,11 @@ class PurchaseFailure(Base):
     item_id = Column(Integer, ForeignKey("order_items.item_id"), nullable=False)
     store_id = Column(Integer, ForeignKey("stores.store_id"), nullable=False)
     failure_type = Column(Enum(FailureType), nullable=False)
-    failure_date = Column(DateTime, default=datetime.utcnow)
+    failure_date = Column(DateTime, default=_jst_now)
     expected_restock_date = Column(Date, nullable=True)
     alternative_store_id = Column(Integer, ForeignKey("stores.store_id"), nullable=True)
     notes = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_jst_now)
 
     # Relationships
     list_item = relationship("PurchaseListItem", back_populates="failures")
@@ -455,8 +462,8 @@ class BusinessRule(Base):
     rule_config = Column(JSON, nullable=False)
     priority = Column(Integer, default=1)
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=_jst_now)
+    updated_at = Column(DateTime, default=_jst_now, onupdate=_jst_now)
 
 
 class CutoffSchedule(Base):
@@ -469,7 +476,7 @@ class CutoffSchedule(Base):
     is_holiday = Column(Boolean, default=False)
     holiday_override = Column(Boolean, default=False)  # Allow processing on holidays
     effective_date = Column(Date, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_jst_now)
 
 
 class StoreDistanceMatrix(Base):
@@ -481,7 +488,7 @@ class StoreDistanceMatrix(Base):
     to_store_id = Column(Integer, ForeignKey("stores.store_id", ondelete="CASCADE"), nullable=False)
     distance_km = Column(Numeric(8, 2), nullable=False)
     travel_time_minutes = Column(Integer, nullable=True)
-    last_calculated = Column(DateTime, default=datetime.utcnow)
+    last_calculated = Column(DateTime, default=_jst_now)
 
     __table_args__ = (
         UniqueConstraint("from_store_id", "to_store_id", name="uq_store_distance"),
@@ -501,7 +508,7 @@ class SystemLog(Base):
     entity_id = Column(Integer, nullable=True)
     details = Column(JSON, nullable=True)
     ip_address = Column(String(50), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_jst_now)
 
     __table_args__ = (
         Index("idx_log_created", "created_at"),
@@ -517,7 +524,7 @@ class Holiday(Base):
     holiday_date = Column(Date, nullable=False, unique=True)
     holiday_name = Column(String(100), nullable=True)
     is_working = Column(Boolean, default=False)  # Override to work on holiday
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_jst_now)
 
     __table_args__ = (
         Index("idx_holiday_date", "holiday_date"),

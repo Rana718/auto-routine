@@ -7,6 +7,7 @@ import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { getJSTDateString } from "@/lib/date";
 import dynamic from "next/dynamic";
 import { AlertModal } from "@/components/modals/AlertModal";
 
@@ -58,7 +59,7 @@ export default function MyRoutePage() {
     const [updatingStop, setUpdatingStop] = useState<number | null>(null);
     const [alertModal, setAlertModal] = useState<{ message: string; type: "error" } | null>(null);
 
-    const today = new Date().toISOString().split("T")[0];
+    const today = getJSTDateString();
 
     useEffect(() => {
         if (session?.accessToken) {

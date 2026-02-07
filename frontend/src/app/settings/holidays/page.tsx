@@ -6,6 +6,7 @@ import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { getJSTYear, formatDateJPLong } from "@/lib/date";
 import { holidaysApi, type Holiday, type HolidayCreate } from "@/lib/api";
 import Link from "next/link";
 import { AlertModal } from "@/components/modals/AlertModal";
@@ -17,7 +18,7 @@ export default function HolidaysPage() {
     const [error, setError] = useState<string | null>(null);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [importing, setImporting] = useState(false);
-    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+    const [selectedYear, setSelectedYear] = useState(getJSTYear());
     const [alertModal, setAlertModal] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
     const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
     const [deleting, setDeleting] = useState(false);
@@ -103,7 +104,7 @@ export default function HolidaysPage() {
         }
     }
 
-    const currentYear = new Date().getFullYear();
+    const currentYear = getJSTYear();
     const years = [currentYear - 1, currentYear, currentYear + 1, currentYear + 2];
 
     return (
@@ -215,7 +216,7 @@ export default function HolidaysPage() {
                                 <tr key={holiday.holiday_id} className="hover:bg-muted/20">
                                     <td className="px-6 py-4">
                                         <span className="font-medium text-foreground">
-                                            {new Date(holiday.holiday_date).toLocaleDateString("ja-JP", {
+                                            {formatDateJPLong(holiday.holiday_date, {
                                                 year: "numeric",
                                                 month: "long",
                                                 day: "numeric",

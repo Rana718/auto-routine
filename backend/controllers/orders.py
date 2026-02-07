@@ -3,6 +3,7 @@ from typing import List, Optional
 from fastapi import HTTPException
 from sqlalchemy import select, func, case
 from sqlalchemy.ext.asyncio import AsyncSession
+from utils.timezone import jst_now
 from sqlalchemy.orm import selectinload
 
 from db.schema import Order, OrderItem, OrderStatus, ItemStatus, OrderCreate, OrderResponse, OrderItemCreate, OrderItemResponse
@@ -246,7 +247,7 @@ async def update_order_status_controller(db: AsyncSession, order_id: int, status
         raise HTTPException(status_code=404, detail="注文が見つかりません")
     
     order.order_status = status
-    order.updated_at = datetime.utcnow()
+    order.updated_at = jst_now()
     return {"message": "ステータスを更新しました", "new_status": status.value}
 
 async def import_bulk_orders(db: AsyncSession, data: BulkOrderImport):

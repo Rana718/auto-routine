@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.db import get_db
+from utils.timezone import jst_today
 from db.schema import Staff
 from controllers.orders import get_order_statistics
 from controllers.staff import get_all_staff
@@ -22,7 +23,7 @@ async def get_dashboard_data(
     Combined endpoint that returns all dashboard data in a single API call.
     This reduces frontend API calls from 4 separate requests to 1.
     """
-    today = target_date or date.today()
+    today = target_date or jst_today()
     
     # Fetch all data in parallel (these are already optimized queries)
     order_stats = await get_order_statistics(db, today)

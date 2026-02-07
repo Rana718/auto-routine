@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.schema import BusinessRule, RuleType
 from models.settings import AllSettings, CutoffSettings, StaffSettings, RouteSettings, NotificationSettings
+from utils.timezone import jst_now
 
 async def get_all_settings(db: AsyncSession) -> AllSettings:
     result = await db.execute(select(BusinessRule).where(BusinessRule.is_active == True))
@@ -624,7 +625,7 @@ async def import_purchase_list_csv(db: AsyncSession, csv_data: str, target_date:
     # Create one Order for the purchase date
     order = Order(
         mall_name="購入リスト",
-        order_date=datetime.now(),
+        order_date=jst_now(),
         order_status=OrderStatus.PENDING,
         target_purchase_date=target_date,
     )

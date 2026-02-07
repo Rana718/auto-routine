@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { ordersApi } from "@/lib/api";
 import { ExportButton } from "@/components/ui/ExportButton";
 import { readFileAsCSVText } from "@/lib/excel";
+import { getJSTDateString, formatDateJP } from "@/lib/date";
 import type { OrderWithItems, OrderStatus } from "@/lib/types";
 import { useSession } from "next-auth/react";
 import { AlertModal } from "@/components/modals/AlertModal";
@@ -131,7 +132,7 @@ export default function OrdersPage() {
                                 if (!token) throw new Error("認証トークンが見つかりません");
                                 return fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/settings/data/export-orders?token=${token}`);
                             }}
-                            filenameBase={`orders_${new Date().toISOString().split('T')[0]}`}
+                            filenameBase={`orders_${getJSTDateString()}`}
                             onError={(msg) => setAlertModal({ message: msg, type: "error" })}
                         />
                     )}
@@ -160,7 +161,7 @@ export default function OrdersPage() {
                                             'Content-Type': 'application/json',
                                             Authorization: `Bearer ${token}`
                                         },
-                                        body: JSON.stringify({ csv_data: text, target_date: new Date().toISOString().split('T')[0] })
+                                        body: JSON.stringify({ csv_data: text, target_date: getJSTDateString() })
                                     });
                                     const result = await response.json();
                                     if (!response.ok) throw new Error(result.detail || "インポートに失敗しました");
@@ -231,11 +232,11 @@ export default function OrdersPage() {
                                     </div>
                                     <div className="flex items-center gap-4 text-xs text-muted-foreground">
                                         <span>商品数: {order.items?.length || 0}</span>
-                                        <span>買付日: {order.target_purchase_date ? new Date(order.target_purchase_date).toLocaleDateString("ja-JP") : "—"}</span>
+                                        <span>買付日: {order.target_purchase_date ? formatDateJP(order.target_purchase_date) : "—"}</span>
                                     </div>
                                     {order.order_date && (
                                         <p className="text-xs text-muted-foreground mt-1">
-                                            登録: {new Date(order.order_date).toLocaleDateString("ja-JP")}
+                                            登録: {formatDateJP(order.order_date)}
                                         </p>
                                     )}
                                 </div>
@@ -286,12 +287,12 @@ export default function OrdersPage() {
                                             </td>
                                             <td className="px-4 lg:px-6 py-4 whitespace-nowrap">
                                                 <span className="text-sm text-foreground">
-                                                    {order.target_purchase_date ? new Date(order.target_purchase_date).toLocaleDateString("ja-JP") : "—"}
+                                                    {order.target_purchase_date ? formatDateJP(order.target_purchase_date) : "—"}
                                                 </span>
                                             </td>
                                             <td className="px-4 lg:px-6 py-4 whitespace-nowrap">
                                                 <span className="text-sm text-muted-foreground">
-                                                    {order.order_date ? new Date(order.order_date).toLocaleDateString("ja-JP") : "—"}
+                                                    {order.order_date ? formatDateJP(order.order_date) : "—"}
                                                 </span>
                                             </td>
                                             <td className="px-4 lg:px-6 py-4 whitespace-nowrap">

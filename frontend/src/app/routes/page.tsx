@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { routesApi, automationApi } from "@/lib/api";
+import { getJSTDateString } from "@/lib/date";
 import type { Route, RouteStatus } from "@/lib/types";
 import { AlertModal } from "@/components/modals/AlertModal";
 import { DraggableStopList } from "@/components/routes/DraggableStopList";
@@ -34,7 +35,7 @@ export default function RoutesPage() {
     const [selectedRoute, setSelectedRoute] = useState<number | null>(null);
     const [generating, setGenerating] = useState(false);
     const [alertModal, setAlertModal] = useState<{ message: string; type: "success" | "error" | "info" | "warning" } | null>(null);
-    const [targetDate, setTargetDate] = useState<string>(new Date().toISOString().split("T")[0]);
+    const [targetDate, setTargetDate] = useState<string>(getJSTDateString());
 
     const activeRoute = routes.find((r) => r.route_id === selectedRoute);
 
@@ -125,9 +126,11 @@ export default function RoutesPage() {
     }
 
     const changeDate = (days: number) => {
-        const d = new Date(targetDate);
-        d.setDate(d.getDate() + days);
-        setTargetDate(d.toISOString().split('T')[0]);
+        const [y, m, d] = targetDate.split('-').map(Number);
+        const date = new Date(y, m - 1, d + days);
+        setTargetDate(
+            `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
+        );
     };
 
     return (
@@ -155,7 +158,7 @@ export default function RoutesPage() {
                             tabIndex={-1}
                         />
                     </button>
-                    <button onClick={() => setTargetDate(new Date().toISOString().split('T')[0])} className="px-3 py-1.5 text-sm hover:bg-muted rounded transition-colors">今日</button>
+                    <button onClick={() => setTargetDate(getJSTDateString())} className="px-3 py-1.5 text-sm hover:bg-muted rounded transition-colors">今日</button>
                     <button onClick={() => changeDate(1)} className="px-3 py-1.5 text-sm hover:bg-muted rounded transition-colors">翌日</button>
                 </div>
                 <Button onClick={handleGenerateRoutes} disabled={generating} className="gap-2">

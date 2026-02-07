@@ -3,6 +3,7 @@
  */
 
 import { getSession } from "next-auth/react";
+import { getJSTDateString } from "@/lib/date";
 import type {
     LoginRequest,
     RegisterRequest,
@@ -403,7 +404,7 @@ export const settingsApi = {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `orders_${new Date().toISOString().split("T")[0]}.csv`;
+        a.download = `orders_${getJSTDateString()}.csv`;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
