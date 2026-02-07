@@ -268,9 +268,9 @@ async def export_products_csv(
         ])
     
     csv_data = output.getvalue()
-    
+
     return Response(
-        content=csv_data,
-        media_type="text/csv",
+        content="\ufeff" + csv_data,
+        media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": "attachment; filename=products_export.csv"}
     )

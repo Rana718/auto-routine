@@ -77,8 +77,8 @@ async def export_stores(
     """Export all stores as CSV"""
     csv_data = await export_stores_controller(db)
     return Response(
-        content=csv_data,
-        media_type="text/csv",
+        content="\ufeff" + csv_data,
+        media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": "attachment; filename=stores_export.csv"}
     )
 
@@ -132,8 +132,8 @@ async def export_orders(
     
     csv_data = await export_orders_controller(db)
     return Response(
-        content=csv_data,
-        media_type="text/csv",
+        content="\ufeff" + csv_data,
+        media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": "attachment; filename=orders_export.csv"}
     )
 

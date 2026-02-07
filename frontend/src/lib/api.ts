@@ -389,11 +389,25 @@ export const settingsApi = {
         );
     },
 
-    async exportOrders(): Promise<{ message: string }> {
-        return fetchApi<{ message: string }>(
-            "/api/settings/data/export-orders",
-            { method: "POST" }
+    async exportOrders(): Promise<void> {
+        const session = await getSession();
+        const token = session?.accessToken as string;
+        if (!token) throw new Error("認証トークンが見つかりません");
+
+        const response = await fetch(
+            `${API_BASE_URL}/api/settings/data/export-orders?token=${token}`
         );
+        if (!response.ok) throw new Error("エクスポートに失敗しました");
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `orders_${new Date().toISOString().split("T")[0]}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
     },
 
     async backup(): Promise<{ message: string }> {
