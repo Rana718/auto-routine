@@ -19,6 +19,7 @@ class StaffWithStats(BaseModel):
     assigned_stores: int = 0
     completed_today: int = 0
     current_location_name: Optional[str] = None
+    max_daily_capacity: int = 20
 
 class StaffStatusUpdate(BaseModel):
     status: str

@@ -60,6 +60,7 @@ async def get_all_staff(db: AsyncSession, active_only: bool, skip: int, limit: i
             assigned_stores=stats_map.get(s.staff_id, {}).get('stores', 0),
             completed_today=stats_map.get(s.staff_id, {}).get('completed', 0),
             current_location_name=s.current_location_name,
+            max_daily_capacity=s.max_daily_capacity,
         )
         for s in staff_list
     ]

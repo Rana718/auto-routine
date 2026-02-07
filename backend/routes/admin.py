@@ -19,6 +19,7 @@ class UserUpdateRequest(BaseModel):
     email: Optional[str] = None
     password: Optional[str] = None
     role: Optional[StaffRole] = None
+    max_daily_capacity: Optional[int] = None
 
 @router.get("/users", response_model=List[StaffResponse])
 @require_role(StaffRole.ADMIN)
@@ -99,6 +100,8 @@ async def update_user(
         if user.staff_id == current_user.staff_id:
             raise HTTPException(status_code=400, detail="自分自身の権限を変更できません")
         user.role = request.role
+    if request.max_daily_capacity is not None:
+        user.max_daily_capacity = request.max_daily_capacity
 
     await db.commit()
     return {"message": "ユーザー情報を更新しました"}
