@@ -101,59 +101,59 @@ export function RouteMap({ stops, startLocation, className = "" }: RouteMapProps
         // Add stop markers with order numbers
         const routePoints: [number, number][] = [];
         const waypoints: string[] = [];
-        const validStops = stops.filter((s) => s.latitude && s.longitude);
+        // Sort by stop_sequence so waypoints and numbering follow the correct route order
+        const validStops = stops
+            .filter((s) => s.latitude && s.longitude)
+            .sort((a, b) => a.stop_sequence - b.stop_sequence);
 
         if (startLocation) {
             routePoints.push([startLocation.lat, startLocation.lng]);
             waypoints.push(`${startLocation.lng},${startLocation.lat}`);
         }
 
-        // Detect overlapping coordinates and apply small offsets for marker visibility
-        const coordKey = (lat: number, lng: number) => `${lat.toFixed(4)},${lng.toFixed(4)}`;
+        // Detect overlapping coordinates and apply small offset for marker visibility
+        const coordKey = (lat: number, lng: number) => `${lat.toFixed(5)},${lng.toFixed(5)}`;
         const coordGroups = new Map<string, number[]>();
-        validStops.forEach((stop, idx) => {
-            if (stop.latitude && stop.longitude) {
-                const key = coordKey(stop.latitude, stop.longitude);
-                if (!coordGroups.has(key)) coordGroups.set(key, []);
-                coordGroups.get(key)!.push(idx);
-            }
+        validStops.forEach((_, idx) => {
+            const s = validStops[idx];
+            const key = coordKey(s.latitude!, s.longitude!);
+            if (!coordGroups.has(key)) coordGroups.set(key, []);
+            coordGroups.get(key)!.push(idx);
         });
 
-        // Get display point with offset for overlapping markers
-        const getDisplayPoint = (stop: Stop, idx: number): [number, number] => {
+        validStops.forEach((stop, idx) => {
             const lat = stop.latitude!;
             const lng = stop.longitude!;
+            // Use original coords for routing
+            routePoints.push([lat, lng]);
+            waypoints.push(`${lng},${lat}`);
+
+            // Offset marker only if multiple stops share the same location
+            let markerLat = lat;
+            let markerLng = lng;
             const key = coordKey(lat, lng);
             const group = coordGroups.get(key);
-            if (!group || group.length <= 1) return [lat, lng];
-            const posInGroup = group.indexOf(idx);
-            const angle = (posInGroup * 2 * Math.PI) / group.length - Math.PI / 2;
-            const offset = 0.0004; // ~40 meters
-            return [lat + offset * Math.cos(angle), lng + offset * Math.sin(angle)];
-        };
-
-        validStops.forEach((stop, idx) => {
-            if (stop.latitude && stop.longitude) {
-                const displayPoint = getDisplayPoint(stop, idx);
-                // Use original coords for routing, display coords for markers
-                routePoints.push([stop.latitude, stop.longitude]);
-                waypoints.push(`${stop.longitude},${stop.latitude}`);
-
-                // Create numbered icon with status color
-                const icon = createNumberedIcon(idx + 1, stop.stop_status);
-
-                L.marker(displayPoint, { icon })
-                    .bindPopup(
-                        `<b>${idx + 1}. ${stop.store_name || `店舗 #${stop.store_id}`}</b><br/>` +
-                        `${stop.store_address || ""}<br/>` +
-                        `購入数量: ${stop.total_quantity || stop.items_count}個<br/>` +
-                        `状態: ${stop.stop_status === "completed" ? "完了" : stop.stop_status === "current" ? "現在地" : "待機中"}`
-                    )
-                    .addTo(markersLayer);
+            if (group && group.length > 1) {
+                const posInGroup = group.indexOf(idx);
+                const angle = (posInGroup * 2 * Math.PI) / group.length - Math.PI / 2;
+                const offset = 0.00012; // ~13 meters - visible but close to route
+                markerLat += offset * Math.cos(angle);
+                markerLng += offset * Math.sin(angle);
             }
+
+            const icon = createNumberedIcon(stop.stop_sequence, stop.stop_status);
+
+            L.marker([markerLat, markerLng], { icon })
+                .bindPopup(
+                    `<b>${stop.stop_sequence}. ${stop.store_name || `店舗 #${stop.store_id}`}</b><br/>` +
+                    `${stop.store_address || ""}<br/>` +
+                    `購入数量: ${stop.total_quantity || stop.items_count}個<br/>` +
+                    `状態: ${stop.stop_status === "completed" ? "完了" : stop.stop_status === "current" ? "現在地" : "待機中"}`
+                )
+                .addTo(markersLayer);
         });
 
-        // Fetch main delivery route (office → all stops) via OSRM
+        // Fetch road-following route from OSRM
         if (waypoints.length > 1) {
             const coordinates = waypoints.join(";");
             fetch(`https://router.project-osrm.org/route/v1/driving/${coordinates}?overview=full&geometries=geojson`, {
@@ -170,7 +170,6 @@ export function RouteMap({ stops, startLocation, className = "" }: RouteMapProps
                             const coords: [number, number][] = route.geometry.coordinates.map(
                                 (coord: [number, number]) => [coord[1], coord[0]] as [number, number]
                             );
-                            // Draw main route as a single solid blue line
                             L.polyline(coords, {
                                 color: "#3b82f6",
                                 weight: 5,
@@ -178,29 +177,21 @@ export function RouteMap({ stops, startLocation, className = "" }: RouteMapProps
                             }).addTo(routeLayer);
                         }
                     } else {
-                        // Fallback: straight lines for main route only
-                        for (let i = 0; i < routePoints.length - 1; i++) {
-                            L.polyline([routePoints[i], routePoints[i + 1]], {
-                                color: "#3b82f6",
-                                weight: 4,
-                                opacity: 0.6,
-                                dashArray: "10, 5",
-                            }).addTo(routeLayer);
-                        }
+                        L.polyline(routePoints, {
+                            color: "#3b82f6",
+                            weight: 4,
+                            opacity: 0.7,
+                        }).addTo(routeLayer);
                     }
                 })
-                .catch(err => {
+                .catch(() => {
                     if (abortController.signal.aborted) return;
-                    console.error("Main route error:", err);
                     if (routeLayer) {
-                        for (let i = 0; i < routePoints.length - 1; i++) {
-                            L.polyline([routePoints[i], routePoints[i + 1]], {
-                                color: "#3b82f6",
-                                weight: 4,
-                                opacity: 0.6,
-                                dashArray: "10, 5",
-                            }).addTo(routeLayer);
-                        }
+                        L.polyline(routePoints, {
+                            color: "#3b82f6",
+                            weight: 4,
+                            opacity: 0.7,
+                        }).addTo(routeLayer);
                     }
                 });
         }
