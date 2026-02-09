@@ -526,11 +526,11 @@ export default function SettingsPage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
                         <Button variant="default" className="gap-2 bg-primary" onClick={handleImportPurchaseList}>
                             <Upload className="h-4 w-4" />
-                            購入リストCSVインポート
+                            購入リストインポート
                         </Button>
                         <Button variant="outline" className="gap-2" onClick={handleImportStores}>
                             <Upload className="h-4 w-4" />
-                            店舗CSVインポート
+                            店舗インポート
                         </Button>
                         <Button variant="outline" className="gap-2" onClick={handleImportMappings}>
                             <Upload className="h-4 w-4" />

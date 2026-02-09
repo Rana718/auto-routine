@@ -6,6 +6,9 @@ from pydantic import BaseModel
 
 from db.db import get_db
 from db.schema import Staff, Product, Store, StaffRole
+
+class CSVImportRequest(BaseModel):
+    csv_data: str
 from middlewares.auth import get_current_user
 from middlewares.rbac import require_role
 
@@ -177,14 +180,15 @@ async def delete_product(
 @router.post("/import")
 @require_role(StaffRole.ADMIN, StaffRole.SUPERVISOR)
 async def import_products_csv(
+    data: CSVImportRequest,
     current_user: Annotated[Staff, Depends(get_current_user)],
     db: AsyncSession = Depends(get_db),
-    csv_data: str = None
 ):
     """Import products from CSV data"""
     import csv
     from io import StringIO
-    
+
+    csv_data = data.csv_data
     if not csv_data:
         raise HTTPException(status_code=400, detail="CSVデータがありません")
     

@@ -35,6 +35,7 @@ export default function StoresPage() {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [editStore, setEditStore] = useState<Store | null>(null);
     const [alertModal, setAlertModal] = useState<{ message: string; type: "success" | "error" } | null>(null);
+    const [importing, setImporting] = useState(false);
     const [deleteStore, setDeleteStore] = useState<Store | null>(null);
     const [deleting, setDeleting] = useState(false);
 
@@ -133,6 +134,7 @@ export default function StoresPage() {
                         input.onchange = async (e) => {
                             const file = (e.target as HTMLInputElement).files?.[0];
                             if (!file || !session?.accessToken) return;
+                            setImporting(true);
                             try {
                                 const text = await readFileAsCSVText(file);
                                 const response = await fetch(`${API_BASE_URL}/api/settings/data/import-stores`, {
@@ -149,15 +151,18 @@ export default function StoresPage() {
                                 await fetchData();
                             } catch (err) {
                                 setAlertModal({ message: err instanceof Error ? err.message : "エラーが発生しました", type: "error" });
+                            } finally {
+                                setImporting(false);
                             }
                         };
                         input.click();
                     }}
                     variant="outline"
                     className="gap-2"
+                    disabled={importing}
                 >
-                    <Upload className="h-4 w-4" />
-                    インポート
+                    {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                    {importing ? "インポート中..." : "インポート(CSV/Excel)"}
                 </Button>
             </div>
 

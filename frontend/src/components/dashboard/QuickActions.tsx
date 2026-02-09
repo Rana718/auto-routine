@@ -109,7 +109,7 @@ export function QuickActions() {
             id: "import",
             icon: FileSpreadsheet,
             label: "購入リスト取込",
-            description: "CSVファイルから取込",
+            description: "CSV/Excelから取込",
             variant: "default",
         },
         {
