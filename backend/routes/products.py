@@ -6,13 +6,13 @@ from pydantic import BaseModel
 
 from db.db import get_db
 from db.schema import Staff, Product, Store, StaffRole
-
-class CSVImportRequest(BaseModel):
-    csv_data: str
 from middlewares.auth import get_current_user
 from middlewares.rbac import require_role
 
 router = APIRouter()
+
+class CSVImportRequest(BaseModel):
+    csv_data: str
 
 class ProductCreate(BaseModel):
     sku: str

@@ -176,7 +176,7 @@ export default function ProductsPage() {
                     disabled={importing}
                 >
                     {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                    {importing ? "インポート中..." : "インポート(CSV/Excel)"}
+                    {importing ? "インポート中..." : "インポート"}
                 </Button>
             </div>
 
