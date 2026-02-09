@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useCallback, useState } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import L from "leaflet";
-import { Maximize2, Minimize2 } from "lucide-react";
-// @ts-ignore - CSS import works at runtime via Next.js
-import "leaflet/dist/leaflet.css";
+import { Maximize2 } from "lucide-react";
+// leaflet.css is imported in globals.css (dynamic imports don't reliably load CSS)
 
 // Office/start marker (green)
 const StartIcon = L.icon({
@@ -67,30 +66,23 @@ export function RouteMap({ stops, startLocation, className = "" }: RouteMapProps
     const lastStopsKeyRef = useRef<string>("");
     const hasInitialDrawRef = useRef(false);
     const abortControllerRef = useRef<AbortController | null>(null);
-    const [isExpanded, setIsExpanded] = useState(false);
+    const wrapperRef = useRef<HTMLDivElement>(null);
 
-    const toggleExpand = useCallback(() => {
-        setIsExpanded(prev => !prev);
+    const toggleFullscreen = useCallback(() => {
+        if (!wrapperRef.current) return;
+        if (document.fullscreenElement) {
+            document.exitFullscreen();
+        } else {
+            wrapperRef.current.requestFullscreen();
+        }
     }, []);
 
-    // Recalculate map size after expand/collapse DOM update
+    // Resize map when entering/exiting fullscreen
     useEffect(() => {
-        if (!mapRef.current) return;
-        // Wait for DOM paint then tell Leaflet to recalculate
-        requestAnimationFrame(() => {
-            mapRef.current?.invalidateSize();
-        });
-    }, [isExpanded]);
-
-    // Close fullscreen on Escape key
-    useEffect(() => {
-        if (!isExpanded) return;
-        const handleKey = (e: KeyboardEvent) => {
-            if (e.key === "Escape") setIsExpanded(false);
-        };
-        window.addEventListener("keydown", handleKey);
-        return () => window.removeEventListener("keydown", handleKey);
-    }, [isExpanded]);
+        const onFsChange = () => setTimeout(() => mapRef.current?.invalidateSize(), 100);
+        document.addEventListener("fullscreenchange", onFsChange);
+        return () => document.removeEventListener("fullscreenchange", onFsChange);
+    }, []);
 
     // Generate a key from stops to detect actual data changes (include stop_sequence and coordinates)
     const getStopsKey = useCallback((stops: Stop[], startLoc?: { lat: number; lng: number }) => {
@@ -359,28 +351,18 @@ export function RouteMap({ stops, startLocation, className = "" }: RouteMapProps
     }, [stops, startLocation, getStopsKey, drawMarkersAndRoutes]);
 
     return (
-        <div
-            className={
-                isExpanded
-                    ? "fixed inset-0 z-50 bg-background"
-                    : "relative"
-            }
-        >
+        <div ref={wrapperRef} className="relative">
             <div
                 ref={mapContainerRef}
-                className={
-                    isExpanded
-                        ? "h-full w-full"
-                        : `rounded-lg ${className}`
-                }
-                style={isExpanded ? undefined : { minHeight: "300px", zIndex: 0 }}
+                className={`rounded-lg ${className}`}
+                style={{ minHeight: "300px", zIndex: 0 }}
             />
             <button
-                onClick={toggleExpand}
+                onClick={toggleFullscreen}
                 className="absolute top-3 right-3 z-1000 flex h-9 w-9 items-center justify-center rounded-lg bg-card/90 border border-border text-foreground shadow-md hover:bg-card transition-colors"
-                title={isExpanded ? "縮小" : "拡大"}
+                title="全画面"
             >
-                {isExpanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                <Maximize2 className="h-4 w-4" />
             </button>
         </div>
     );

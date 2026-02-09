@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "leaflet/dist/leaflet.css";
 
 
 @custom-variant dark (&:is(.dark *));
@@ -333,6 +334,18 @@
 
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
+}
+
+/* Fix Tailwind preflight breaking Leaflet tiles & markers */
+.leaflet-container img {
+  max-width: none !important;
+  max-height: none !important;
+}
+
+/* Map fullscreen: stretch map to fill screen */
+:fullscreen > div {
+  height: 100vh !important;
+  border-radius: 0 !important;
 }
 
 /* Dark popup - hide Leaflet default wrapper styles */
