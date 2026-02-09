@@ -71,19 +71,22 @@ export function RouteMap({ stops, startLocation, className = "" }: RouteMapProps
 
     const toggleExpand = useCallback(() => {
         setIsExpanded(prev => !prev);
-        setTimeout(() => {
-            mapRef.current?.invalidateSize();
-        }, 100);
     }, []);
+
+    // Recalculate map size after expand/collapse DOM update
+    useEffect(() => {
+        if (!mapRef.current) return;
+        // Wait for DOM paint then tell Leaflet to recalculate
+        requestAnimationFrame(() => {
+            mapRef.current?.invalidateSize();
+        });
+    }, [isExpanded]);
 
     // Close fullscreen on Escape key
     useEffect(() => {
         if (!isExpanded) return;
         const handleKey = (e: KeyboardEvent) => {
-            if (e.key === "Escape") {
-                setIsExpanded(false);
-                setTimeout(() => mapRef.current?.invalidateSize(), 100);
-            }
+            if (e.key === "Escape") setIsExpanded(false);
         };
         window.addEventListener("keydown", handleKey);
         return () => window.removeEventListener("keydown", handleKey);
