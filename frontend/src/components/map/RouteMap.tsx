@@ -3,37 +3,44 @@
 import { useEffect, useRef, useCallback } from "react";
 import L from "leaflet";
 import { Maximize2 } from "lucide-react";
+// FaMapMarker SVG path is used directly in marker icons below
 // leaflet.css is imported in globals.css (dynamic imports don't reliably load CSS)
 
-// Office/start marker (green)
-const StartIcon = L.icon({
-    iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png",
-    shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-    iconSize: [25, 41],
-    iconAnchor: [12, 41],
-    popupAnchor: [1, -34],
-    shadowSize: [41, 41],
+// FontAwesome map-marker SVG path (used for all markers)
+const FA_MARKER_PATH = "M172.268 501.67C26.97 291.031 0 269.413 0 192 0 85.961 85.961 0 192 0s192 85.961 192 192c0 77.413-26.97 99.031-172.268 309.67-9.535 13.774-29.93 13.773-39.464 0z";
+
+// Marker colors by status
+const MARKER_COLORS: Record<string, string> = {
+    pending: "#3b82f6",   // blue
+    current: "#22c55e",   // green
+    completed: "#6b7280", // grey
+};
+
+// Build a data-URI for the FaMapMarker SVG with fill color and centered label
+function markerSvgUri(fill: string, label: string): string {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512" width="30" height="42"><path d="${FA_MARKER_PATH}" fill="${fill}"/><text x="192" y="200" text-anchor="middle" dominant-baseline="central" fill="white" font-size="160" font-weight="bold" font-family="Arial,sans-serif">${label}</text></svg>`;
+    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
+
+// Office/start marker (green FaMapMarker with star)
+const StartIcon = L.divIcon({
+    className: "",
+    html: `<img src="${markerSvgUri("#22c55e", "★")}" style="width:30px;height:42px;filter:drop-shadow(0 2px 3px rgba(0,0,0,0.4));" />`,
+    iconSize: [30, 42],
+    iconAnchor: [15, 42],
+    popupAnchor: [0, -34],
 });
 
-// Marker image URLs by status (same style as green StartIcon)
-const MARKER_URLS: Record<string, string> = {
-    pending: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png",
-    current: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png",
-    completed: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-grey.png",
-};
-// Create a proper marker icon with a number label
+// Create a FaMapMarker icon with a centered number label
 function createNumberedIcon(num: number, status: string): L.DivIcon {
-    const iconUrl = MARKER_URLS[status] || MARKER_URLS.pending;
+    const color = MARKER_COLORS[status] || MARKER_COLORS.pending;
 
     return L.divIcon({
         className: "",
-        html: `<div style="position:relative;width:25px;height:41px;">
-            <img src="${iconUrl}" style="width:25px;height:41px;" />
-            <div style="position:absolute;top:3px;left:0;width:25px;text-align:center;color:white;font-size:11px;font-weight:bold;font-family:Arial,sans-serif;text-shadow:0 1px 2px rgba(0,0,0,0.5);">${num}</div>
-        </div>`,
-        iconSize: [25, 41],
-        iconAnchor: [12, 41],
-        popupAnchor: [1, -34],
+        html: `<img src="${markerSvgUri(color, String(num))}" style="width:30px;height:42px;filter:drop-shadow(0 2px 3px rgba(0,0,0,0.4));" />`,
+        iconSize: [30, 42],
+        iconAnchor: [15, 42],
+        popupAnchor: [0, -34],
     });
 }
 
@@ -259,7 +266,7 @@ export function RouteMap({ stops, startLocation, className = "" }: RouteMapProps
                 fetchAndDrawRoute(
                     [`${lastStop.longitude},${lastStop.latitude}`, `${startLocation.lng},${startLocation.lat}`],
                     [[lastStop.latitude, lastStop.longitude], [startLocation.lat, startLocation.lng]],
-                    { color: "#f97316", weight: 4, opacity: 0.85, dashArray: "10, 6" }
+                    { color: "#374151", weight: 4, opacity: 0.85, dashArray: "10, 6" }
                 );
                 // Add return point to bounds calculation
                 routePoints.push([startLocation.lat, startLocation.lng]);
