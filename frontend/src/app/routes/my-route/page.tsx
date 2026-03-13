@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { getJSTDateString } from "@/lib/date";
 import dynamic from "next/dynamic";
 import { AlertModal } from "@/components/modals/AlertModal";
+import type { Route, StopStatus } from "@/lib/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -19,41 +20,16 @@ const RouteMap = dynamic(
     { ssr: false, loading: () => <div className="h-100 bg-muted rounded-xl animate-pulse" /> }
 );
 
-interface RouteStop {
-    stop_id: number;
-    store_id: number;
-    store_name: string;
-    store_address: string;
-    store_latitude: number;
-    store_longitude: number;
-    stop_sequence: number;
-    stop_status: string;
-    items_count: number;
-    total_quantity?: number;
-}
-
-interface MyRoute {
-    route_id: number;
-    route_date: string;
-    status: string;
-    start_location: string;
-    start_latitude: number;
-    start_longitude: number;
-    stops: RouteStop[];
-    total_distance_km: number;
-    estimated_time_minutes: number;
-}
-
-const statusConfig: Record<string, { label: string; icon: React.ElementType; className: string }> = {
+const statusConfig: Record<StopStatus, { label: string; icon: React.ElementType; className: string }> = {
     pending: { label: "待機中", icon: Clock, className: "bg-warning/20 text-warning" },
     current: { label: "移動中", icon: Navigation, className: "bg-primary/20 text-primary" },
     completed: { label: "完了", icon: CheckCircle, className: "bg-success/20 text-success" },
-    failed: { label: "失敗", icon: AlertTriangle, className: "bg-destructive/20 text-destructive" },
+    skipped: { label: "購入不可", icon: AlertTriangle, className: "bg-destructive/20 text-destructive" },
 };
 
 export default function MyRoutePage() {
     const { data: session } = useSession();
-    const [route, setRoute] = useState<MyRoute | null>(null);
+    const [route, setRoute] = useState<Route | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [updatingStop, setUpdatingStop] = useState<number | null>(null);
@@ -95,7 +71,7 @@ export default function MyRoutePage() {
         }
     }
 
-    async function updateStopStatus(stopId: number, newStatus: string) {
+    async function updateStopStatus(stopId: number, newStatus: StopStatus) {
         if (!session?.accessToken || !route) return;
 
         // Optimistic update — apply immediately for fast UI feedback
@@ -184,11 +160,16 @@ export default function MyRoutePage() {
                     </div>
                     <div className="h-100">
                         <RouteMap
-                            startLocation={{
-                                lat: route.start_latitude,
-                                lng: route.start_longitude,
-                                name: route.start_location
-                            }}
+                            startLocation={
+                                route.start_location_lat !== null && route.start_location_lng !== null
+                                    ? {
+                                        lat: route.start_location_lat,
+                                        lng: route.start_location_lng,
+                                        name: route.start_location_name || "オフィス"
+                                    }
+                                    : undefined
+                            }
+                            includeReturn={true}
                             stops={route.stops.map(s => ({
                                 ...s,
                                 total_quantity: s.total_quantity || s.items_count,
@@ -274,7 +255,7 @@ export default function MyRoutePage() {
                                                     <Button
                                                         size="sm"
                                                         variant="ghost"
-                                                        onClick={() => updateStopStatus(stop.stop_id, "failed")}
+                                                        onClick={() => updateStopStatus(stop.stop_id, "skipped")}
                                                         disabled={updatingStop === stop.stop_id}
                                                     >
                                                         <AlertTriangle className="h-4 w-4 mr-1" />

@@ -62,10 +62,11 @@ interface Stop {
 interface RouteMapProps {
     stops: Stop[];
     startLocation?: { lat: number; lng: number; name: string };
+    includeReturn?: boolean;
     className?: string;
 }
 
-export function RouteMap({ stops, startLocation, className = "" }: RouteMapProps) {
+export function RouteMap({ stops, startLocation, includeReturn = true, className = "" }: RouteMapProps) {
     const mapRef = useRef<L.Map | null>(null);
     const mapContainerRef = useRef<HTMLDivElement>(null);
     const markersLayerRef = useRef<L.LayerGroup | null>(null);
@@ -92,9 +93,15 @@ export function RouteMap({ stops, startLocation, className = "" }: RouteMapProps
     }, []);
 
     // Generate a key from stops to detect actual data changes (include stop_sequence and coordinates)
-    const getStopsKey = useCallback((stops: Stop[], startLoc?: { lat: number; lng: number }) => {
+    const getStopsKey = useCallback((
+        stops: Stop[],
+        startLoc?: { lat: number; lng: number },
+        shouldIncludeReturn = false
+    ) => {
         const startKey = startLoc ? `start:${startLoc.lat},${startLoc.lng}` : "no-start";
-        return startKey + "|" + stops.map(s => `${s.stop_id}-${s.stop_status}-${s.stop_sequence}`).join(",");
+        return startKey + `|return:${shouldIncludeReturn ? 1 : 0}|` + stops.map(
+            (s) => `${s.stop_id}-${s.stop_status}-${s.stop_sequence}-${s.latitude ?? "na"}-${s.longitude ?? "na"}`
+        ).join(",");
     }, []);
 
     // Draw markers and routes on the map
@@ -104,6 +111,7 @@ export function RouteMap({ stops, startLocation, className = "" }: RouteMapProps
         routeLayer: L.LayerGroup,
         stops: Stop[],
         startLocation?: { lat: number; lng: number; name: string },
+        includeReturn = false,
         fitBoundsOnDraw = false
     ) => {
         // Abort any in-flight route request
@@ -129,7 +137,7 @@ export function RouteMap({ stops, startLocation, className = "" }: RouteMapProps
         const waypoints: string[] = [];
         // Sort by stop_sequence so waypoints and numbering follow the correct route order
         const validStops = stops
-            .filter((s) => s.latitude && s.longitude)
+            .filter((s) => s.latitude !== undefined && s.latitude !== null && s.longitude !== undefined && s.longitude !== null)
             .sort((a, b) => a.stop_sequence - b.stop_sequence);
 
         if (startLocation) {
@@ -182,6 +190,29 @@ export function RouteMap({ stops, startLocation, className = "" }: RouteMapProps
                 .addTo(markersLayer);
         });
 
+        async function fetchOsrmGeometry(waypointList: string[]): Promise<[number, number][] | null> {
+            if (waypointList.length < 2) return null;
+
+            const coordinates = waypointList.join(";");
+            const response = await fetch(
+                `https://router.project-osrm.org/route/v1/driving/${coordinates}?overview=full&geometries=geojson`,
+                { signal: abortController.signal }
+            );
+
+            if (!response.ok) {
+                return null;
+            }
+
+            const data = await response.json();
+            if (data.code !== "Ok" || !data.routes?.[0]?.geometry?.coordinates) {
+                return null;
+            }
+
+            return data.routes[0].geometry.coordinates.map(
+                (coord: [number, number]) => [coord[1], coord[0]] as [number, number]
+            );
+        }
+
         // Helper: fetch OSRM route and draw polyline
         function fetchAndDrawRoute(
             waypointList: string[],
@@ -189,26 +220,55 @@ export function RouteMap({ stops, startLocation, className = "" }: RouteMapProps
             style: L.PolylineOptions
         ) {
             if (waypointList.length < 2) return;
-            const coordinates = waypointList.join(";");
-            fetch(`https://router.project-osrm.org/route/v1/driving/${coordinates}?overview=full&geometries=geojson`, {
-                signal: abortController.signal,
-            })
-                .then(response => response.json())
-                .then(data => {
+
+            const fallbackStyle = { ...style, weight: style.weight ? style.weight - 1 : 4 };
+
+            void (async () => {
+                try {
+                    let coords = await fetchOsrmGeometry(waypointList);
+
+                    // Public OSRM occasionally fails for multi-waypoint routes.
+                    // Retry per-leg to avoid rendering a long straight fallback line.
+                    if ((!coords || coords.length < 2) && waypointList.length > 2) {
+                        const legRequests: Promise<[number, number][] | null>[] = [];
+                        for (let i = 0; i < waypointList.length - 1; i++) {
+                            legRequests.push(fetchOsrmGeometry([waypointList[i], waypointList[i + 1]]));
+                        }
+
+                        const legResults = await Promise.all(legRequests);
+                        const stitched: [number, number][] = [];
+                        let allLegsOk = true;
+
+                        for (const leg of legResults) {
+                            if (!leg || leg.length < 2) {
+                                allLegsOk = false;
+                                break;
+                            }
+
+                            if (stitched.length === 0) {
+                                stitched.push(...leg);
+                            } else {
+                                stitched.push(...leg.slice(1));
+                            }
+                        }
+
+                        if (allLegsOk && stitched.length >= 2) {
+                            coords = stitched;
+                        }
+                    }
+
                     if (abortController.signal.aborted || !routeLayer) return;
-                    if (data.code === "Ok" && data.routes?.[0]?.geometry?.coordinates) {
-                        const coords: [number, number][] = data.routes[0].geometry.coordinates.map(
-                            (coord: [number, number]) => [coord[1], coord[0]] as [number, number]
-                        );
+
+                    if (coords && coords.length >= 2) {
                         L.polyline(coords, style).addTo(routeLayer);
                     } else {
-                        L.polyline(fallbackPoints, { ...style, weight: style.weight ? style.weight - 1 : 4 }).addTo(routeLayer);
+                        L.polyline(fallbackPoints, fallbackStyle).addTo(routeLayer);
                     }
-                })
-                .catch(() => {
+                } catch {
                     if (abortController.signal.aborted || !routeLayer) return;
-                    L.polyline(fallbackPoints, { ...style, weight: style.weight ? style.weight - 1 : 4 }).addTo(routeLayer);
-                });
+                    L.polyline(fallbackPoints, fallbackStyle).addTo(routeLayer);
+                }
+            })();
         }
 
         // Split route into completed (green) and pending (blue) segments
@@ -260,9 +320,9 @@ export function RouteMap({ stops, startLocation, className = "" }: RouteMapProps
         });
 
         // Fetch return route (last stop → office) separately
-        if (startLocation && validStops.length > 0) {
+        if (includeReturn && startLocation && validStops.length > 0) {
             const lastStop = validStops[validStops.length - 1];
-            if (lastStop.latitude && lastStop.longitude) {
+            if (lastStop.latitude !== undefined && lastStop.latitude !== null && lastStop.longitude !== undefined && lastStop.longitude !== null) {
                 fetchAndDrawRoute(
                     [`${lastStop.longitude},${lastStop.latitude}`, `${startLocation.lng},${startLocation.lat}`],
                     [[lastStop.latitude, lastStop.longitude], [startLocation.lat, startLocation.lng]],
@@ -288,7 +348,9 @@ export function RouteMap({ stops, startLocation, className = "" }: RouteMapProps
         const defaultCenter: [number, number] = [34.6937, 135.5023];
 
         // Calculate initial center
-        const validStops = stops.filter((s) => s.latitude && s.longitude);
+        const validStops = stops.filter(
+            (s) => s.latitude !== undefined && s.latitude !== null && s.longitude !== undefined && s.longitude !== null
+        );
         let center = defaultCenter;
 
         if (startLocation) {
@@ -315,8 +377,8 @@ export function RouteMap({ stops, startLocation, className = "" }: RouteMapProps
         routeLayerRef.current = routeLayer;
 
         // Draw initial markers and routes
-        drawMarkersAndRoutes(map, markersLayer, routeLayer, stops, startLocation, true);
-        lastStopsKeyRef.current = getStopsKey(stops, startLocation);
+        drawMarkersAndRoutes(map, markersLayer, routeLayer, stops, startLocation, includeReturn, true);
+        lastStopsKeyRef.current = getStopsKey(stops, startLocation, includeReturn);
         hasInitialDrawRef.current = true;
 
         // Cleanup on unmount
@@ -347,15 +409,15 @@ export function RouteMap({ stops, startLocation, className = "" }: RouteMapProps
         if (!map || !markersLayer || !routeLayer) return;
 
         // Check if stops actually changed
-        const currentStopsKey = getStopsKey(stops, startLocation);
+        const currentStopsKey = getStopsKey(stops, startLocation, includeReturn);
         if (currentStopsKey === lastStopsKeyRef.current) {
             return; // No actual change, skip update
         }
         lastStopsKeyRef.current = currentStopsKey;
 
         // Redraw markers and routes
-        drawMarkersAndRoutes(map, markersLayer, routeLayer, stops, startLocation, false);
-    }, [stops, startLocation, getStopsKey, drawMarkersAndRoutes]);
+        drawMarkersAndRoutes(map, markersLayer, routeLayer, stops, startLocation, includeReturn, false);
+    }, [stops, startLocation, includeReturn, getStopsKey, drawMarkersAndRoutes]);
 
     return (
         <div ref={wrapperRef} className="relative">

@@ -47,11 +47,11 @@ async def get_all_routes(
         """Get store coordinates, auto-geocoding from address if missing."""
         if not store:
             return None, None
-        lat = float(store.latitude) if store.latitude else None
-        lng = float(store.longitude) if store.longitude else None
+        lat = float(store.latitude) if store.latitude is not None else None
+        lng = float(store.longitude) if store.longitude is not None else None
         if (lat is None or lng is None) and store.address:
             geo_lat, geo_lng = extract_coordinates_from_address(store.address)
-            if geo_lat and geo_lng:
+            if geo_lat is not None and geo_lng is not None:
                 lat = float(geo_lat)
                 lng = float(geo_lng)
                 # Save for future queries (committed by session)
@@ -66,6 +66,7 @@ async def get_all_routes(
             store_lat, store_lng = get_store_coords(s.store)
             stops.append({
                 "stop_id": s.stop_id,
+                "route_id": r.route_id,
                 "store_id": s.store_id,
                 "store_name": s.store.store_name if s.store else None,
                 "store_address": s.store.address if s.store else None,
@@ -74,22 +75,45 @@ async def get_all_routes(
                 "stop_sequence": s.stop_sequence,
                 "stop_status": s.stop_status.value,
                 "items_count": s.items_count,
+                "total_quantity": s.items_count,
                 "estimated_arrival": s.estimated_arrival.isoformat() if s.estimated_arrival else None,
+                "actual_arrival": s.actual_arrival.isoformat() if s.actual_arrival else None,
+                "actual_departure": s.actual_departure.isoformat() if s.actual_departure else None,
             })
 
         route_list.append(
             RouteWithDetails(
                 route_id=r.route_id,
+                list_id=r.list_id,
                 staff_id=r.staff_id,
                 staff_name=r.staff.staff_name if r.staff else "Unknown",
                 staff_avatar=r.staff.staff_name[0] if r.staff else "?",
                 route_date=r.route_date,
                 route_status=r.route_status,
+                total_distance_km=float(r.total_distance_km) if r.total_distance_km is not None else None,
+                estimated_time_minutes=r.estimated_time_minutes,
+                include_return=bool(r.include_return),
                 total_stops=len(r.stops),
                 completed_stops=sum(1 for s in r.stops if s.stop_status == StopStatus.COMPLETED),
                 estimated_duration=f"{r.estimated_time_minutes or 0}分",
-                start_location_lat=float(r.start_location_lat) if r.start_location_lat else (float(r.staff.start_location_lat) if r.staff and r.staff.start_location_lat else DEFAULT_OFFICE_LAT),
-                start_location_lng=float(r.start_location_lng) if r.start_location_lng else (float(r.staff.start_location_lng) if r.staff and r.staff.start_location_lng else DEFAULT_OFFICE_LNG),
+                start_location_lat=(
+                    float(r.start_location_lat)
+                    if r.start_location_lat is not None
+                    else (
+                        float(r.staff.start_location_lat)
+                        if r.staff and r.staff.start_location_lat is not None
+                        else DEFAULT_OFFICE_LAT
+                    )
+                ),
+                start_location_lng=(
+                    float(r.start_location_lng)
+                    if r.start_location_lng is not None
+                    else (
+                        float(r.staff.start_location_lng)
+                        if r.staff and r.staff.start_location_lng is not None
+                        else DEFAULT_OFFICE_LNG
+                    )
+                ),
                 start_location_name=(r.staff.start_location_name if r.staff and r.staff.start_location_name else DEFAULT_OFFICE_NAME),
                 stops=stops,
             )
@@ -144,10 +168,16 @@ async def generate_route_controller(db: AsyncSession, data: RouteGenerate):
     purchase_list = result.scalar_one_or_none()
     if not purchase_list:
         raise HTTPException(status_code=404, detail="買付リストが見つかりません")
+    if purchase_list.staff_id != data.staff_id:
+        raise HTTPException(status_code=400, detail="指定された買付リストがスタッフに一致しません")
 
     from services.route_optimization import generate_route_for_staff
     route_id = await generate_route_for_staff(
-        db, data.staff_id, purchase_list.purchase_date, data.optimization_priority
+        db,
+        data.staff_id,
+        purchase_list.purchase_date,
+        data.optimization_priority,
+        list_id=data.list_id,
     )
 
     if not route_id:

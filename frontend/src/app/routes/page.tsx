@@ -257,8 +257,9 @@ export default function RoutesPage() {
                                         latitude: stop.store_latitude,
                                         longitude: stop.store_longitude,
                                     }))}
+                                    includeReturn={true}
                                     startLocation={
-                                        activeRoute.start_location_lat && activeRoute.start_location_lng
+                                        activeRoute.start_location_lat !== null && activeRoute.start_location_lng !== null
                                             ? { lat: activeRoute.start_location_lat, lng: activeRoute.start_location_lng, name: activeRoute.start_location_name || "オフィス" }
                                             : undefined
                                     }

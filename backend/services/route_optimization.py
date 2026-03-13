@@ -5,6 +5,7 @@ Features:
   - Nearest Neighbor + 2-opt improvement (10-20% shorter routes)
   - Consistent travel time (25 km/h, matching distance_matrix.py)
   - Store opening hours awareness
+    - Speed mode prefers local clusters (reduces long cross-city jumps)
   - Batch queries (no N+1)
   - optimization_priority support (speed / distance / balanced)
   - Office as default start point
@@ -19,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from db.schema import (
     Staff, Store, Route, RouteStop, RouteStatus, StopStatus,
     PurchaseList, PurchaseListItem, ListStatus, StoreDistanceMatrix,
-    Order, OrderItem, OrderStatus
+    Order, OrderItem, OrderStatus, BusinessRule, RuleType
 )
 
 # Default office location (Osaka central) - all routes start here
@@ -32,12 +33,38 @@ SHOPPING_TIME_BASE_PER_STORE = 5   # minutes base per store visit
 SHOPPING_TIME_PER_ITEM = 2         # minutes per item to purchase
 DEFAULT_ROUTE_START_TIME = "10:00"
 
+# Speed-mode locality tuning for quick pickups.
+# Distances above this threshold get extra weight in the optimization objective.
+LONG_JUMP_THRESHOLD_KM = 4.0
+LONG_JUMP_PENALTY_WEIGHT = 0.8
+
+
+async def _get_include_return_setting(db: AsyncSession) -> bool:
+    """Resolve include_return from routing business rule; defaults to True."""
+    result = await db.execute(
+        select(BusinessRule)
+        .where(BusinessRule.rule_type == RuleType.ROUTING)
+        .where(BusinessRule.is_active == True)
+        .order_by(BusinessRule.priority.asc())
+    )
+    rule = result.scalars().first()
+
+    if not rule or not isinstance(rule.rule_config, dict):
+        return True
+
+    include_return = rule.rule_config.get("include_return")
+    if isinstance(include_return, bool):
+        return include_return
+
+    return True
+
 
 async def generate_route_for_staff(
     db: AsyncSession,
     staff_id: int,
     target_date: date,
-    optimization_priority: str = "speed"
+    optimization_priority: str = "speed",
+    list_id: Optional[int] = None,
 ) -> Optional[int]:
     """
     Generate an optimized route for a staff member's purchase list.
@@ -58,12 +85,21 @@ async def generate_route_for_staff(
     if not staff:
         return None
 
-    # Get purchase list for this date
-    result = await db.execute(
-        select(PurchaseList)
-        .where(PurchaseList.staff_id == staff_id)
-        .where(PurchaseList.purchase_date == target_date)
-    )
+    include_return = await _get_include_return_setting(db)
+
+    # Get the exact purchase list when provided; otherwise resolve by staff/date.
+    if list_id is not None:
+        result = await db.execute(
+            select(PurchaseList)
+            .where(PurchaseList.list_id == list_id)
+            .where(PurchaseList.staff_id == staff_id)
+        )
+    else:
+        result = await db.execute(
+            select(PurchaseList)
+            .where(PurchaseList.staff_id == staff_id)
+            .where(PurchaseList.purchase_date == target_date)
+        )
     purchase_list = result.scalar_one_or_none()
     if not purchase_list or purchase_list.total_items == 0:
         return None
@@ -121,6 +157,7 @@ async def generate_route_for_staff(
         )
         route = existing_route
         route.route_status = RouteStatus.NOT_STARTED
+        route.include_return = include_return
     else:
         route = Route(
             list_id=purchase_list.list_id,
@@ -129,7 +166,7 @@ async def generate_route_for_staff(
             start_location_lat=staff.start_location_lat or DEFAULT_OFFICE_LAT,
             start_location_lng=staff.start_location_lng or DEFAULT_OFFICE_LNG,
             route_status=RouteStatus.NOT_STARTED,
-            include_return=False,
+            include_return=include_return,
         )
         db.add(route)
         await db.flush()
@@ -175,7 +212,7 @@ async def generate_route_for_staff(
         optimized_order
     ):
         travel_time = 0
-        if lat and lng:
+        if lat is not None and lng is not None:
             dist = full_matrix.get((prev_store_id, store_id), 0.0)
             total_distance += dist
             # 25 km/h — consistent with distance_matrix.py
@@ -215,6 +252,13 @@ async def generate_route_for_staff(
         )
         current_time += timedelta(minutes=shopping_time)
         estimated_time += shopping_time + travel_time
+
+    # Add return leg (last stop -> start location) when enabled.
+    if include_return and prev_store_id is not None:
+        return_dist = full_matrix.get((prev_store_id, None), 0.0)
+        total_distance += return_dist
+        if return_dist > 0:
+            estimated_time += int(return_dist / AVERAGE_SPEED_KMH * 60)
 
     # Update route totals
     route.total_distance_km = Decimal(str(round(total_distance, 2)))
@@ -265,7 +309,7 @@ def _build_full_distance_matrix(
 
     coords = {}  # store_id → (lat_f, lng_f)
     for s in stores:
-        if s[1] and s[2]:
+        if s[1] is not None and s[2] is not None:
             coords[s[0]] = (float(s[1]), float(s[2]))
 
     all_ids = list(coords.keys())
@@ -315,6 +359,23 @@ def _haversine_fast(lat1: float, lng1: float, lat2: float, lng2: float) -> float
     return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 
+def _distance_objective(distance_km: float, penalize_long_jumps: bool = False) -> float:
+    """
+    Optimization objective for edge cost.
+
+    Base objective is pure distance. In speed mode we bias against long hops,
+    which tends to produce routes with tighter local clusters and fewer cross-city jumps.
+    """
+    if not penalize_long_jumps:
+        return distance_km
+
+    if distance_km <= LONG_JUMP_THRESHOLD_KM:
+        return distance_km
+
+    excess = distance_km - LONG_JUMP_THRESHOLD_KM
+    return distance_km + excess * LONG_JUMP_PENALTY_WEIGHT
+
+
 
 def _optimize_route(
     start_point: Tuple[Decimal, Decimal],
@@ -337,11 +398,22 @@ def _optimize_route(
     if not stores:
         return [], empty_matrix
     if len(stores) == 1:
-        return stores, empty_matrix
+        single_store = stores[0]
+        if single_store[1] is not None and single_store[2] is not None:
+            return [single_store], _build_full_distance_matrix(
+                start_point,
+                [single_store],
+                distance_cache,
+            )
+        return [single_store], empty_matrix
 
     # Separate stores with/without coordinates
-    stores_with_coords = [s for s in stores if s[1] and s[2]]
-    stores_without_coords = [s for s in stores if not s[1] or not s[2]]
+    stores_with_coords = [
+        s for s in stores if s[1] is not None and s[2] is not None
+    ]
+    stores_without_coords = [
+        s for s in stores if s[1] is None or s[2] is None
+    ]
 
     if not stores_with_coords:
         return stores, empty_matrix
@@ -351,11 +423,21 @@ def _optimize_route(
         start_point, stores_with_coords, distance_cache
     )
 
+    prefer_local_clusters = optimization_priority == "speed"
+
     # Step 1: Nearest Neighbor initial solution
-    nn_route = _nearest_neighbor_fast(stores_with_coords, full_matrix)
+    nn_route = _nearest_neighbor_fast(
+        stores_with_coords,
+        full_matrix,
+        penalize_long_jumps=prefer_local_clusters,
+    )
 
     # Step 2: 2-opt improvement
-    improved = _two_opt_fast(nn_route, full_matrix)
+    improved = _two_opt_fast(
+        nn_route,
+        full_matrix,
+        penalize_long_jumps=prefer_local_clusters,
+    )
 
     # Step 3: For "speed" priority, reorder to reduce wait at closed stores
     if optimization_priority == "speed" and target_date:
@@ -371,6 +453,7 @@ def _optimize_route(
 def _nearest_neighbor_fast(
     stores: List[Tuple],
     matrix: Dict[Tuple, float],
+    penalize_long_jumps: bool = False,
 ) -> List[Tuple]:
     """Nearest Neighbor greedy TSP heuristic using pre-computed matrix."""
     result = []
@@ -383,8 +466,9 @@ def _nearest_neighbor_fast(
 
         for i, s in enumerate(remaining):
             dist = matrix.get((current_id, s[0]), 0.0)
-            if dist < nearest_dist:
-                nearest_dist = dist
+            objective = _distance_objective(dist, penalize_long_jumps)
+            if objective < nearest_dist:
+                nearest_dist = objective
                 nearest_idx = i
 
         store = remaining.pop(nearest_idx)
@@ -398,6 +482,7 @@ def _two_opt_fast(
     route: List[Tuple],
     matrix: Dict[Tuple, float],
     max_iterations: int = 20,
+    penalize_long_jumps: bool = False,
 ) -> List[Tuple]:
     """
     2-opt local search using pre-computed distance matrix.
@@ -422,14 +507,26 @@ def _two_opt_fast(
                 d_id = best[j + 1][0] if j + 1 < n else None
 
                 # Current edges: a→b + c→d
-                current_cost = matrix.get((a_id, b_id), 0.0)
+                current_cost = _distance_objective(
+                    matrix.get((a_id, b_id), 0.0),
+                    penalize_long_jumps,
+                )
                 if d_id is not None:
-                    current_cost += matrix.get((c_id, d_id), 0.0)
+                    current_cost += _distance_objective(
+                        matrix.get((c_id, d_id), 0.0),
+                        penalize_long_jumps,
+                    )
 
                 # Reversed edges: a→c + b→d
-                new_cost = matrix.get((a_id, c_id), 0.0)
+                new_cost = _distance_objective(
+                    matrix.get((a_id, c_id), 0.0),
+                    penalize_long_jumps,
+                )
                 if d_id is not None:
-                    new_cost += matrix.get((b_id, d_id), 0.0)
+                    new_cost += _distance_objective(
+                        matrix.get((b_id, d_id), 0.0),
+                        penalize_long_jumps,
+                    )
 
                 if new_cost < current_cost - 0.01:
                     best[i: j + 1] = best[i: j + 1][::-1]

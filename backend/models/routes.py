@@ -5,18 +5,22 @@ from db.schema import RouteStatus, StopStatus
 
 class RouteWithDetails(BaseModel):
     route_id: int
+    list_id: int
     staff_id: int
     staff_name: str
     staff_avatar: str
     route_date: date
     route_status: RouteStatus
+    total_distance_km: Optional[float] = None
+    estimated_time_minutes: Optional[int] = None
+    include_return: bool = False
     total_stops: int
     completed_stops: int
     estimated_duration: str
     start_location_lat: Optional[float] = None
     start_location_lng: Optional[float] = None
     start_location_name: Optional[str] = None
-    stops: List[dict] = []
+    stops: List[dict] = Field(default_factory=list)
 
 class RouteGenerate(BaseModel):
     staff_id: int
