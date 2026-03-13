@@ -11,6 +11,7 @@ import { CreateStaffModal } from "@/components/modals/CreateStaffModal";
 import { EditStaffModal } from "@/components/modals/EditStaffModal";
 import { ConfirmModal } from "@/components/modals/ConfirmModal";
 import { AlertModal } from "@/components/modals/AlertModal";
+import { getJSTDateString } from "@/lib/date";
 import type { StaffWithStats, StaffStatus, StaffRole } from "@/lib/types";
 
 const statusConfig: Record<StaffStatus, { label: string; color: string; textColor: string }> = {
@@ -61,7 +62,7 @@ export default function StaffPage() {
     async function handleAutoAssignAll() {
         try {
             setAutoAssigning(true);
-            const today = new Date().toISOString().split("T")[0];
+            const today = getJSTDateString();
             await automationApi.autoAssignDaily(today);
             await new Promise(resolve => setTimeout(resolve, 300));
             await fetchStaff();

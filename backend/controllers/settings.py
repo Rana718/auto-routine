@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.schema import BusinessRule, RuleType
 from models.settings import AllSettings, CutoffSettings, StaffSettings, RouteSettings, NotificationSettings
-from utils.timezone import jst_now
+from utils.timezone import jst_now, jst_today
 
 async def get_all_settings(db: AsyncSession) -> AllSettings:
     result = await db.execute(select(BusinessRule).where(BusinessRule.is_active == True))
@@ -402,10 +402,10 @@ async def import_purchase_list_csv(db: AsyncSession, csv_data: str, target_date:
     )
     from io import StringIO
     import csv
-    from datetime import date as date_type, datetime
+    from datetime import datetime
 
     if target_date is None:
-        target_date = date_type.today()
+        target_date = jst_today()
 
     if not csv_data:
         return {"message": "CSVデータがありません", "products_created": 0, "stores_created": 0, "mappings_created": 0, "errors": []}

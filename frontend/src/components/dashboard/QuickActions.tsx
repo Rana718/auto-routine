@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { automationApi } from "@/lib/api";
 import { AlertModal } from "@/components/modals/AlertModal";
 import { readFileAsCSVText } from "@/lib/excel";
+import { getJSTDateString } from "@/lib/date";
 import Link from "next/link";
 
 interface ActionItem {
@@ -26,10 +27,7 @@ export function QuickActions() {
     const userRole = session?.user?.role || "buyer";
     const isAdmin = userRole === "admin" || userRole === "supervisor";
 
-    // Use Japan timezone for today's date
-    const now = new Date();
-    const japanTime = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Tokyo" }));
-    const today = japanTime.toISOString().split("T")[0];
+    const today = getJSTDateString();
 
     async function handleAction(actionType: string) {
         console.log("Action triggered:", actionType);
