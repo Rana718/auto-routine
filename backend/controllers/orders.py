@@ -392,11 +392,11 @@ async def import_picking_list_orders(db: AsyncSession, csv_data: str, target_dat
     if not sku_totals:
         return {"message": "インポートするアイテムがありません", "items_created": 0, "errors": errors}
 
-    # Delete existing PickingList orders for same date
+    # Delete existing PickingList AND 購入リスト orders for same date (they are mutually exclusive)
     existing = await db.execute(
         select(Order)
         .where(Order.target_purchase_date == target_date)
-        .where(Order.mall_name == "ピッキングリスト")
+        .where(Order.mall_name.in_(["ピッキングリスト", "購入リスト"]))
     )
     for old_order in existing.scalars().all():
         await db.delete(old_order)

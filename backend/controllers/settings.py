@@ -608,11 +608,11 @@ async def import_purchase_list_csv(db: AsyncSession, csv_data: str, target_date:
     # === Phase 6: Create Orders + OrderItems from CSV data ===
     # The CSV IS the purchase list - create orders directly so auto-assign + route generation works.
     # Delete existing CSV-imported orders for same date to allow re-import.
+    # Delete existing 購入リスト AND ピッキングリスト orders for same date (購入リスト supersedes PickingList)
     existing_csv_orders = await db.execute(
         select(Order)
         .where(Order.target_purchase_date == target_date)
-        .where(Order.mall_name == "購入リスト")
-        .where(Order.order_status == OrderStatus.PENDING)
+        .where(Order.mall_name.in_(["購入リスト", "ピッキングリスト"]))
     )
     for old_order in existing_csv_orders.scalars().all():
         await db.delete(old_order)
