@@ -41,6 +41,7 @@ export default function OrdersPage() {
     const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
     const [deleting, setDeleting] = useState(false);
     const [importingPurchaseList, setImportingPurchaseList] = useState(false);
+    const [importingPickingList, setImportingPickingList] = useState(false);
     const limit = 20;
 
     useEffect(() => {

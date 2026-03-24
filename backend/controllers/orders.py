@@ -336,3 +336,101 @@ async def delete_order(db: AsyncSession, order_id: int):
     await db.delete(order)
     await db.commit()
     return {"message": "注文を削除しました"}
+
+async def import_picking_list_orders(db: AsyncSession, csv_data: str, target_date=None):
+    """
+    Parse PickingList CSV (combined from all sheets).
+    Columns: B=商品コード, C=商品名, D=規格コード(項目), E=数量
+    Creates one Order per import with all items.
+    Deletes existing PickingList orders for same date before re-importing.
+    """
+    import csv
+    from io import StringIO
+    from utils.timezone import jst_now, jst_today
+
+    if target_date is None:
+        target_date = jst_today()
+
+    if not csv_data:
+        return {"message": "CSVデータがありません", "items_created": 0}
+
+    reader = csv.reader(StringIO(csv_data))
+    rows = list(reader)
+
+    # Find header row
+    header_idx = next(
+        (i for i, r in enumerate(rows) if any("商品コード" in str(c) or "product_code" in str(c).lower() for c in r)),
+        None
+    )
+    if header_idx is None:
+        return {"message": "ヘッダー行が見つかりません", "items_created": 0}
+
+    # Parse items: aggregate quantity per SKU
+    sku_totals: dict = {}  # sku -> {name, qty}
+    errors = []
+    for row_idx, row in enumerate(rows[header_idx + 1:], start=header_idx + 2):
+        if len(row) < 2:
+            continue
+        sku = row[1].strip() if len(row) > 1 else ""
+        name = row[2].strip() if len(row) > 2 else ""
+        qty_str = row[4].strip() if len(row) > 4 else ""
+
+        if not sku:
+            continue
+
+        try:
+            qty = int(float(qty_str)) if qty_str else 1
+        except ValueError:
+            errors.append(f"行 {row_idx}: 数量が無効: {qty_str}")
+            continue
+
+        if sku in sku_totals:
+            sku_totals[sku]["qty"] += qty
+        else:
+            sku_totals[sku] = {"name": name, "qty": qty}
+
+    if not sku_totals:
+        return {"message": "インポートするアイテムがありません", "items_created": 0, "errors": errors}
+
+    # Delete existing PickingList orders for same date
+    existing = await db.execute(
+        select(Order)
+        .where(Order.target_purchase_date == target_date)
+        .where(Order.mall_name == "ピッキングリスト")
+    )
+    for old_order in existing.scalars().all():
+        await db.delete(old_order)
+    await db.flush()
+
+    # Auto-create products if missing
+    items_list = [{"sku": sku, "product_name": v["name"]} for sku, v in sku_totals.items()]
+    await ensure_products_exist(db, items_list)
+
+    # Create one order
+    order = Order(
+        mall_name="ピッキングリスト",
+        order_date=jst_now(),
+        order_status=OrderStatus.PENDING,
+        target_purchase_date=target_date,
+    )
+    db.add(order)
+    await db.flush()
+
+    for sku, v in sku_totals.items():
+        item = OrderItem(
+            order_id=order.order_id,
+            sku=sku,
+            product_name=v["name"],
+            quantity=v["qty"],
+            item_status=ItemStatus.PENDING,
+        )
+        db.add(item)
+
+    await db.commit()
+
+    return {
+        "message": f"ピッキングリストをインポートしました: {len(sku_totals)}件のアイテム",
+        "order_id": order.order_id,
+        "items_created": len(sku_totals),
+        "errors": errors[:10] if errors else []
+    }

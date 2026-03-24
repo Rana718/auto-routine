@@ -1,5 +1,6 @@
 from datetime import date
 from typing import Annotated, List, Optional
+from pydantic import BaseModel
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -111,3 +112,25 @@ async def delete_order_route(
     """Delete an order"""
     from controllers.orders import delete_order
     return await delete_order(db, order_id)
+
+
+class PickingListImportRequest(BaseModel):
+    csv_data: str
+    target_date: Optional[str] = None
+
+
+@router.post("/import-picking-list")
+async def import_picking_list(
+    data: PickingListImportRequest,
+    current_user: Annotated[Staff, Depends(get_current_user)],
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Import PickingList xlsx (multi-sheet, no store column).
+    Columns: 商品コード (B), 商品名 (C), 規格コード(項目) (D), 数量 (E)
+    Creates one Order with all items for the target date.
+    """
+    from controllers.orders import import_picking_list_orders
+    from datetime import date as date_type
+    target = date_type.fromisoformat(data.target_date) if data.target_date else None
+    return await import_picking_list_orders(db, data.csv_data, target)
