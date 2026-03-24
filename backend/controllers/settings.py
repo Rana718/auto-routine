@@ -434,13 +434,14 @@ async def import_purchase_list_csv(db: AsyncSession, csv_data: str, target_date:
         if len(row) < 6:
             continue
 
-        product_code = row[1].strip() if len(row) > 1 else ''
-        product_name = row[2].strip() if len(row) > 2 else ''
-        quantity_str = row[4].strip() if len(row) > 4 else ''
-        store_name = row[5].strip() if len(row) > 5 else ''
-        address = row[6].strip() if len(row) > 6 else ''
+        product_code = row[1].strip() if len(row) > 1 and row[1] else ''
+        product_name = row[2].strip() if len(row) > 2 and row[2] else ''
+        quantity_str = str(row[4]).strip() if len(row) > 4 and row[4] is not None else ''
+        store_name = row[5].strip() if len(row) > 5 and row[5] else ''
+        address = row[6].strip() if len(row) > 6 and row[6] else ''
 
-        if not quantity_str or not store_name:
+        # Skip rows with no store name
+        if not store_name:
             continue
 
         if product_code:
@@ -450,11 +451,15 @@ async def import_purchase_list_csv(db: AsyncSession, csv_data: str, target_date:
         if not current_product_code:
             continue
 
-        try:
-            quantity = int(quantity_str)
-        except ValueError:
-            errors.append(f"行 {row_idx}: 数量が無効です: {quantity_str}")
-            continue
+        # Default quantity to 1 if empty/missing
+        if not quantity_str:
+            quantity = 1
+        else:
+            try:
+                quantity = int(float(quantity_str))
+            except ValueError:
+                errors.append(f"行 {row_idx}: 数量が無効です: {quantity_str}")
+                continue
 
         all_product_codes.add(current_product_code)
         all_store_names.add(store_name)
