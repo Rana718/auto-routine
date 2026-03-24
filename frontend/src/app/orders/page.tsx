@@ -185,6 +185,57 @@ export default function OrdersPage() {
                         <span className="hidden sm:inline">{importingPurchaseList ? "インポート中..." : "購入リスト"}</span>
                         <span className="sm:hidden">{importingPurchaseList ? "処理中" : "購入"}</span>
                     </Button>
+                    {canManageOrders && (
+                        <Button
+                            className="gap-2 flex-1 sm:flex-none"
+                            type="button"
+                            variant="secondary"
+                            disabled={importingPickingList}
+                            onClick={() => {
+                                const input = document.createElement('input');
+                                input.type = 'file';
+                                input.accept = '.xlsx,.xls';
+                                input.onchange = async (e) => {
+                                    const file = (e.target as HTMLInputElement).files?.[0];
+                                    if (!file) return;
+                                    const token = (session as any)?.accessToken;
+                                    if (!token) {
+                                        setAlertModal({ message: "認証トークンが見つかりません。再度ログインしてください。", type: "error" });
+                                        return;
+                                    }
+                                    setImportingPickingList(true);
+                                    try {
+                                        const text = await readFileAsCSVText(file);
+                                        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/orders/import-picking-list`, {
+                                            method: 'POST',
+                                            headers: {
+                                                'Content-Type': 'application/json',
+                                                Authorization: `Bearer ${token}`
+                                            },
+                                            body: JSON.stringify({ csv_data: text, target_date: getJSTDateString() })
+                                        });
+                                        const result = await response.json();
+                                        if (!response.ok) throw new Error(result.detail || "インポートに失敗しました");
+                                        setAlertModal({ message: result.message || "ピッキングリストをインポートしました", type: "success" });
+                                        await fetchOrders();
+                                    } catch (err) {
+                                        setAlertModal({ message: err instanceof Error ? err.message : "インポートに失敗しました", type: "error" });
+                                    } finally {
+                                        setImportingPickingList(false);
+                                    }
+                                };
+                                input.click();
+                            }}
+                        >
+                            {importingPickingList ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                                <FileSpreadsheet className="h-4 w-4" />
+                            )}
+                            <span className="hidden sm:inline">{importingPickingList ? "インポート中..." : "ピッキングリスト"}</span>
+                            <span className="sm:hidden">{importingPickingList ? "処理中" : "ピッキング"}</span>
+                        </Button>
+                    )}
                 </div>
             </form>
 
