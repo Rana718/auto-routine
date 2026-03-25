@@ -326,7 +326,7 @@ export function RouteMap({ stops, startLocation, includeReturn = true, className
                 fetchAndDrawRoute(
                     [`${lastStop.longitude},${lastStop.latitude}`, `${startLocation.lng},${startLocation.lat}`],
                     [[lastStop.latitude, lastStop.longitude], [startLocation.lat, startLocation.lng]],
-                    { color: "#f97316", weight: 4, opacity: 0.85, dashArray: "10, 6" }
+                    { color: "#d946ef", weight: 4, opacity: 0.85, dashArray: "10, 6" }
                 );
                 // Add return point to bounds calculation
                 routePoints.push([startLocation.lat, startLocation.lng]);
