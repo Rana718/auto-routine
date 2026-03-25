@@ -6,7 +6,7 @@ import { FileSpreadsheet, UserPlus, MapPin, RefreshCw, Loader2, Navigation } fro
 import { Button } from "@/components/ui/button";
 import { automationApi } from "@/lib/api";
 import { AlertModal } from "@/components/modals/AlertModal";
-import { readFileAsCSVText } from "@/lib/excel";
+import { detectImportFormat, readFileAsCSVText } from "@/lib/excel";
 import { getJSTDateString } from "@/lib/date";
 import Link from "next/link";
 
@@ -33,7 +33,7 @@ export function QuickActions() {
         console.log("Action triggered:", actionType);
 
         if (actionType === "import") {
-            // Open file picker for purchase list CSV
+            // Open file picker and auto-detect the import format.
             const input = document.createElement('input');
             input.type = 'file';
             input.accept = '.csv,.xlsx,.xls';
@@ -48,14 +48,25 @@ export function QuickActions() {
                 setLoading("import");
                 try {
                     const text = await readFileAsCSVText(file);
-                    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/settings/data/import-purchase-list`, {
+                    const format = detectImportFormat(text);
+                    if (format === "unknown") {
+                        throw new Error("ファイル形式を判定できませんでした。購入リストまたはピッキングリストのファイルを選択してください。");
+                    }
+
+                    const endpoint =
+                        format === "purchase-list"
+                            ? "/api/settings/data/import-purchase-list"
+                            : "/api/orders/import-picking-list";
+
+                    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}${endpoint}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                         body: JSON.stringify({ csv_data: text, target_date: today })
                     });
                     const result = await response.json();
                     if (!response.ok) throw new Error(result.detail || "インポートに失敗しました");
-                    setAlertModal({ message: result.message || "購入リストをインポートしました", type: "success" });
+                    const formatLabel = format === "purchase-list" ? "購入リスト" : "ピッキングリスト";
+                    setAlertModal({ message: result.message || `${formatLabel}をインポートしました`, type: "success" });
                     setTimeout(() => window.location.reload(), 1500);
                 } catch (err) {
                     setAlertModal({ message: err instanceof Error ? err.message : "インポートに失敗しました", type: "error" });

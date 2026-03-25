@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { ordersApi } from "@/lib/api";
 import { ExportButton } from "@/components/ui/ExportButton";
-import { readFileAsCSVText } from "@/lib/excel";
+import { detectImportFormat, readFileAsCSVText } from "@/lib/excel";
 import { getJSTDateString, formatDateJP } from "@/lib/date";
 import type { OrderWithItems, OrderStatus } from "@/lib/types";
 import { useSession } from "next-auth/react";
@@ -40,8 +40,7 @@ export default function OrdersPage() {
     const [alertModal, setAlertModal] = useState<{ message: string; type: "success" | "error" } | null>(null);
     const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
     const [deleting, setDeleting] = useState(false);
-    const [importingPurchaseList, setImportingPurchaseList] = useState(false);
-    const [importingPickingList, setImportingPickingList] = useState(false);
+    const [importingType, setImportingType] = useState<"purchase" | "picking" | null>(null);
     const limit = 20;
 
     useEffect(() => {
@@ -70,6 +69,57 @@ export default function OrdersPage() {
         e.preventDefault();
         setPage(0);
         fetchOrders();
+    }
+
+    function handleAutoImport(triggeredBy: "purchase" | "picking") {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.csv,.xlsx,.xls';
+        input.onchange = async (e) => {
+            const file = (e.target as HTMLInputElement).files?.[0];
+            if (!file) return;
+
+            const token = (session as any)?.accessToken;
+            if (!token) {
+                setAlertModal({ message: "認証トークンが見つかりません。再度ログインしてください。", type: "error" });
+                return;
+            }
+
+            setImportingType(triggeredBy);
+            try {
+                const text = await readFileAsCSVText(file);
+                const format = detectImportFormat(text);
+                if (format === "unknown") {
+                    throw new Error("ファイル形式を判定できませんでした。購入リストまたはピッキングリストのファイルを選択してください。");
+                }
+
+                const endpoint =
+                    format === "purchase-list"
+                        ? "/api/settings/data/import-purchase-list"
+                        : "/api/orders/import-picking-list";
+
+                const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}${endpoint}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ csv_data: text, target_date: getJSTDateString() })
+                });
+
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.detail || "インポートに失敗しました");
+
+                const formatLabel = format === "purchase-list" ? "購入リスト" : "ピッキングリスト";
+                setAlertModal({ message: result.message || `${formatLabel}をインポートしました`, type: "success" });
+                await fetchOrders();
+            } catch (err) {
+                setAlertModal({ message: err instanceof Error ? err.message : "インポートに失敗しました", type: "error" });
+            } finally {
+                setImportingType(null);
+            }
+        };
+        input.click();
     }
 
     async function confirmDeleteOrder() {
@@ -140,100 +190,32 @@ export default function OrdersPage() {
                     <Button
                         className="gap-2 flex-1 sm:flex-none"
                         type="button"
-                        disabled={importingPurchaseList}
-                        onClick={() => {
-                            const input = document.createElement('input');
-                            input.type = 'file';
-                            input.accept = '.csv,.xlsx,.xls';
-                            input.onchange = async (e) => {
-                                const file = (e.target as HTMLInputElement).files?.[0];
-                                if (!file) return;
-                                const token = (session as any)?.accessToken;
-                                if (!token) {
-                                    setAlertModal({ message: "認証トークンが見つかりません。再度ログインしてください。", type: "error" });
-                                    return;
-                                }
-                                setImportingPurchaseList(true);
-                                try {
-                                    const text = await readFileAsCSVText(file);
-                                    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/settings/data/import-purchase-list`, {
-                                        method: 'POST',
-                                        headers: {
-                                            'Content-Type': 'application/json',
-                                            Authorization: `Bearer ${token}`
-                                        },
-                                        body: JSON.stringify({ csv_data: text, target_date: getJSTDateString() })
-                                    });
-                                    const result = await response.json();
-                                    if (!response.ok) throw new Error(result.detail || "インポートに失敗しました");
-                                    setAlertModal({ message: result.message || "購入リストをインポートしました", type: "success" });
-                                    await fetchOrders();
-                                } catch (err) {
-                                    setAlertModal({ message: err instanceof Error ? err.message : "インポートに失敗しました", type: "error" });
-                                } finally {
-                                    setImportingPurchaseList(false);
-                                }
-                            };
-                            input.click();
-                        }}
+                        disabled={importingType !== null}
+                        onClick={() => handleAutoImport("purchase")}
                     >
-                        {importingPurchaseList ? (
+                        {importingType === "purchase" ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
                             <FileSpreadsheet className="h-4 w-4" />
                         )}
-                        <span className="hidden sm:inline">{importingPurchaseList ? "インポート中..." : "購入リスト"}</span>
-                        <span className="sm:hidden">{importingPurchaseList ? "処理中" : "購入"}</span>
+                        <span className="hidden sm:inline">{importingType === "purchase" ? "判定・インポート中..." : "購入リスト"}</span>
+                        <span className="sm:hidden">{importingType === "purchase" ? "処理中" : "購入"}</span>
                     </Button>
                     {canManageOrders && (
                         <Button
                             className="gap-2 flex-1 sm:flex-none"
                             type="button"
                             variant="secondary"
-                            disabled={importingPickingList}
-                            onClick={() => {
-                                const input = document.createElement('input');
-                                input.type = 'file';
-                                input.accept = '.xlsx,.xls';
-                                input.onchange = async (e) => {
-                                    const file = (e.target as HTMLInputElement).files?.[0];
-                                    if (!file) return;
-                                    const token = (session as any)?.accessToken;
-                                    if (!token) {
-                                        setAlertModal({ message: "認証トークンが見つかりません。再度ログインしてください。", type: "error" });
-                                        return;
-                                    }
-                                    setImportingPickingList(true);
-                                    try {
-                                        const text = await readFileAsCSVText(file);
-                                        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/orders/import-picking-list`, {
-                                            method: 'POST',
-                                            headers: {
-                                                'Content-Type': 'application/json',
-                                                Authorization: `Bearer ${token}`
-                                            },
-                                            body: JSON.stringify({ csv_data: text, target_date: getJSTDateString() })
-                                        });
-                                        const result = await response.json();
-                                        if (!response.ok) throw new Error(result.detail || "インポートに失敗しました");
-                                        setAlertModal({ message: result.message || "ピッキングリストをインポートしました", type: "success" });
-                                        await fetchOrders();
-                                    } catch (err) {
-                                        setAlertModal({ message: err instanceof Error ? err.message : "インポートに失敗しました", type: "error" });
-                                    } finally {
-                                        setImportingPickingList(false);
-                                    }
-                                };
-                                input.click();
-                            }}
+                            disabled={importingType !== null}
+                            onClick={() => handleAutoImport("picking")}
                         >
-                            {importingPickingList ? (
+                            {importingType === "picking" ? (
                                 <Loader2 className="h-4 w-4 animate-spin" />
                             ) : (
                                 <FileSpreadsheet className="h-4 w-4" />
                             )}
-                            <span className="hidden sm:inline">{importingPickingList ? "インポート中..." : "ピッキングリスト"}</span>
-                            <span className="sm:hidden">{importingPickingList ? "処理中" : "ピッキング"}</span>
+                            <span className="hidden sm:inline">{importingType === "picking" ? "判定・インポート中..." : "ピッキングリスト"}</span>
+                            <span className="sm:hidden">{importingType === "picking" ? "処理中" : "ピッキング"}</span>
                         </Button>
                     )}
                 </div>

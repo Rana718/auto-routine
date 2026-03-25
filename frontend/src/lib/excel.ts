@@ -66,6 +66,54 @@ export async function readFileAsCSVText(file: File): Promise<string> {
     return file.text();
 }
 
+export type ImportFormat = "purchase-list" | "picking-list" | "unknown";
+
+/**
+ * Detect whether CSV text is the purchase list format or picking list format.
+ * Purchase list rows contain store information in column F, while picking list rows do not.
+ */
+export function detectImportFormat(csvText: string): ImportFormat {
+    if (!csvText?.trim()) return "unknown";
+
+    try {
+        const workbook = XLSX.read(csvText, { type: "string" });
+        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json<string[]>(firstSheet, { header: 1, defval: "" });
+
+        const headerIdx = rows.findIndex((row) =>
+            row.some(
+                (cell) =>
+                    String(cell).includes("商品コード") ||
+                    String(cell).toLowerCase().includes("product_code")
+            )
+        );
+
+        if (headerIdx === -1) return "unknown";
+
+        let storeLikeRows = 0;
+        let dataRows = 0;
+
+        for (const row of rows.slice(headerIdx + 1, headerIdx + 301)) {
+            const sku = String(row[1] ?? "").trim();
+            const qty = String(row[4] ?? "").trim();
+            const store = String(row[5] ?? "").trim();
+
+            if (!sku) continue;
+            dataRows += 1;
+
+            const qtyLooksNumeric = qty === "" || !Number.isNaN(Number(qty));
+            if (store && qtyLooksNumeric) {
+                storeLikeRows += 1;
+            }
+        }
+
+        if (dataRows === 0) return "unknown";
+        return storeLikeRows >= 3 ? "purchase-list" : "picking-list";
+    } catch {
+        return "unknown";
+    }
+}
+
 /**
  * Downloads CSV text as an Excel (.xlsx) file.
  */
