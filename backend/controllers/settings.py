@@ -418,7 +418,7 @@ async def import_purchase_list_csv(db: AsyncSession, csv_data: str, target_date:
     # Find the header row
     header_idx = 0
     for i, row in enumerate(rows):
-        if len(row) >= 6 and ('商品コード' in row[1] or 'product_code' in str(row).lower()):
+        if len(row) >= 6 and any('商品コード' in str(cell) or 'product_code' in str(cell).lower() for cell in row):
             header_idx = i
             break
 
@@ -609,6 +609,18 @@ async def import_purchase_list_csv(db: AsyncSession, csv_data: str, target_date:
     # The CSV IS the purchase list - create orders directly so auto-assign + route generation works.
     # Delete existing CSV-imported orders for same date to allow re-import.
     # Delete existing 購入リスト AND ピッキングリスト orders for same date (購入リスト supersedes PickingList)
+    from sqlalchemy import text
+    # Delete purchase_list_items first via raw SQL to avoid SQLAlchemy cascade ordering issue
+    # (SQLAlchemy tries to SET item_id=NULL before delete, violating NOT NULL constraint)
+    await db.execute(text("""
+        DELETE FROM purchase_list_items
+        WHERE item_id IN (
+            SELECT oi.item_id FROM order_items oi
+            JOIN orders o ON oi.order_id = o.order_id
+            WHERE o.target_purchase_date = :target_date
+            AND o.mall_name IN ('購入リスト', 'ピッキングリスト')
+        )
+    """), {"target_date": target_date})
     existing_csv_orders = await db.execute(
         select(Order)
         .where(Order.target_purchase_date == target_date)
