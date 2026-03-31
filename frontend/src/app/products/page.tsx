@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { Store, Loader2, Upload } from "lucide-react";
+import { Store, Loader2, Upload, Link2 } from "lucide-react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { AlertModal } from "@/components/modals/AlertModal";
+import { ProductStoreMappingModal } from "@/components/modals/ProductStoreMappingModal";
 import { ExportButton } from "@/components/ui/ExportButton";
 import { readFileAsCSVText } from "@/lib/excel";
 
@@ -36,6 +37,7 @@ export default function ProductsPage() {
     const [loading, setLoading] = useState(true);
     const [importing, setImporting] = useState(false);
     const [alertModal, setAlertModal] = useState<{ message: string; type: "success" | "error" } | null>(null);
+    const [mappingModal, setMappingModal] = useState<{ isOpen: boolean; productId: number; productName: string } | null>(null);
 
     useEffect(() => {
         if (session?.accessToken) {
@@ -244,6 +246,16 @@ export default function ProductsPage() {
                                         className="h-4 w-4 cursor-pointer"
                                     />
                                 </label>
+
+                                <Button
+                                    onClick={() => setMappingModal({ isOpen: true, productId: product.product_id, productName: product.product_name })}
+                                    variant="outline"
+                                    size="sm"
+                                    className="w-full gap-2"
+                                >
+                                    <Link2 className="h-4 w-4" />
+                                    店舗マッピング
+                                </Button>
                             </div>
                         </div>
                     ))}
@@ -268,6 +280,9 @@ export default function ProductsPage() {
                                 </th>
                                 <th className="px-3 lg:px-4 py-3 text-center text-xs font-medium uppercase text-muted-foreground w-25">
                                     除外
+                                </th>
+                                <th className="px-3 lg:px-4 py-3 text-center text-xs font-medium uppercase text-muted-foreground w-32">
+                                    マッピング
                                 </th>
                             </tr>
                         </thead>
@@ -334,12 +349,34 @@ export default function ProductsPage() {
                                             className="h-4 w-4 cursor-pointer"
                                         />
                                     </td>
+                                    <td className="px-3 lg:px-4 py-3 text-center">
+                                        <Button
+                                            onClick={() => setMappingModal({ isOpen: true, productId: product.product_id, productName: product.product_name })}
+                                            variant="outline"
+                                            size="sm"
+                                            className="gap-2"
+                                        >
+                                            <Link2 className="h-4 w-4" />
+                                            マッピング
+                                        </Button>
+                                    </td>
                                 </tr>
                             ))}
                         </tbody>
                     </table>
                 </div>
             </div>
+
+            {/* Modals */}
+            {mappingModal && (
+                <ProductStoreMappingModal
+                    isOpen={mappingModal.isOpen}
+                    onClose={() => setMappingModal(null)}
+                    productId={mappingModal.productId}
+                    productName={mappingModal.productName}
+                    accessToken={session?.accessToken || ""}
+                />
+            )}
 
             {/* Alert Modal */}
             <AlertModal
