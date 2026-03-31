@@ -1,11 +1,19 @@
 from typing import Annotated, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 
 from db.db import get_db
-from db.schema import Staff, StaffRole, StaffStatus, StaffResponse, StaffCreate
+from db.schema import (
+    Staff,
+    StaffRole,
+    StaffStatus,
+    StaffResponse,
+    StaffCreate,
+    PurchaseList,
+    Route,
+)
 from middlewares.auth import get_current_user, hash_password
 from middlewares.rbac import require_role
 
@@ -171,7 +179,12 @@ async def delete_user(
     
     if user.staff_id == current_user.staff_id:
         raise HTTPException(status_code=400, detail="自分自身を削除できません")
-    
+
+    # Delete dependent rows first to avoid setting NOT NULL foreign keys to NULL.
+    # Order matters: routes reference purchase lists, so routes are removed first.
+    await db.execute(delete(Route).where(Route.staff_id == user.staff_id))
+    await db.execute(delete(PurchaseList).where(PurchaseList.staff_id == user.staff_id))
+
     # Hard delete - actually remove from database
     await db.delete(user)
     await db.commit()
