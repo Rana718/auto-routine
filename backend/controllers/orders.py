@@ -1,13 +1,13 @@
 from datetime import date, datetime
 from typing import List, Optional
 from fastapi import HTTPException
-from sqlalchemy import select, func, case
+from sqlalchemy import select, func, case, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from utils.timezone import jst_now
 from sqlalchemy.orm import selectinload
 
 from db.schema import Order, OrderItem, OrderStatus, ItemStatus, OrderCreate, OrderResponse, OrderItemCreate, OrderItemResponse
-from db.schema import Product, ProductStoreMapping, Store, StockStatus, PurchaseListItem
+from db.schema import Product, ProductStoreMapping, Store, StockStatus, PurchaseListItem, PurchaseFailure
 from models.orders import OrderWithItemsResponse, OrderStats, BulkOrderImport
 
 
@@ -321,6 +321,17 @@ async def delete_order(db: AsyncSession, order_id: int):
     order = result.scalar_one_or_none()
     if not order:
         raise HTTPException(status_code=404, detail="注文が見つかりません")
+
+    # Remove failure logs tied to this order's items first, otherwise
+    # deleting purchase list items/order items may violate NOT NULL FKs.
+    order_item_ids_result = await db.execute(
+        select(OrderItem.item_id).where(OrderItem.order_id == order_id)
+    )
+    order_item_ids = [row[0] for row in order_item_ids_result.all()]
+    if order_item_ids:
+        await db.execute(
+            delete(PurchaseFailure).where(PurchaseFailure.item_id.in_(order_item_ids))
+        )
     
     # Delete related purchase list items first to avoid foreign key constraint violation
     result = await db.execute(
