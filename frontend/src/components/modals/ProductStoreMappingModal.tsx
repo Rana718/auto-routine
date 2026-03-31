@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Loader2, Trash2, Plus, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Modal, FormField, Input, Select } from "@/components/ui/modal";
 import { cn } from "@/lib/utils";
 
 interface Store {
@@ -177,186 +178,142 @@ export function ProductStoreMappingModal({
     const mappedStoreIds = mappings.map((m) => m.store_id);
     const availableStores = stores.filter((s) => !mappedStoreIds.includes(s.store_id));
 
-    if (!isOpen) return null;
-
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-lg max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-                {/* Header */}
-                <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex justify-between items-center">
-                    <div>
-                        <h2 className="text-xl font-bold">店舗マッピング</h2>
-                        <p className="text-sm text-gray-600 mt-1">{productName}</p>
+        <Modal
+            isOpen={isOpen}
+            onClose={onClose}
+            title="店舗マッピング"
+            className="max-w-xl max-h-[90vh]"
+        >
+            <div className="space-y-3">
+                <p className="text-sm text-muted-foreground wrap-break-word">{productName}</p>
+
+                {error && (
+                    <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm flex items-start gap-2">
+                        <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                        <span>{error}</span>
                     </div>
-                    <button
-                        onClick={onClose}
-                        className="text-gray-500 hover:text-gray-700 text-2xl font-bold"
+                )}
+                {success && (
+                    <div className="p-3 rounded-lg bg-primary/10 border border-primary/30 text-primary text-sm">
+                        {success}
+                    </div>
+                )}
+
+                <div className="rounded-lg border border-border bg-secondary/30 p-3 space-y-3">
+                    <h3 className="text-base font-semibold flex items-center gap-2 text-foreground">
+                        <Plus className="h-4 w-4" />
+                        新規店舗を追加
+                    </h3>
+
+                    <FormField label="店舗を選択">
+                        {availableStores.length > 0 ? (
+                            <Select
+                                value={selectedStore || ""}
+                                onChange={(e) => setSelectedStore(e.target.value ? parseInt(e.target.value, 10) : null)}
+                            >
+                                <option value="">-- 店舗を選択 --</option>
+                                {availableStores.map((store) => (
+                                    <option key={store.store_id} value={store.store_id}>
+                                        {store.store_name}
+                                    </option>
+                                ))}
+                            </Select>
+                        ) : (
+                            <p className="text-sm text-muted-foreground">
+                                {stores.length === 0
+                                    ? "利用可能な店舗がありません"
+                                    : "全ての店舗が既に追加されています"}
+                            </p>
+                        )}
+                    </FormField>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <FormField label="優先度">
+                            <Input
+                                type="number"
+                                min="1"
+                                max="10"
+                                value={priority}
+                                onChange={(e) => setPriority(parseInt(e.target.value, 10) || 1)}
+                            />
+                        </FormField>
+
+                        <FormField label="最大数量（日）">
+                            <Input
+                                type="number"
+                                min="0"
+                                value={maxDaily}
+                                onChange={(e) => setMaxDaily(e.target.value)}
+                                placeholder="制限なし"
+                            />
+                        </FormField>
+                    </div>
+
+                    <label className="flex items-center gap-2 cursor-pointer text-sm text-foreground">
+                        <input
+                            type="checkbox"
+                            checked={isPrimary}
+                            onChange={(e) => setIsPrimary(e.target.checked)}
+                            className="h-4 w-4"
+                        />
+                        プライマリ店舗として設定
+                    </label>
+
+                    <Button
+                        onClick={handleAddMapping}
+                        disabled={!selectedStore || loading}
+                        className="w-full"
                     >
-                        ×
-                    </button>
+                        {loading ? (
+                            <>
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                追加中...
+                            </>
+                        ) : (
+                            "店舗を追加"
+                        )}
+                    </Button>
                 </div>
 
-                {/* Content */}
-                <div className="p-6 space-y-6">
-                    {error && (
-                        <div className="bg-red-50 border border-red-200 rounded p-3 flex items-start gap-2 text-red-800">
-                            <AlertCircle className="w-5 h-5 mt-0.5 flex-shrink-0" />
-                            <span className="text-sm">{error}</span>
-                        </div>
-                    )}
-                    {success && (
-                        <div className="bg-green-50 border border-green-200 rounded p-3 text-green-800 text-sm">
-                            {success}
-                        </div>
-                    )}
-
-                    {/* Add New Mapping Section */}
-                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                        <h3 className="font-semibold mb-4 flex items-center gap-2">
-                            <Plus className="w-4 h-4" />
-                            新規店舗を追加
-                        </h3>
-
-                        <div className="space-y-3">
-                            {/* Store Select */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    店舗を選択
-                                </label>
-                                {availableStores.length > 0 ? (
-                                    <select
-                                        value={selectedStore || ""}
-                                        onChange={(e) => setSelectedStore(e.target.value ? parseInt(e.target.value) : null)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    >
-                                        <option value="">-- 店舗を選択 --</option>
-                                        {availableStores.map((store) => (
-                                            <option key={store.store_id} value={store.store_id}>
-                                                {store.store_name}
-                                            </option>
-                                        ))}
-                                    </select>
-                                ) : (
-                                    <p className="text-sm text-gray-500">
-                                        {stores.length === 0
-                                            ? "利用可能な店舗がありません"
-                                            : "全ての店舗が既に追加されています"}
-                                    </p>
-                                )}
-                            </div>
-
-                            {/* Priority */}
-                            <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        優先度
-                                    </label>
-                                    <input
-                                        type="number"
-                                        min="1"
-                                        max="10"
-                                        value={priority}
-                                        onChange={(e) => setPriority(parseInt(e.target.value) || 1)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    />
-                                </div>
-
-                                {/* Max Daily Quantity */}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        最大数量（日）
-                                    </label>
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        value={maxDaily}
-                                        onChange={(e) => setMaxDaily(e.target.value)}
-                                        placeholder="制限なし"
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Primary Store Checkbox */}
-                            <div>
-                                <label className="flex items-center gap-2 cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        checked={isPrimary}
-                                        onChange={(e) => setIsPrimary(e.target.checked)}
-                                        className="w-4 h-4"
-                                    />
-                                    <span className="text-sm font-medium text-gray-700">
-                                        プライマリ店舗として設定
-                                    </span>
-                                </label>
-                            </div>
-
-                            {/* Add Button */}
-                            <Button
-                                onClick={handleAddMapping}
-                                disabled={!selectedStore || loading}
-                                className="w-full"
-                            >
-                                {loading ? (
-                                    <>
-                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                        追加中...
-                                    </>
-                                ) : (
-                                    "店舗を追加"
-                                )}
-                            </Button>
-                        </div>
-                    </div>
-
-                    {/* Current Mappings List */}
-                    <div>
-                        <h3 className="font-semibold mb-3">割り当て済み店舗（{mappings.length}）</h3>
-                        {mappings.length === 0 ? (
-                            <p className="text-gray-500 text-sm text-center py-4">
-                                まだ店舗が割り当てられていません
-                            </p>
-                        ) : (
-                            <div className="space-y-2">
-                                {mappings.map((mapping) => (
-                                    <div
-                                        key={mapping.mapping_id}
-                                        className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-md hover:bg-gray-100 transition"
-                                    >
-                                        <div className="flex-1">
-                                            <div className="flex items-center gap-2">
-                                                <span className="font-medium">{mapping.store_name}</span>
+                <div>
+                    <h3 className="text-base font-semibold mb-2 text-foreground">割り当て済み店舗（{mappings.length}）</h3>
+                    {mappings.length === 0 ? (
+                        <p className="text-sm text-muted-foreground text-center py-5 border border-dashed border-border rounded-lg">
+                            まだ店舗が割り当てられていません
+                        </p>
+                    ) : (
+                        <div className="space-y-2">
+                            {mappings.map((mapping) => (
+                                <div
+                                    key={mapping.mapping_id}
+                                    className="p-2.5 rounded-lg border border-border bg-secondary/40"
+                                >
+                                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                                        <div className="space-y-1">
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <span className="font-medium text-foreground">{mapping.store_name}</span>
                                                 {mapping.is_primary_store && (
-                                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-primary/20 text-primary">
                                                         プライマリ
                                                     </span>
                                                 )}
-                                                <span className="text-xs text-gray-500">
-                                                    優先度: {mapping.priority}
-                                                </span>
-                                                {mapping.max_daily_quantity && (
-                                                    <span className="text-xs text-gray-500">
-                                                        最大: {mapping.max_daily_quantity}
-                                                    </span>
-                                                )}
                                             </div>
+                                            <p className="text-xs text-muted-foreground">
+                                                優先度: {mapping.priority}
+                                                {mapping.max_daily_quantity ? ` / 最大: ${mapping.max_daily_quantity}` : ""}
+                                            </p>
                                         </div>
 
                                         <div className="flex items-center gap-2">
                                             <button
-                                                onClick={() =>
-                                                    handleUpdatePrimary(
-                                                        mapping.store_id,
-                                                        mapping.is_primary_store
-                                                    )
-                                                }
+                                                onClick={() => handleUpdatePrimary(mapping.store_id, mapping.is_primary_store)}
                                                 disabled={loading}
                                                 className={cn(
-                                                    "px-3 py-1 rounded text-sm font-medium transition",
+                                                    "px-3 py-1 rounded-md text-xs font-medium border transition",
                                                     mapping.is_primary_store
-                                                        ? "bg-blue-100 text-blue-700 hover:bg-blue-200"
-                                                        : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                                                        ? "bg-primary/20 text-primary border-primary/30"
+                                                        : "bg-secondary text-foreground border-border hover:bg-secondary/70"
                                                 )}
                                             >
                                                 {mapping.is_primary_store ? "プライマリ" : "セカンダリ"}
@@ -364,25 +321,25 @@ export function ProductStoreMappingModal({
                                             <button
                                                 onClick={() => handleDeleteMapping(mapping.store_id)}
                                                 disabled={loading}
-                                                className="text-red-600 hover:text-red-800 p-1 hover:bg-red-50 rounded transition"
+                                                className="p-2 rounded-md border border-destructive/30 text-destructive hover:bg-destructive/10 transition"
+                                                aria-label="マッピング削除"
                                             >
-                                                <Trash2 className="w-4 h-4" />
+                                                <Trash2 className="h-4 w-4" />
                                             </button>
                                         </div>
                                     </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
-                {/* Footer */}
-                <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 p-4 flex justify-end gap-2">
+                <div className="flex justify-end pt-2">
                     <Button onClick={onClose} variant="outline">
                         閉じる
                     </Button>
                 </div>
             </div>
-        </div>
+        </Modal>
     );
 }

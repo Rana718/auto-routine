@@ -27,7 +27,7 @@ export function Modal({ isOpen, onClose, title, children, className }: ModalProp
             {/* Modal Content */}
             <div
                 className={cn(
-                    "relative z-10 w-full max-w-md max-h-[95vh] overflow-hidden",
+                    "relative z-10 w-full max-w-md max-h-[95vh] overflow-hidden flex flex-col",
                     "rounded-xl border border-border bg-popover shadow-2xl",
                     className
                 )}
@@ -46,7 +46,7 @@ export function Modal({ isOpen, onClose, title, children, className }: ModalProp
                 </div>
 
                 {/* Body */}
-                <div className="p-2 sm:p-3 overflow-y-auto scrollbar-hide" style={{ maxHeight: 'calc(95vh - 60px)' }}>
+                <div className="p-2 sm:p-3 overflow-y-auto scrollbar-hide flex-1 min-h-0 pb-4">
                     {children}
                 </div>
             </div>
