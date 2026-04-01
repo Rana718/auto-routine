@@ -180,8 +180,12 @@ async def delete_user(
     if user.staff_id == current_user.staff_id:
         raise HTTPException(status_code=400, detail="自分自身を削除できません")
 
-    # Delete dependent rows first to avoid setting NOT NULL foreign keys to NULL.
-    # Order matters: routes reference purchase lists, so routes are removed first.
+    if user.role == StaffRole.ADMIN:
+        raise HTTPException(
+            status_code=400,
+            detail="管理者アカウントは削除できません。先に権限を変更してください",
+        )
+
     await db.execute(delete(Route).where(Route.staff_id == user.staff_id))
     await db.execute(delete(PurchaseList).where(PurchaseList.staff_id == user.staff_id))
 
